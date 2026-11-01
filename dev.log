@@ -1,0 +1,1896 @@
+
+> volosync@0.1.0 dev
+> next dev
+
+▲ Next.js 16.4.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.4:3000
+- Environments: .env.local
+✓ Ready in 33.4s
+✓ Running next.config.ts took 1205ms
+⚠ Slow filesystem detected. The benchmark took 473ms. If \\?\C:\Users\abdur\Documents\Projects\volosync\.next\dev is a network drive, consider moving it to a local folder.
+See more: https://nextjs.org/docs/app/guides/local-development
+- Cache Components enabled
+- Partial Prefetching enabled
+- Experiments (use with caution):
+  ✓ agentFeedback
+
+○ Compiling /manager ...
+ GET /manager?view=assets 200 in 1312ms (next.js: 5ms, application-code: 1307ms)
+ GET /manager?view=access 200 in 7.9s (next.js: 6.4s, application-code: 1474ms)
+ GET /manager?view=assets 200 in 134ms (next.js: 4ms, application-code: 130ms)
+ GET /login 200 in 176ms (next.js: 26ms, application-code: 150ms)
+ GET /manager 200 in 556ms (next.js: 22ms, application-code: 534ms)
+ GET /manager?view=assets 200 in 144ms (next.js: 7ms, application-code: 137ms)
+ GET /manager?view=assets 200 in 106ms (next.js: 3ms, application-code: 103ms)
+ GET /manager?view=access 200 in 90ms (next.js: 5ms, application-code: 85ms)
+ GET /manager?view=assets 200 in 83ms (next.js: 4ms, application-code: 79ms)
+ GET /manager?view=access 200 in 160ms (next.js: 3ms, application-code: 157ms)
+ GET /manager?view=assets 200 in 182ms (next.js: 6ms, application-code: 176ms)
+ GET /manager?view=access 200 in 87ms (next.js: 8ms, application-code: 80ms)
+ GET /manager?view=assets 200 in 90ms (next.js: 7ms, application-code: 83ms)
+ GET /manager?view=assets 200 in 123ms (next.js: 3ms, application-code: 119ms)
+○ Compiling / ...
+ GET / 307 in 133ms (next.js: 29ms, application-code: 105ms)
+Error: Route "/": Could not validate `instant` because an error prevented the target segment from rendering.
+    at ignore-listed frames {
+  [cause]: Error: NEXT_REDIRECT
+      at Page (app\page.tsx:4:11)
+    2 |
+    3 | export default function Page() {
+  > 4 |   redirect("/login");
+      |           ^
+    5 | }
+    6 | {
+    environmentName: 'Prerender',
+    digest: 'NEXT_REDIRECT;replace;/login;307;'
+  }
+}
+ GET /manager?view=access 200 in 244ms (next.js: 3ms, application-code: 241ms)
+ GET /manager?view=access 200 in 141ms (next.js: 8ms, application-code: 133ms)
+ GET /manager?view=assets 200 in 138ms (next.js: 6ms, application-code: 132ms)
+ GET /manager?view=assets 200 in 100ms (next.js: 3ms, application-code: 97ms)
+ GET /manager?view=access 200 in 76ms (next.js: 4ms, application-code: 72ms)
+✓ Compiled in 20.9s
+✓ Compiled in 22.9s
+✓ Compiled in 30.3s
+ GET /manager?view=assets 200 in 135ms (next.js: 54ms, application-code: 82ms)
+ GET /manager?view=assets 200 in 339ms (next.js: 9ms, application-code: 330ms)
+ GET /manager?view=agents 200 in 159ms (next.js: 7ms, application-code: 152ms)
+ GET /manager?view=assets 200 in 74ms (next.js: 8ms, application-code: 66ms)
+ GET /manager?view=agents 200 in 163ms (next.js: 9ms, application-code: 154ms)
+ GET /manager?view=agents 200 in 119ms (next.js: 5ms, application-code: 115ms)
+ GET /manager?view=agents 200 in 112ms (next.js: 4ms, application-code: 108ms)
+✓ Compiled in 3.2s
+✓ Compiled in 2.3s
+✓ Compiled in 972ms
+✓ Compiled in 381ms
+✓ Compiled in 8.7s
+✓ Compiled in 2.6s
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /manager?view=agents 200 in 587ms (next.js: 53ms, application-code: 535ms)
+ GET /manager?view=agents 200 in 420ms (next.js: 3ms, application-code: 416ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /manager?view=agents 200 in 211ms (next.js: 8ms, application-code: 203ms)
+✓ Compiled in 9.1s
+[browser] Uncaught ReferenceError: useAccessPassword is not defined
+    at ManagerPage (app/(app)/manager/client.tsx:1541:19)
+    at Page (app\(app)\manager\page.tsx:12:7)
+  1539 |               <label
+  1540 |                 className={`mt-3 flex items-start gap-2.5 rounded-xl border p-3 text-xs leading-relaxed transition ${
+> 1541 |                   useAccessPassword
+       |                   ^
+  1542 |                     ? "border-amber-400/30 bg-amber-400/[0.07] text-zinc-300"
+  1543 |                     : "border-white/10 bg-white/[0.02] text-zinc-400"
+  1544 |                 }`}
+✓ Compiled in 859ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /manager?view=agents 200 in 951ms (next.js: 29ms, application-code: 922ms)
+ GET /manager?view=agents 200 in 883ms (next.js: 34ms, application-code: 850ms)
+ GET /manager?view=assets 200 in 76ms (next.js: 4ms, application-code: 73ms)
+ GET /manager?view=access 200 in 110ms (next.js: 6ms, application-code: 103ms)
+ GET /manager?view=agents 200 in 101ms (next.js: 7ms, application-code: 93ms)
+ GET /manager?view=agents 200 in 339ms (next.js: 6ms, application-code: 332ms)
+ GET /manager?view=assets 200 in 152ms (next.js: 4ms, application-code: 148ms)
+ GET /manager?view=agents 200 in 200ms (next.js: 3ms, application-code: 197ms)
+ GET /login 200 in 204ms (next.js: 6ms, application-code: 198ms)
+○ Compiling /store ...
+ GET /store 200 in 939ms (next.js: 299ms, application-code: 640ms)
+ GET /store?view=requests 200 in 175ms (next.js: 8ms, application-code: 166ms)
+ GET /store?view=tax 200 in 118ms (next.js: 8ms, application-code: 110ms)
+ GET /store?view=register 200 in 106ms (next.js: 8ms, application-code: 98ms)
+ GET /store?view=register 200 in 4.0s (next.js: 3ms, application-code: 4.0s)
+ GET /store?view=password 200 in 78ms (next.js: 4ms, application-code: 75ms)
+ GET /store?view=register 200 in 118ms (next.js: 5ms, application-code: 113ms)
+✓ Compiled in 44.6s
+[browser] Uncaught ReferenceError: vat is not defined
+    at eval (app/(app)/store/client.tsx:715:32)
+    at Array.map (<anonymous>)
+    at StorePage (app/(app)/store/client.tsx:582:22)
+    at S.scheduleRefresh (chrome-extension://fmkadmapgofadopljbjfkapdkoienihi/build/installHook.js:1:79881)
+    at Set.forEach (<anonymous>)
+    at Page (app\(app)\store\page.tsx:12:7)
+  713 |                       Price with VAT{" "}
+  714 |                       <strong className="text-emerald-300">
+> 715 |                         {money(vat(Number(line.unit_sales)))}
+      |                                ^
+  716 |                       </strong>
+  717 |                     </span>
+  718 |                     <span>
+✓ Compiled in 50.7s
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=register 200 in 699ms (next.js: 54ms, application-code: 645ms)
+ GET /login 200 in 1106ms (next.js: 70ms, application-code: 1036ms)
+ GET /store 200 in 161ms (next.js: 7ms, application-code: 154ms)
+ GET /manager?view=reports 200 in 796ms (next.js: 69ms, application-code: 728ms)
+ GET /manager?view=reports 200 in 129ms (next.js: 7ms, application-code: 123ms)
+✓ Finished filesystem cache database compaction in 23.0s
+ GET /store?view=register 200 in 170ms (next.js: 8ms, application-code: 163ms)
+✓ Compiled in 7.6s
+✓ Compiled in 14.7s
+[browser] Uncaught ReferenceError: DatePicker is not defined
+    at eval (app/(app)/store/client.tsx:665:26)
+    at Array.map (<anonymous>)
+    at StorePage (app/(app)/store/client.tsx:547:22)
+    at Set.forEach (<anonymous>)
+    at Page (app\(app)\store\page.tsx:12:7)
+  663 |                       </div>
+  664 |                       <Field label="Registration date" required>
+> 665 |                         <DatePicker
+      |                          ^
+  666 |                           value={parsePickerDate(line.registration_date)}
+  667 |                           onChange={(date) =>
+  668 |                             updateLine(index, "registration_date", date ? format(date, "yyyy-MM-dd") : "")
+✓ Compiled in 11.4s
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[browser] Encountered a script tag while rendering React component. Scripts inside React components are never executed when rendering on the client. Consider using template tag instead (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/template). 
+    at console.o [as error] (arms-rum-browser.js:6:14342)
+    at Set.forEach (<anonymous>) (arms-rum-browser.js:6:14342)
+ GET /store?view=register 200 in 1054ms (next.js: 52ms, application-code: 1003ms)
+ GET /login 200 in 1671ms (next.js: 48ms, application-code: 1624ms)
+ GET /store?view=register 200 in 2.4s (next.js: 10ms, application-code: 2.3s)
+ GET /login 200 in 276ms (next.js: 6ms, application-code: 271ms)
+ GET /login 200 in 506ms (next.js: 10ms, application-code: 496ms)
+ GET /store?view=register 200 in 482ms (next.js: 11ms, application-code: 471ms)
+ GET /login 200 in 283ms (next.js: 45ms, application-code: 238ms)
+ GET /login 200 in 148ms (next.js: 13ms, application-code: 135ms)
+ GET /store?view=register 200 in 531ms (next.js: 8ms, application-code: 522ms)
+✓ Compiled in 3.7s
+ GET /login 200 in 95ms (next.js: 6ms, application-code: 88ms)
+✓ Compiled in 1217ms
+✓ Compiled in 1064ms
+✓ Compiled in 626ms
+✓ Compiled in 961ms
+✓ Compiled in 636ms
+✓ Compiled in 441ms
+✓ Compiled in 713ms
+✓ Compiled in 635ms
+✓ Compiled in 365ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=register 200 in 265ms (next.js: 13ms, application-code: 253ms)
+✓ Compiled in 568ms
+✓ Compiled in 335ms
+✓ Compiled in 12.2s
+ GET /store?view=review 200 in 94ms (next.js: 13ms, application-code: 80ms)
+ GET /store?view=register 200 in 117ms (next.js: 4ms, application-code: 113ms)
+ GET /store 200 in 162ms (next.js: 5ms, application-code: 156ms)
+ GET /store 200 in 125ms (next.js: 4ms, application-code: 122ms)
+ GET /store?view=review 200 in 66ms (next.js: 6ms, application-code: 61ms)
+✓ Compiled in 2.2s
+[browser] Uncaught NotFoundError: Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.
+    at li (<anonymous>)
+ GET /store 200 in 435ms (next.js: 6ms, application-code: 429ms)
+ GET /store?view=review 200 in 54ms (next.js: 3ms, application-code: 51ms)
+ GET /store?view=register 200 in 57ms (next.js: 3ms, application-code: 54ms)
+ GET /store?view=review 200 in 66ms (next.js: 4ms, application-code: 61ms)
+ GET /store?view=review 200 in 131ms (next.js: 4ms, application-code: 127ms)
+ GET /store?view=register 200 in 66ms (next.js: 3ms, application-code: 62ms)
+✓ Compiled in 17.9s
+ GET /login 200 in 851ms (next.js: 350ms, application-code: 502ms)
+✓ Finished filesystem cache database compaction in 21.0s
+✓ Compiled in 18.4s
+✓ Compiled in 3.6s
+✓ Compiled in 689ms
+✓ Compiled in 385ms
+✓ Compiled in 940ms
+✓ Compiled in 8.4s
+✓ Compiled in 655ms
+✓ Compiled in 915ms
+✓ Compiled in 650ms
+✓ Compiled in 465ms
+✓ Compiled in 1454ms
+✓ Compiled in 3.1s
+✓ Compiled in 1617ms
+✓ Compiled in 3.1s
+✓ Compiled in 621ms
+✓ Compiled in 532ms
+✓ Compiled in 303ms
+✓ Compiled in 468ms
+✓ Compiled in 375ms
+✓ Compiled in 403ms
+✓ Compiled in 265ms
+✓ Compiled in 688ms
+✓ Compiled in 435ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+✓ Compiled in 5.2s
+ GET /store?view=register 200 in 1017ms (next.js: 339ms, application-code: 678ms)
+✓ Compiled in 399ms
+[browser] Uncaught ReferenceError: editingRegDraftId is not defined
+    at StorePage (app/(app)/store/client.tsx:758:18)
+    at <unknown> (chrome-extension://cldmemdnllncchfahbcnjijheaolemfk/assets/js/ff-content.js:13:96352)
+    at d (chrome-extension://cldmemdnllncchfahbcnjijheaolemfk/assets/js/ff-content.js:13:96462)
+    at f (chrome-extension://cldmemdnllncchfahbcnjijheaolemfk/assets/js/ff-content.js:13:96563)
+    at Page (app\(app)\store\page.tsx:12:7)
+  756 |       {view === "register" && (
+  757 |         <Panel
+> 758 |           title={draftParam ? "Edit registration draft" : "New registration"}
+      |                  ^
+  759 |           description="Add each item as its own line, then fill the shared supplier details once at the bottom. The draft is saved here and waits in Review until you send it to Finance."
+  760 |           className="mx-auto max-w-5xl"
+  761 |         >
+ GET / 307 in 685ms (next.js: 3ms, application-code: 682ms)
+Error: Route "/": Could not validate `instant` because an error prevented the target segment from rendering.
+    at ignore-listed frames {
+  [cause]: Error: NEXT_REDIRECT
+      at Page (app\page.tsx:4:11)
+    2 |
+    3 | export default function Page() {
+  > 4 |   redirect("/login");
+      |           ^
+    5 | }
+    6 | {
+    environmentName: 'Prerender',
+    digest: 'NEXT_REDIRECT;replace;/login;307;'
+  }
+}
+ GET /store?view=review 200 in 165ms (next.js: 9ms, application-code: 156ms)
+ GET /login 200 in 171ms (next.js: 5ms, application-code: 166ms)
+ GET /login 200 in 58ms (next.js: 7ms, application-code: 51ms)
+ GET /store?view=review 200 in 163ms (next.js: 3ms, application-code: 160ms)
+ GET /store?view=register 200 in 56ms (next.js: 3ms, application-code: 52ms)
+ GET /store?view=review 200 in 66ms (next.js: 3ms, application-code: 63ms)
+ GET /store?view=review 200 in 155ms (next.js: 3ms, application-code: 151ms)
+ GET /store?view=register&draft=8 200 in 289ms (next.js: 6ms, application-code: 283ms)
+ GET /store?view=review 200 in 54ms (next.js: 3ms, application-code: 51ms)
+ GET /store?view=review 200 in 99ms (next.js: 3ms, application-code: 96ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+✓ Compiled in 805ms
+ GET /store?view=register 200 in 164ms (next.js: 5ms, application-code: 158ms)
+✓ Compiled in 1539ms
+ GET /login 200 in 232ms (next.js: 3ms, application-code: 229ms)
+ GET /store?view=register 200 in 468ms (next.js: 109ms, application-code: 359ms)
+ GET /store?view=review 200 in 95ms (next.js: 6ms, application-code: 88ms)
+ GET /store?view=register&draft=10 200 in 114ms (next.js: 8ms, application-code: 106ms)
+ GET /store?view=inventory 200 in 90ms (next.js: 6ms, application-code: 84ms)
+ GET /store?view=register 200 in 75ms (next.js: 3ms, application-code: 73ms)
+✓ Compiled in 11.3s
+✓ Compiled in 1385ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=register 200 in 997ms (next.js: 25ms, application-code: 972ms)
+✓ Compiled in 901ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=register 200 in 886ms (next.js: 14ms, application-code: 873ms)
+✓ Compiled in 1705ms
+✓ Compiled in 2.2s
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=register 200 in 443ms (next.js: 11ms, application-code: 432ms)
+✓ Compiled in 1765ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=register 200 in 987ms (next.js: 11ms, application-code: 976ms)
+✓ Compiled in 1544ms
+✓ Compiled in 8.1s
+ GET /store?view=review 200 in 206ms (next.js: 21ms, application-code: 185ms)
+ GET /store?view=register 200 in 324ms (next.js: 11ms, application-code: 313ms)
+ GET /store?view=review 200 in 618ms (next.js: 17ms, application-code: 600ms)
+ GET /store?view=inventory 200 in 234ms (next.js: 21ms, application-code: 213ms)
+ GET /store?view=register 200 in 198ms (next.js: 5ms, application-code: 193ms)
+ GET /store?view=review 200 in 200ms (next.js: 9ms, application-code: 191ms)
+ GET /store?view=requests 200 in 314ms (next.js: 8ms, application-code: 305ms)
+ GET /store?view=review 200 in 246ms (next.js: 9ms, application-code: 237ms)
+ GET /store?view=stockout 200 in 255ms (next.js: 17ms, application-code: 238ms)
+ GET /store?view=inventory 200 in 180ms (next.js: 9ms, application-code: 171ms)
+ GET /store?view=tax 200 in 356ms (next.js: 10ms, application-code: 346ms)
+ GET /login 200 in 361ms (next.js: 17ms, application-code: 344ms)
+ GET /login 200 in 1098ms (next.js: 20ms, application-code: 1077ms)
+○ Compiling /finance ...
+ GET /finance 200 in 330ms (next.js: 197ms, application-code: 134ms)
+ GET /store 200 in 158ms (next.js: 5ms, application-code: 153ms)
+✓ Finished filesystem cache database compaction in 26.4s
+ GET /finance?view=requests 200 in 190ms (next.js: 9ms, application-code: 181ms)
+ GET /login 200 in 199ms (next.js: 7ms, application-code: 192ms)
+ GET /manager 200 in 916ms (next.js: 103ms, application-code: 813ms)
+ GET /manager?view=inventory 200 in 251ms (next.js: 13ms, application-code: 238ms)
+ GET /login 200 in 103ms (next.js: 6ms, application-code: 96ms)
+ GET /store 200 in 655ms (next.js: 15ms, application-code: 640ms)
+ GET /store?view=inventory 200 in 225ms (next.js: 7ms, application-code: 219ms)
+ GET /store?view=stockout 200 in 216ms (next.js: 9ms, application-code: 207ms)
+ GET /store?view=review 200 in 190ms (next.js: 6ms, application-code: 184ms)
+ GET /store?view=requests 200 in 240ms (next.js: 14ms, application-code: 226ms)
+ GET /store?view=review 200 in 571ms (next.js: 7ms, application-code: 564ms)
+ GET /store?view=stockout 200 in 1216ms (next.js: 11ms, application-code: 1206ms)
+ GET /login 200 in 329ms (next.js: 11ms, application-code: 318ms)
+ GET / 307 in 8.2s (next.js: 650ms, application-code: 7.6s)
+ GET / 307 in 740ms (next.js: 8ms, application-code: 732ms)
+ GET /login 200 in 432ms (next.js: 6ms, application-code: 426ms)
+Error: Route "/": Could not validate `instant` because an error prevented the target segment from rendering.
+    at ignore-listed frames {
+  [cause]: Error: NEXT_REDIRECT
+      at Page (app\page.tsx:4:11)
+    2 |
+    3 | export default function Page() {
+  > 4 |   redirect("/login");
+      |           ^
+    5 | }
+    6 | {
+    environmentName: 'Prerender',
+    digest: 'NEXT_REDIRECT;replace;/login;307;'
+  }
+}
+ GET /store 200 in 780ms (next.js: 37ms, application-code: 743ms)
+ GET /store?view=review 200 in 148ms (next.js: 19ms, application-code: 129ms)
+ GET /store?view=inventory 200 in 191ms (next.js: 10ms, application-code: 181ms)
+ GET /store?view=stockout 200 in 212ms (next.js: 8ms, application-code: 203ms)
+ GET /store?view=inventory 200 in 181ms (next.js: 11ms, application-code: 170ms)
+ GET /store?view=stockout 200 in 223ms (next.js: 22ms, application-code: 201ms)
+ GET /store?view=review 200 in 416ms (next.js: 13ms, application-code: 403ms)
+✓ Compiled in 6.4s
+✓ Compiled in 4.6s
+○ Compiling /store ...
+ GET /store?view=review 200 in 469ms (next.js: 75ms, application-code: 394ms)
+ GET /store?view=review 200 in 572ms (next.js: 64ms, application-code: 508ms)
+ GET /store?view=register 200 in 172ms (next.js: 14ms, application-code: 158ms)
+ GET /store?view=review 200 in 258ms (next.js: 11ms, application-code: 247ms)
+ GET /store?view=register 200 in 197ms (next.js: 21ms, application-code: 175ms)
+ GET /store?view=inventory 200 in 158ms (next.js: 15ms, application-code: 143ms)
+ GET /store?view=stockout 200 in 230ms (next.js: 9ms, application-code: 221ms)
+ GET /store?view=review 200 in 251ms (next.js: 22ms, application-code: 229ms)
+ GET /login 200 in 602ms (next.js: 16ms, application-code: 586ms)
+ GET /store 200 in 249ms (next.js: 7ms, application-code: 243ms)
+ GET /store?view=review 200 in 57ms (next.js: 3ms, application-code: 54ms)
+ GET /login 200 in 114ms (next.js: 3ms, application-code: 110ms)
+✓ Compiled in 966ms
+ GET /login 200 in 205ms (next.js: 4ms, application-code: 201ms)
+ GET /store 200 in 2.2s (next.js: 158ms, application-code: 2.1s)
+ GET /store?view=review 200 in 501ms (next.js: 6ms, application-code: 495ms)
+ GET /store?view=review 200 in 183ms (next.js: 8ms, application-code: 175ms)
+ GET /login 200 in 130ms (next.js: 3ms, application-code: 127ms)
+✓ Compiled in 10s
+⨯ ReferenceError: Truck is not defined
+    at Module.eval (components\volo\nav.ts:101:52)
+    at module evaluation (components\volo\app-shell.tsx:42:1)
+   99 |         item("Review", STORE_ROOT, "review", ClipboardCheck),
+  100 |         item("Inventory", STORE_ROOT, "inventory", Warehouse),
+> 101 |         item("Suppliers", STORE_ROOT, "suppliers", Truck),
+      |                                                    ^
+  102 |         item("Requests", STORE_ROOT, "requests", ClipboardList),
+  103 |         item("Payment & tax", STORE_ROOT, "tax", ReceiptText),
+  104 |       ], {
+  digest: '272062057'
+}
+ GET /store?view=review 200 in 2.4s (next.js: 11ms, application-code: 2.4s)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload when ./components/volo/nav.ts changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+✓ Compiled in 14s
+ GET /store?view=review 200 in 375ms (next.js: 5ms, application-code: 371ms)
+✓ Compiled in 912ms
+✓ Compiled in 976ms
+ GET /login 200 in 80ms (next.js: 8ms, application-code: 72ms)
+ GET /store?view=review 200 in 243ms (next.js: 8ms, application-code: 234ms)
+✓ Compiled in 1448ms
+✓ Compiled in 500ms
+✓ Compiled in 1077ms
+✓ Compiled in 694ms
+✓ Compiled in 418ms
+✓ Compiled in 1321ms
+✓ Compiled in 517ms
+✓ Compiled in 594ms
+ GET /login 200 in 111ms (next.js: 57ms, application-code: 54ms)
+ GET /store?view=review 200 in 159ms (next.js: 12ms, application-code: 147ms)
+✓ Compiled in 505ms
+✓ Compiled in 494ms
+ GET /store?view=review 200 in 129ms (next.js: 6ms, application-code: 123ms)
+ GET /login 200 in 90ms (next.js: 4ms, application-code: 86ms)
+✓ Compiled in 530ms
+✓ Compiled in 953ms
+✓ Compiled in 406ms
+ GET /login 200 in 120ms (next.js: 3ms, application-code: 117ms)
+ GET /store?view=inventory 200 in 288ms (next.js: 41ms, application-code: 247ms)
+ GET /login 200 in 93ms (next.js: 4ms, application-code: 90ms)
+ GET /login 200 in 118ms (next.js: 5ms, application-code: 113ms)
+ GET /store?view=inventory 200 in 111ms (next.js: 4ms, application-code: 108ms)
+ GET /login 200 in 157ms (next.js: 5ms, application-code: 152ms)
+ GET /login 200 in 76ms (next.js: 7ms, application-code: 70ms)
+ GET /store 200 in 70ms (next.js: 5ms, application-code: 65ms)
+ GET /store?view=inventory 200 in 125ms (next.js: 4ms, application-code: 121ms)
+ GET /store?view=review 200 in 67ms (next.js: 6ms, application-code: 61ms)
+ GET /store?view=suppliers 200 in 69ms (next.js: 3ms, application-code: 66ms)
+ GET /login 200 in 106ms (next.js: 3ms, application-code: 103ms)
+ GET /store?view=inventory 200 in 81ms (next.js: 7ms, application-code: 74ms)
+ GET /store?view=suppliers 200 in 162ms (next.js: 5ms, application-code: 156ms)
+ GET /store?view=suppliers 200 in 75ms (next.js: 5ms, application-code: 70ms)
+✓ Compiled in 584ms
+[browser] Uncaught ReferenceError: stockOutLots is not defined
+    at StorePage (app/(app)/store/client.tsx:1599:8)
+    at S.scheduleRefresh (chrome-extension://fmkadmapgofadopljbjfkapdkoienihi/build/installHook.js:1:79881)
+    at Set.forEach (<anonymous>)
+    at Page (app\(app)\store\page.tsx:12:7)
+  1597 |       )}
+  1598 |
+> 1599 |       {stockOutLots ? (
+       |        ^
+  1600 |         <QuickStockOutDialog
+  1601 |           key={stockOutLots.map((lot) => lot.id).join("-")}
+  1602 |           lots={stockOutLots}
+✓ Compiled in 407ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[browser] Uncaught ReferenceError: stockOutLots is not defined
+    at StorePage (app/(app)/store/client.tsx:1603:8)
+    at <unknown> (chrome-extension://cldmemdnllncchfahbcnjijheaolemfk/assets/js/ff-content.js:13:96352)
+    at d (chrome-extension://cldmemdnllncchfahbcnjijheaolemfk/assets/js/ff-content.js:13:96462)
+    at f (chrome-extension://cldmemdnllncchfahbcnjijheaolemfk/assets/js/ff-content.js:13:96563)
+    at Page (app\(app)\store\page.tsx:12:7)
+  1601 |       )}
+  1602 |
+> 1603 |       {stockOutLots ? (
+       |        ^
+  1604 |         <QuickStockOutDialog
+  1605 |           key={stockOutLots.map((lot) => lot.id).join("-")}
+  1606 |           lots={stockOutLots}
+ GET /store?view=suppliers 200 in 417ms (next.js: 8ms, application-code: 409ms)
+[browser] Uncaught ReferenceError: stockOutLots is not defined
+    at StorePage (app/(app)/store/client.tsx:1602:15)
+    at <unknown> (chrome-extension://cldmemdnllncchfahbcnjijheaolemfk/assets/js/ff-content.js:13:96352)
+    at d (chrome-extension://cldmemdnllncchfahbcnjijheaolemfk/assets/js/ff-content.js:13:96462)
+    at f (chrome-extension://cldmemdnllncchfahbcnjijheaolemfk/assets/js/ff-content.js:13:96563)
+    at Page (app\(app)\store\page.tsx:12:7)
+  1600 |           available={activeLots}
+  1601 |           agents={agents}
+> 1602 |           open
+       |               ^
+  1603 |           onOpenChange={(open) => {
+  1604 |             if (!open) setStockOutRequest(null);
+  1605 |           }}
+✓ Compiled in 2.3s
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=suppliers 200 in 681ms (next.js: 40ms, application-code: 642ms)
+✓ Compiled in 2.1s
+ GET /store?view=inventory 200 in 70ms (next.js: 6ms, application-code: 64ms)
+ GET /login 200 in 217ms (next.js: 4ms, application-code: 213ms)
+ GET /store 200 in 79ms (next.js: 6ms, application-code: 73ms)
+ GET /store?view=inventory 200 in 147ms (next.js: 5ms, application-code: 142ms)
+ GET /store?view=review 200 in 60ms (next.js: 3ms, application-code: 56ms)
+ GET /store?view=suppliers 200 in 178ms (next.js: 4ms, application-code: 174ms)
+ GET /login 200 in 709ms (next.js: 10ms, application-code: 699ms)
+ GET /store?view=inventory 200 in 464ms (next.js: 15ms, application-code: 449ms)
+ GET /store?view=register 200 in 216ms (next.js: 8ms, application-code: 208ms)
+ GET /store?view=review 200 in 149ms (next.js: 7ms, application-code: 143ms)
+ GET /store?view=register 200 in 162ms (next.js: 9ms, application-code: 152ms)
+ GET /store?view=review 200 in 447ms (next.js: 24ms, application-code: 424ms)
+ GET /login 200 in 186ms (next.js: 11ms, application-code: 175ms)
+ GET /login 200 in 847ms (next.js: 15ms, application-code: 832ms)
+ GET /finance 200 in 290ms (next.js: 136ms, application-code: 153ms)
+ GET /finance?view=requests 200 in 275ms (next.js: 14ms, application-code: 261ms)
+ GET /login 200 in 377ms (next.js: 12ms, application-code: 365ms)
+ GET /manager 200 in 331ms (next.js: 52ms, application-code: 279ms)
+ GET /login 200 in 177ms (next.js: 12ms, application-code: 165ms)
+ GET /store 200 in 490ms (next.js: 25ms, application-code: 465ms)
+ GET /store?view=inventory 200 in 234ms (next.js: 13ms, application-code: 220ms)
+ GET /login 200 in 675ms (next.js: 19ms, application-code: 656ms)
+ GET /store 200 in 661ms (next.js: 275ms, application-code: 385ms)
+ GET /store?view=inventory 200 in 624ms (next.js: 15ms, application-code: 609ms)
+ GET /store?view=review 200 in 162ms (next.js: 8ms, application-code: 154ms)
+ GET /login 200 in 273ms (next.js: 8ms, application-code: 265ms)
+ GET /store?view=inventory 200 in 381ms (next.js: 20ms, application-code: 362ms)
+✓ Compiled in 2.4s
+ GET /login 200 in 212ms (next.js: 17ms, application-code: 194ms)
+✓ Compiled in 1913ms
+ GET /store?view=inventory 200 in 1879ms (next.js: 383ms, application-code: 1497ms)
+✓ Compiled in 1441ms
+ GET /login 200 in 305ms (next.js: 7ms, application-code: 298ms)
+ GET /store 200 in 205ms (next.js: 11ms, application-code: 194ms)
+ GET /store?view=suppliers 200 in 551ms (next.js: 7ms, application-code: 544ms)
+ GET /store 200 in 159ms (next.js: 7ms, application-code: 152ms)
+ GET /store?view=inventory 200 in 391ms (next.js: 12ms, application-code: 379ms)
+ GET /login 200 in 379ms (next.js: 8ms, application-code: 372ms)
+ GET /store?view=suppliers 200 in 416ms (next.js: 27ms, application-code: 388ms)
+ GET /store?view=inventory 200 in 439ms (next.js: 15ms, application-code: 423ms)
+✓ Compiled in 4s
+✓ Compiled in 21.5s
+ GET /login 200 in 856ms (next.js: 10ms, application-code: 846ms)
+ GET /store 200 in 385ms (next.js: 34ms, application-code: 351ms)
+ GET /store?view=inventory 200 in 278ms (next.js: 6ms, application-code: 272ms)
+✓ Compiled in 2.8s
+ GET /login 200 in 339ms (next.js: 38ms, application-code: 301ms)
+ GET /store?view=inventory 200 in 574ms (next.js: 32ms, application-code: 542ms)
+ GET /store?view=requests 200 in 1844ms (next.js: 27ms, application-code: 1817ms)
+✓ Compiled in 608ms
+✓ Compiled in 1340ms
+✓ Compiled in 301ms
+✓ Compiled in 11.9s
+✓ Compiled in 363ms
+✓ Compiled in 2.5s
+ GET /store?view=receipts 200 in 324ms (next.js: 39ms, application-code: 285ms)
+✓ Compiled in 2.3s
+✓ Compiled in 1023ms
+✓ Compiled in 2.2s
+✓ Compiled in 4.7s
+✓ Compiled in 588ms
+✓ Compiled in 497ms
+✓ Compiled in 587ms
+✓ Compiled in 777ms
+✓ Compiled in 571ms
+✓ Compiled in 6.6s
+ GET /store?view=review-registration 200 in 672ms (next.js: 28ms, application-code: 644ms)
+✓ Compiled in 559ms
+✓ Compiled in 778ms
+ GET /store?view=review-stock 200 in 153ms (next.js: 10ms, application-code: 144ms)
+✓ Compiled in 642ms
+ GET /store?view=requests 200 in 545ms (next.js: 15ms, application-code: 531ms)
+[browser] Uncaught ReferenceError: groupTaxRows is not defined
+    at StorePage.useMemo[taxGroups] (app/(app)/store/client.tsx:740:35)
+    at StorePage (app/(app)/store/client.tsx:740:28)
+    at S.scheduleRefresh (chrome-extension://fmkadmapgofadopljbjfkapdkoienihi/build/installHook.js:1:79881)
+    at Set.forEach (<anonymous>)
+    at Page (app\(app)\store\page.tsx:12:7)
+  738 |   };
+  739 |
+> 740 |   const taxGroups = useMemo(() => groupTaxRows(taxRows), [taxRows]);
+      |                                   ^
+  741 |
+  742 |   const taxTabLabel =
+  743 |     taxTab === "with_vat" ? "With VAT" : taxTab === "without_vat" ? "Without VAT" : "All lines";
+✓ Compiled in 619ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=requests 200 in 928ms (next.js: 13ms, application-code: 915ms)
+✓ Compiled in 616ms
+✓ Compiled in 1182ms
+✓ Compiled in 1011ms
+✓ Compiled in 459ms
+✓ Compiled in 412ms
+ GET /store?view=tax 200 in 110ms (next.js: 9ms, application-code: 101ms)
+✓ Compiled in 619ms
+ GET /store?view=inactive 200 in 716ms (next.js: 305ms, application-code: 411ms)
+ GET /store?view=suppliers 200 in 155ms (next.js: 16ms, application-code: 139ms)
+ GET /store?view=inventory 200 in 147ms (next.js: 7ms, application-code: 140ms)
+ GET /login 200 in 135ms (next.js: 3ms, application-code: 132ms)
+ GET /login 200 in 144ms (next.js: 3ms, application-code: 141ms)
+ GET /store?view=tax 200 in 203ms (next.js: 3ms, application-code: 199ms)
+ GET /login 200 in 171ms (next.js: 5ms, application-code: 167ms)
+ GET /login 200 in 110ms (next.js: 7ms, application-code: 103ms)
+ GET /login 200 in 113ms (next.js: 3ms, application-code: 110ms)
+ GET /store 200 in 64ms (next.js: 4ms, application-code: 60ms)
+ GET /store?view=tax 200 in 150ms (next.js: 4ms, application-code: 147ms)
+ GET /store?view=review-registration 200 in 160ms (next.js: 5ms, application-code: 155ms)
+ GET /store?view=tax-without 200 in 135ms (next.js: 7ms, application-code: 128ms)
+ GET /store?view=tax-with 200 in 182ms (next.js: 7ms, application-code: 175ms)
+ GET /store?view=inactive 200 in 383ms (next.js: 4ms, application-code: 379ms)
+ GET /store?view=inactive 200 in 135ms (next.js: 4ms, application-code: 131ms)
+ GET /store?view=receipts 200 in 201ms (next.js: 4ms, application-code: 197ms)
+ GET /login 200 in 153ms (next.js: 4ms, application-code: 149ms)
+ GET /store?view=inventory 200 in 278ms (next.js: 13ms, application-code: 266ms)
+ GET /store?view=tax 200 in 117ms (next.js: 4ms, application-code: 113ms)
+ GET /store?view=tax-without 200 in 83ms (next.js: 3ms, application-code: 80ms)
+ GET /store?view=tax-with 200 in 68ms (next.js: 3ms, application-code: 65ms)
+✓ Compiled in 15.5s
+✓ Compiled in 5s
+✓ Finished filesystem cache database compaction in 10.1s
+ GET /login 200 in 738ms (next.js: 39ms, application-code: 699ms)
+ GET /store 200 in 525ms (next.js: 72ms, application-code: 453ms)
+ GET /store?view=inventory 200 in 112ms (next.js: 3ms, application-code: 110ms)
+ GET /store?view=inventory 200 in 143ms (next.js: 5ms, application-code: 137ms)
+ GET /store?view=inactive 200 in 134ms (next.js: 5ms, application-code: 130ms)
+ GET /store?view=suppliers 200 in 141ms (next.js: 7ms, application-code: 133ms)
+ GET /store?view=inactive 200 in 171ms (next.js: 4ms, application-code: 167ms)
+ GET /store?view=suppliers 200 in 108ms (next.js: 5ms, application-code: 103ms)
+ GET /store?view=inventory 200 in 158ms (next.js: 11ms, application-code: 147ms)
+ GET /login 200 in 134ms (next.js: 4ms, application-code: 130ms)
+✓ Compiled in 18.6s
+✓ Compiled in 1295ms
+✓ Compiled in 840ms
+✓ Compiled in 2.8s
+✓ Compiled in 757ms
+✓ Compiled in 556ms
+✓ Compiled in 662ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+✓ Compiled in 5.6s
+ GET /store?view=inventory 200 in 528ms (next.js: 286ms, application-code: 243ms)
+✓ Compiled in 946ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+✓ Compiled in 2.8s
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=inventory 200 in 491ms (next.js: 188ms, application-code: 303ms)
+✓ Compiled in 482ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=inventory 200 in 248ms (next.js: 80ms, application-code: 168ms)
+✓ Compiled in 686ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=inventory 200 in 372ms (next.js: 86ms, application-code: 286ms)
+✓ Compiled in 1412ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=inventory 200 in 217ms (next.js: 20ms, application-code: 197ms)
+✓ Compiled in 796ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=inventory 200 in 501ms (next.js: 68ms, application-code: 432ms)
+✓ Compiled in 1724ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=inventory 200 in 145ms (next.js: 14ms, application-code: 131ms)
+✓ Compiled in 3.8s
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=inventory 200 in 306ms (next.js: 6ms, application-code: 300ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+✓ Compiled in 12.9s
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /store?view=inventory 200 in 272ms (next.js: 13ms, application-code: 259ms)
+✓ Compiled in 1296ms
+✓ Compiled in 5s
+✓ Finished filesystem cache database compaction in 19.4s
+ GET /store?view=tax 200 in 93ms (next.js: 7ms, application-code: 87ms)
+ GET /store?view=receipts 200 in 130ms (next.js: 4ms, application-code: 126ms)
+ GET /store?view=receipts 200 in 118ms (next.js: 10ms, application-code: 107ms)
+ GET /store?view=tax 200 in 284ms (next.js: 12ms, application-code: 272ms)
+ GET /login 200 in 75ms (next.js: 4ms, application-code: 72ms)
+ GET /login 200 in 695ms (next.js: 5ms, application-code: 689ms)
+ GET /finance 200 in 975ms (next.js: 85ms, application-code: 890ms)
+ GET /login 200 in 86ms (next.js: 3ms, application-code: 83ms)
+ GET /finance?view=promotion 200 in 105ms (next.js: 5ms, application-code: 100ms)
+ GET /finance?view=promotion-receipts 200 in 120ms (next.js: 5ms, application-code: 116ms)
+ GET /login 200 in 129ms (next.js: 3ms, application-code: 126ms)
+ GET /finance?view=tax 200 in 85ms (next.js: 5ms, application-code: 79ms)
+ GET /store 200 in 61ms (next.js: 4ms, application-code: 58ms)
+ GET /finance?view=inventory-reports 200 in 143ms (next.js: 6ms, application-code: 137ms)
+ GET /finance?view=reports 200 in 154ms (next.js: 5ms, application-code: 149ms)
+ GET /store?view=inventory 200 in 104ms (next.js: 3ms, application-code: 102ms)
+ GET /finance?view=requests 200 in 160ms (next.js: 5ms, application-code: 155ms)
+ GET /finance?view=assets 200 in 97ms (next.js: 4ms, application-code: 93ms)
+ GET /store?view=suppliers 200 in 133ms (next.js: 3ms, application-code: 130ms)
+ GET /store?view=tax 200 in 120ms (next.js: 3ms, application-code: 117ms)
+ GET /finance?view=payroll 200 in 148ms (next.js: 4ms, application-code: 144ms)
+✓ Compiled in 1165ms
+ GET /store?view=tax 200 in 247ms (next.js: 20ms, application-code: 227ms)
+ GET /store?view=inventory 200 in 150ms (next.js: 4ms, application-code: 146ms)
+ GET /login 200 in 51ms (next.js: 5ms, application-code: 46ms)
+ GET /store 200 in 381ms (next.js: 9ms, application-code: 372ms)
+ GET /store?view=receipts 200 in 128ms (next.js: 4ms, application-code: 124ms)
+ GET /store?view=tax 200 in 143ms (next.js: 4ms, application-code: 139ms)
+ GET /login 200 in 131ms (next.js: 3ms, application-code: 127ms)
+ GET / 307 in 716ms (next.js: 81ms, application-code: 635ms)
+Error: Route "/": Could not validate `instant` because an error prevented the target segment from rendering.
+    at ignore-listed frames {
+  [cause]: Error: NEXT_REDIRECT
+      at Page (app\page.tsx:4:11)
+    2 |
+    3 | export default function Page() {
+  > 4 |   redirect("/login");
+      |           ^
+    5 | }
+    6 | {
+    environmentName: 'Prerender',
+    digest: 'NEXT_REDIRECT;replace;/login;307;'
+  }
+}
+ GET /login 200 in 216ms (next.js: 6ms, application-code: 210ms)
+ GET /finance 200 in 456ms (next.js: 32ms, application-code: 424ms)
+ GET /finance 200 in 842ms (next.js: 36ms, application-code: 806ms)
+ GET /finance 200 in 163ms (next.js: 5ms, application-code: 158ms)
+ GET /finance?view=inventory-reports 200 in 90ms (next.js: 5ms, application-code: 86ms)
+ GET /finance?view=tax 200 in 69ms (next.js: 3ms, application-code: 66ms)
+ GET /finance?view=tax 200 in 173ms (next.js: 8ms, application-code: 165ms)
+ GET /login 200 in 148ms (next.js: 6ms, application-code: 142ms)
+ GET /login 200 in 612ms (next.js: 9ms, application-code: 604ms)
+ GET /finance 200 in 382ms (next.js: 6ms, application-code: 376ms)
+ GET /manager 200 in 802ms (next.js: 41ms, application-code: 761ms)
+ GET /finance?view=tax 200 in 107ms (next.js: 5ms, application-code: 102ms)
+ GET /finance?view=promotion-receipts 200 in 102ms (next.js: 5ms, application-code: 96ms)
+ GET /finance?view=tax 200 in 93ms (next.js: 6ms, application-code: 87ms)
+ GET /finance?view=tax 200 in 418ms (next.js: 274ms, application-code: 144ms)
+ GET /finance?view=sales 200 in 238ms (next.js: 10ms, application-code: 228ms)
+ GET /finance?view=promotion 200 in 84ms (next.js: 3ms, application-code: 81ms)
+ GET /finance?view=reports 200 in 132ms (next.js: 11ms, application-code: 121ms)
+ GET /finance?view=inventory-reports 200 in 152ms (next.js: 6ms, application-code: 146ms)
+ GET /finance?view=requests 200 in 140ms (next.js: 4ms, application-code: 136ms)
+ GET /finance?view=sales 200 in 114ms (next.js: 6ms, application-code: 108ms)
+ GET /finance?view=promotion 200 in 146ms (next.js: 7ms, application-code: 139ms)
+ GET /finance?view=promotion-receipts 200 in 149ms (next.js: 5ms, application-code: 144ms)
+ GET /finance?view=assets 200 in 142ms (next.js: 5ms, application-code: 138ms)
+ GET /finance?view=payroll 200 in 136ms (next.js: 5ms, application-code: 131ms)
+✓ Compiled in 425ms
+✓ Compiled in 583ms
+✓ Compiled in 463ms
+✓ Compiled in 340ms
+✓ Compiled in 323ms
+✓ Compiled in 11.2s
+✓ Compiled in 545ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /finance?view=payroll 200 in 213ms (next.js: 6ms, application-code: 207ms)
+✓ Compiled in 1864ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET /finance?view=payroll 200 in 719ms (next.js: 6ms, application-code: 712ms)
+✓ Compiled in 802ms
+✓ Compiled in 418ms
+✓ Compiled in 352ms
+✓ Compiled in 344ms
+ GET /finance?view=reports 200 in 73ms (next.js: 6ms, application-code: 68ms)
+✓ Compiled in 1156ms
+ GET /finance?view=inventory-reports 200 in 184ms (next.js: 12ms, application-code: 172ms)
+✓ Compiled in 681ms
+ GET /finance?view=requests 200 in 88ms (next.js: 7ms, application-code: 81ms)
+ GET /finance?view=sales 200 in 103ms (next.js: 5ms, application-code: 98ms)
+ GET /finance?view=reports 200 in 1561ms (next.js: 208ms, application-code: 1353ms)
+✓ Compiled in 11.2s
+✓ Compiled in 501ms
+✓ Compiled in 3.3s
+✓ Compiled in 627ms
+✓ Compiled in 582ms
+✓ Compiled in 505ms
+✓ Compiled in 375ms
+✓ Compiled in 407ms
+✓ Compiled in 349ms
+✓ Compiled in 503ms
+✓ Compiled in 1206ms
+✓ Compiled in 630ms
+✓ Compiled in 1114ms
+ GET /finance?view=reports 200 in 93ms (next.js: 17ms, application-code: 75ms)
+ GET /manager 200 in 177ms (next.js: 49ms, application-code: 128ms)
+✓ Compiled in 352ms
+✓ Compiled in 482ms
+✓ Compiled in 581ms
+✓ Compiled in 528ms
+✓ Compiled in 563ms
+✓ Compiled in 412ms
+✓ Compiled in 1099ms
+✓ Compiled in 967ms
+✓ Compiled in 803ms
+[browser] ./app/(app)/finance/client.tsx:2590:7
+Error: Expression expected
+  2588 |         <FinanceChangePasswordPanel />
+  2589 |       )}
+> 2590 |     </>
+       |       ^
+  2591 |   );
+  2592 | }
+  2593 |
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./app/(app)/finance/client.tsx
+    ./app/(app)/finance/page.tsx 
+    at console.o [as error] (arms-rum-browser.js:6:14342) (arms-rum-browser.js:6:14342)
+[browser] ./app/(app)/finance/client.tsx:2551:8
+Error: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  2549 |           )}
+  2550 |         </Panel>
+> 2551 |       )}
+       |        ^
+  2552 |
+  2553 |       {view === "payroll" && (
+  2554 |         <Panel title="HR payroll" description="Payroll raised by HR and approved by the ...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./app/(app)/finance/client.tsx
+    ./app/(app)/finance/page.tsx 
+    at console.o [as error] (arms-rum-browser.js:6:14342) (arms-rum-browser.js:6:14342)
+[browser] ./app/(app)/finance/client.tsx:2590:7
+Error: Expression expected
+  2588 |         <FinanceChangePasswordPanel />
+  2589 |       )}
+> 2590 |     </>
+       |       ^
+  2591 |   );
+  2592 | }
+  2593 |
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./app/(app)/finance/client.tsx
+    ./app/(app)/finance/page.tsx 
+    at console.o [as error] (arms-rum-browser.js:6:14342) (arms-rum-browser.js:6:14342)
+[browser] ./app/(app)/finance/client.tsx:2551:8
+Error: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  2549 |           )}
+  2550 |         </Panel>
+> 2551 |       )}
+       |        ^
+  2552 |
+  2553 |       {view === "payroll" && (
+  2554 |         <Panel title="HR payroll" description="Payroll raised by HR and approved by the ...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./app/(app)/finance/client.tsx
+    ./app/(app)/finance/page.tsx 
+    at console.o [as error] (arms-rum-browser.js:6:14342) (arms-rum-browser.js:6:14342)
+[browser] ./app/(app)/finance/client.tsx:2580:7
+Error: Expression expected
+  2578 |         <FinanceChangePasswordPanel />
+  2579 |       )}
+> 2580 |     </>
+       |       ^
+  2581 |   );
+  2582 | }
+  2583 |
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./app/(app)/finance/client.tsx
+    ./app/(app)/finance/page.tsx 
+    at console.o [as error] (arms-rum-browser.js:6:14342) (arms-rum-browser.js:6:14342)
+[browser] ./app/(app)/finance/client.tsx:2541:8
+Error: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  2539 |           )}
+  2540 |         </Panel>
+> 2541 |       )}
+       |        ^
+  2542 |
+  2543 |       {view === "payroll" && (
+  2544 |         <Panel title="HR payroll" description="Payroll raised by HR and approved by the ...
+
+Parsing ecmascript source code failed
+
+Import trace:
+  Server Component:
+    ./app/(app)/finance/client.tsx
+    ./app/(app)/finance/page.tsx 
+    at console.o [as error] (arms-rum-browser.js:6:14342) (arms-rum-browser.js:6:14342)
+✓ Compiled in 644ms
+ GET /login 200 in 460ms (next.js: 109ms, application-code: 351ms)
+ GET /finance 200 in 747ms (next.js: 102ms, application-code: 645ms)
+ GET /manager 200 in 622ms (next.js: 26ms, application-code: 596ms)
+ GET /login 200 in 167ms (next.js: 5ms, application-code: 162ms)
+ GET /finance?view=reports 200 in 819ms (next.js: 3ms, application-code: 816ms)
+ GET /finance?view=sales 200 in 87ms (next.js: 5ms, application-code: 83ms)
+ GET /finance?view=promotion 200 in 74ms (next.js: 3ms, application-code: 72ms)
+✓ Compiled in 788ms
+ GET /finance?view=promotion-receipts 200 in 331ms (next.js: 17ms, application-code: 315ms)
+✓ Compiled in 479ms
+✓ Compiled in 386ms
+ GET /finance?view=assets 200 in 126ms (next.js: 10ms, application-code: 116ms)
+✓ Compiled in 858ms
+✓ Compiled in 1422ms
+ GET /finance?view=reports 200 in 103ms (next.js: 14ms, application-code: 89ms)
+ GET /finance?view=promotion 200 in 106ms (next.js: 5ms, application-code: 101ms)
+ GET /finance?view=promotion-receipts 200 in 129ms (next.js: 6ms, application-code: 123ms)
+ GET /finance?view=registration-receipts 200 in 97ms (next.js: 22ms, application-code: 75ms)
+ GET /finance?view=stockout-receipts 200 in 111ms (next.js: 5ms, application-code: 106ms)
+ GET /finance?view=assets 200 in 116ms (next.js: 7ms, application-code: 109ms)
+ GET /login 200 in 93ms (next.js: 4ms, application-code: 89ms)
+ GET /login 200 in 1177ms (next.js: 9ms, application-code: 1168ms)
+ GET /manager 200 in 735ms (next.js: 42ms, application-code: 693ms)
+✓ Compiled in 20.6s
+ GET /manager?view=promotions 200 in 346ms (next.js: 47ms, application-code: 298ms)
+ GET /manager 200 in 174ms (next.js: 4ms, application-code: 171ms)
+ GET /manager?view=promotions 200 in 152ms (next.js: 59ms, application-code: 93ms)
+ GET /login 200 in 209ms (next.js: 29ms, application-code: 179ms)
+Error: Route "/login": Could not validate `instant` because an error prevented the target segment from rendering.
+    at ignore-listed frames {
+  [cause]: Error: NEXT_REDIRECT
+      at LoginRedirect (app\login\page.tsx:4:11)
+    2 |
+    3 | export default function LoginRedirect() {
+  > 4 |   redirect("/");
+      |           ^
+    5 | }
+    6 | {
+    environmentName: 'Prerender',
+    digest: 'NEXT_REDIRECT;replace;/;307;'
+  }
+}
+ GET / 200 in 378ms (next.js: 113ms, application-code: 266ms)
+ GET / 200 in 96ms (next.js: 4ms, application-code: 92ms)
+○ Compiling /sales ...
+ GET /sales 200 in 430ms (next.js: 130ms, application-code: 300ms)
+ GET /login 200 in 169ms (next.js: 23ms, application-code: 146ms)
+ GET / 200 in 150ms (next.js: 4ms, application-code: 146ms)
+ GET / 200 in 96ms (next.js: 5ms, application-code: 92ms)
+ GET /store 200 in 548ms (next.js: 75ms, application-code: 473ms)
+ GET /login 200 in 96ms (next.js: 26ms, application-code: 70ms)
+ GET / 200 in 274ms (next.js: 8ms, application-code: 266ms)
+ GET / 200 in 366ms (next.js: 34ms, application-code: 332ms)
+○ Compiling /hr ...
+ GET /hr 200 in 301ms (next.js: 47ms, application-code: 254ms)
+ GET /hr?view=payroll 200 in 116ms (next.js: 12ms, application-code: 104ms)
+ GET /hr?view=incidents 200 in 110ms (next.js: 12ms, application-code: 98ms)
+ GET /hr?view=emp 200 in 84ms (next.js: 5ms, application-code: 80ms)
+ GET /hr?view=ats 200 in 118ms (next.js: 6ms, application-code: 112ms)
+✓ Finished filesystem cache database compaction in 46s
+ GET /hr?view=departments 200 in 107ms (next.js: 5ms, application-code: 102ms)
+ GET /hr?view=shifts 200 in 85ms (next.js: 6ms, application-code: 79ms)
+ GET /hr?view=checklists 200 in 96ms (next.js: 6ms, application-code: 90ms)
+ GET / 200 in 88ms (next.js: 2ms, application-code: 86ms)
+ GET /login 307 in 411ms (next.js: 3ms, application-code: 408ms)
+ GET / 200 in 97ms (next.js: 3ms, application-code: 93ms)
+Error: Route "/login": Could not validate `instant` because an error prevented the target segment from rendering.
+    at ignore-listed frames {
+  [cause]: Error: NEXT_REDIRECT
+      at LoginRedirect (app\login\page.tsx:4:11)
+    2 |
+    3 | export default function LoginRedirect() {
+  > 4 |   redirect("/");
+      |           ^
+    5 | }
+    6 | {
+    environmentName: 'Prerender',
+    digest: 'NEXT_REDIRECT;replace;/;307;'
+  }
+}
+ HEAD /login 307 in 167ms (next.js: 3ms, application-code: 164ms)
+ GET /finance 200 in 663ms (next.js: 58ms, application-code: 605ms)
+Error: Route "/login": Could not validate `instant` because an error prevented the target segment from rendering.
+    at ignore-listed frames {
+  [cause]: Error: NEXT_REDIRECT
+      at LoginRedirect (app\login\page.tsx:4:11)
+    2 |
+    3 | export default function LoginRedirect() {
+  > 4 |   redirect("/");
+      |           ^
+    5 | }
+    6 | {
+    environmentName: 'Prerender',
+    digest: 'NEXT_REDIRECT;replace;/;307;'
+  }
+}
+ GET /hr?view=workflows 200 in 158ms (next.js: 6ms, application-code: 152ms)
+ GET /hr?view=people 200 in 120ms (next.js: 6ms, application-code: 114ms)
+ GET /hr?view=leave 200 in 90ms (next.js: 4ms, application-code: 85ms)
+ GET /login 200 in 158ms (next.js: 14ms, application-code: 144ms)
+Error: Route "/login": Could not validate `instant` because an error prevented the target segment from rendering.
+    at ignore-listed frames {
+  [cause]: Error: NEXT_REDIRECT
+      at LoginRedirect (app\login\page.tsx:4:11)
+    2 |
+    3 | export default function LoginRedirect() {
+  > 4 |   redirect("/");
+      |           ^
+    5 | }
+    6 | {
+    environmentName: 'Prerender',
+    digest: 'NEXT_REDIRECT;replace;/;307;'
+  }
+}
+ GET / 200 in 284ms (next.js: 8ms, application-code: 276ms)
+ GET / 200 in 103ms (next.js: 20ms, application-code: 83ms)
+ GET /hr 200 in 940ms (next.js: 320ms, application-code: 620ms)
+✓ Compiled in 25.7s
+✓ Compiled in 1807ms
+○ Compiling /manager ...
+ GET /manager 200 in 597ms (next.js: 326ms, application-code: 271ms)
+ GET /hr 200 in 290ms (next.js: 52ms, application-code: 238ms)
+✓ Compiled in 2.1s
+ GET /hr 200 in 482ms (next.js: 7ms, application-code: 474ms)
+✓ Compiled in 3.3s
+ GET /hr 200 in 108ms (next.js: 14ms, application-code: 94ms)
+ GET / 200 in 297ms (next.js: 84ms, application-code: 213ms)
+ GET /finance 200 in 445ms (next.js: 46ms, application-code: 399ms)
+ GET / 200 in 225ms (next.js: 14ms, application-code: 211ms)
+ GET /hr 200 in 680ms (next.js: 10ms, application-code: 670ms)
+ GET / 200 in 52ms (next.js: 3ms, application-code: 48ms)
+ GET /manager 200 in 504ms (next.js: 58ms, application-code: 446ms)
+ GET /manager?view=tax 200 in 93ms (next.js: 7ms, application-code: 86ms)
+ GET / 200 in 55ms (next.js: 4ms, application-code: 50ms)
+ GET /manager?view=assets 200 in 75ms (next.js: 5ms, application-code: 70ms)
+ GET /manager?view=approvals 200 in 100ms (next.js: 5ms, application-code: 94ms)
+ GET /login 307 in 3.3s (next.js: 512ms, application-code: 2.8s)
+Error: Route "/login": Could not validate `instant` because an error prevented the target segment from rendering.
+    at ignore-listed frames {
+  [cause]: Error: NEXT_REDIRECT
+      at LoginRedirect (app\login\page.tsx:4:11)
+    2 |
+    3 | export default function LoginRedirect() {
+  > 4 |   redirect("/");
+      |           ^
+    5 | }
+    6 | {
+    environmentName: 'Prerender',
+    digest: 'NEXT_REDIRECT;replace;/;307;'
+  }
+}
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:46:1
+Error: Module not found: Can't resolve './notifications'
+  [90m44 |[0m [36mimport[0m [33mIncidentsSection[0m [36mfrom[0m [32m"./incidents"[0m;
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+[31m[1m>[0m [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:46:1
+Error: Module not found: Can't resolve './notifications'
+  [90m44 |[0m [36mimport[0m [33mIncidentsSection[0m [36mfrom[0m [32m"./incidents"[0m;
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+[31m[1m>[0m [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:46:1
+Error: Module not found: Can't resolve './notifications'
+  [90m44 |[0m [36mimport[0m [33mIncidentsSection[0m [36mfrom[0m [32m"./incidents"[0m;
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+[31m[1m>[0m [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:46:1
+Error: Module not found: Can't resolve './notifications'
+  [90m44 |[0m [36mimport[0m [33mIncidentsSection[0m [36mfrom[0m [32m"./incidents"[0m;
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+[31m[1m>[0m [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:47:1
+Error: Module not found: Can't resolve './chat'
+  [90m45 |[0m [36mimport[0m [33mDocumentsSection[0m [36mfrom[0m [32m"./documents"[0m;
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+[31m[1m>[0m [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+⨯ ./app/(app)/hr/client.tsx:48:1
+Error: Module not found: Can't resolve './portals'
+  [90m46 |[0m [36mimport[0m [33mNotificationsSection[0m [36mfrom[0m [32m"./notifications"[0m;
+  [90m47 |[0m [36mimport[0m [33mChatSection[0m [36mfrom[0m [32m"./chat"[0m;
+[31m[1m>[0m [90m48 |[0m [36mimport[0m { [33mEmployeePortalSection[0m, [33mHiringSection[0m } [36mfrom[0m [32m"./portals"[0m;
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m49 |[0m
+  [90m50 |[0m [36mconst[0m today = () => [36mnew[0m [33mDate[0m().toISOString().slice([35m0[0m, [35m10[0m);
+  [90m51 |[0m
+
+
+
+Import trace:
+  Server Component:
+    ./app/(app)/hr/client.tsx
+    ./app/(app)/hr/page.tsx
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+✓ Compiled in 1766ms
+ GET / 200 in 48s (next.js: 4.6s, application-code: 44s)
+ GET / 200 in 6.2s (next.js: 212ms, application-code: 6.0s)
+○ Compiling /hr ...
+ GET /hr 200 in 3.7s (next.js: 154ms, application-code: 3.6s)
+ GET / 200 in 525ms (next.js: 7ms, application-code: 517ms)
+ GET /hr 200 in 626ms (next.js: 7ms, application-code: 619ms)
+ GET /hr?view=departments 200 in 747ms (next.js: 7ms, application-code: 741ms)
+ GET /hr?view=leave 200 in 312ms (next.js: 6ms, application-code: 306ms)
+ GET /hr?view=notifications 200 in 850ms (next.js: 11ms, application-code: 839ms)
+ GET /hr?view=chat 200 in 1569ms (next.js: 5ms, application-code: 1564ms)
+ GET /hr?view=emp 200 in 613ms (next.js: 6ms, application-code: 607ms)
+ GET /hr?view=ats 200 in 879ms (next.js: 34ms, application-code: 845ms)
+ GET /hr?view=payroll 200 in 541ms (next.js: 5ms, application-code: 536ms)
+ GET / 200 in 652ms (next.js: 6ms, application-code: 646ms)
+ GET /manager 200 in 1322ms (next.js: 44ms, application-code: 1279ms)
+ GET / 200 in 285ms (next.js: 16ms, application-code: 268ms)
+ GET /hr 200 in 703ms (next.js: 24ms, application-code: 678ms)
+✓ Finished filesystem cache database compaction in 27.2s
+ GET /hr?view=departments 200 in 486ms (next.js: 6ms, application-code: 480ms)
+ GET /hr?view=leave 200 in 353ms (next.js: 5ms, application-code: 348ms)
+ GET /hr?view=notifications 200 in 577ms (next.js: 7ms, application-code: 570ms)
+ GET /hr?view=chat 200 in 586ms (next.js: 5ms, application-code: 581ms)
+ GET /hr?view=emp 200 in 479ms (next.js: 5ms, application-code: 474ms)
+ GET /hr?view=ats 200 in 932ms (next.js: 14ms, application-code: 918ms)
+ GET /hr?view=payroll 200 in 385ms (next.js: 7ms, application-code: 378ms)
+ GET / 200 in 423ms (next.js: 8ms, application-code: 415ms)
+ GET /manager 200 in 582ms (next.js: 7ms, application-code: 575ms)
+ GET / 200 in 442ms (next.js: 5ms, application-code: 436ms)
+ GET /hr 200 in 399ms (next.js: 5ms, application-code: 394ms)
+ GET /hr?view=departments 200 in 301ms (next.js: 5ms, application-code: 297ms)
+ GET /hr?view=leave 200 in 1150ms (next.js: 11ms, application-code: 1139ms)
+ GET /hr?view=notifications 200 in 1379ms (next.js: 432ms, application-code: 947ms)
+ GET /hr?view=chat 200 in 503ms (next.js: 6ms, application-code: 497ms)
+ GET /hr?view=emp 200 in 288ms (next.js: 5ms, application-code: 284ms)
+ GET /hr?view=ats 200 in 542ms (next.js: 11ms, application-code: 531ms)
+ GET /hr?view=payroll 200 in 1192ms (next.js: 7ms, application-code: 1186ms)
+ GET / 200 in 345ms (next.js: 5ms, application-code: 340ms)
+ GET /manager 200 in 298ms (next.js: 4ms, application-code: 294ms)
+ GET / 200 in 425ms (next.js: 7ms, application-code: 418ms)
+ GET /hr?view=ats 200 in 383ms (next.js: 6ms, application-code: 377ms)
+ GET / 200 in 240ms (next.js: 6ms, application-code: 234ms)
+ GET /hr?view=ats 200 in 551ms (next.js: 5ms, application-code: 545ms)
+ GET / 200 in 385ms (next.js: 5ms, application-code: 380ms)
+ GET /hr 200 in 563ms (next.js: 40ms, application-code: 523ms)
+ GET /hr?view=departments 200 in 416ms (next.js: 13ms, application-code: 403ms)
+ GET /hr?view=checklists 200 in 211ms (next.js: 7ms, application-code: 204ms)
+ GET / 200 in 267ms (next.js: 9ms, application-code: 258ms)
+ GET /manager 200 in 765ms (next.js: 25ms, application-code: 740ms)
+ GET / 200 in 82ms (next.js: 8ms, application-code: 73ms)
+ GET /hr 200 in 715ms (next.js: 19ms, application-code: 696ms)
+ GET /hr?view=otp 200 in 224ms (next.js: 9ms, application-code: 215ms)
+ GET /hr?view=departments 200 in 254ms (next.js: 10ms, application-code: 244ms)
+ GET / 200 in 385ms (next.js: 44ms, application-code: 341ms)
+ GET /finance 200 in 892ms (next.js: 60ms, application-code: 832ms)
+ GET /finance?view=payroll 200 in 223ms (next.js: 51ms, application-code: 172ms)
+✓ Compiled in 343ms
+ GET /finance?view=payroll 200 in 181ms (next.js: 3ms, application-code: 177ms)
+ GET /finance?view=payroll 200 in 3.6s (next.js: 115ms, application-code: 3.5s)
+ GET / 200 in 151ms (next.js: 12ms, application-code: 139ms)
+ GET / 200 in 541ms (next.js: 3ms, application-code: 538ms)
+ GET /hr 200 in 601ms (next.js: 80ms, application-code: 521ms)
+ GET /hr?view=shifts 200 in 99ms (next.js: 4ms, application-code: 95ms)
+ GET /hr?view=checklists 200 in 150ms (next.js: 5ms, application-code: 146ms)
+ GET /hr?view=people 200 in 183ms (next.js: 5ms, application-code: 178ms)
+ GET /hr?view=leave 200 in 107ms (next.js: 6ms, application-code: 102ms)
+ GET /hr?view=attendance 200 in 120ms (next.js: 5ms, application-code: 115ms)
+ GET /hr?view=payroll 200 in 119ms (next.js: 8ms, application-code: 110ms)
+ GET /hr?view=incidents 200 in 113ms (next.js: 5ms, application-code: 109ms)
+ GET /hr?view=documents 200 in 94ms (next.js: 6ms, application-code: 89ms)
+ GET /hr?view=notifications 200 in 107ms (next.js: 5ms, application-code: 102ms)
+ GET /hr?view=emp 200 in 104ms (next.js: 8ms, application-code: 96ms)
+ GET /hr?view=password 200 in 123ms (next.js: 4ms, application-code: 119ms)
+ GET / 200 in 51ms (next.js: 3ms, application-code: 47ms)
+ GET /manager 200 in 1139ms (next.js: 138ms, application-code: 1001ms)
+ GET /manager?view=hr-otp 200 in 85ms (next.js: 7ms, application-code: 77ms)
+ GET /manager?view=hr-departments 200 in 91ms (next.js: 5ms, application-code: 86ms)
+ GET /manager?view=hr-workflows 200 in 89ms (next.js: 5ms, application-code: 84ms)
+ GET /manager?view=hr-leave-types 200 in 90ms (next.js: 3ms, application-code: 87ms)
+ GET /manager?view=hr-incident-types 200 in 131ms (next.js: 5ms, application-code: 126ms)
+ GET /manager?view=hr-shifts 200 in 81ms (next.js: 4ms, application-code: 77ms)
+ GET /manager?view=hr-checklists 200 in 79ms (next.js: 4ms, application-code: 75ms)
+ GET /manager?view=hr-ats 200 in 83ms (next.js: 3ms, application-code: 80ms)
+ GET /manager?view=hr-chat 200 in 96ms (next.js: 4ms, application-code: 91ms)
+✓ Compiled in 13s
+✓ Compiled in 640ms
+✓ Compiled in 516ms
+✓ Compiled in 875ms
+✓ Compiled in 608ms
+ GET /manager?view=hr-chat 200 in 82ms (next.js: 5ms, application-code: 77ms)
+ GET /manager?view=hr-otp 200 in 73ms (next.js: 6ms, application-code: 67ms)
+ GET /manager?view=hr-departments 200 in 168ms (next.js: 5ms, application-code: 163ms)

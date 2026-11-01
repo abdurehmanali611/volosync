@@ -1,26 +1,725 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-display);
+  --color-role-1: var(--role-1);
+  --color-role-2: var(--role-2);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --background: oklch(0.985 0.004 255);
+  --foreground: oklch(0.19 0.02 265);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.19 0.02 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.19 0.02 265);
+  --primary: oklch(0.55 0.15 195);
+  --primary-foreground: oklch(0.99 0.005 200);
+  --secondary: oklch(0.955 0.01 255);
+  --secondary-foreground: oklch(0.24 0.03 265);
+  --muted: oklch(0.955 0.008 255);
+  --muted-foreground: oklch(0.52 0.02 265);
+  --accent: oklch(0.95 0.02 200);
+  --accent-foreground: oklch(0.25 0.04 220);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0.9 0.01 260);
+  --input: oklch(0.9 0.01 260);
+  --ring: oklch(0.62 0.14 200);
+  --chart-1: oklch(0.68 0.16 195);
+  --chart-2: oklch(0.7 0.15 160);
+  --chart-3: oklch(0.62 0.19 295);
+  --chart-4: oklch(0.78 0.15 80);
+  --chart-5: oklch(0.66 0.2 15);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.975 0.006 255);
+  --sidebar-foreground: oklch(0.24 0.03 265);
+  --sidebar-primary: oklch(0.55 0.15 195);
+  --sidebar-primary-foreground: oklch(0.99 0.005 200);
+  --sidebar-accent: oklch(0.945 0.015 220);
+  --sidebar-accent-foreground: oklch(0.24 0.03 265);
+  --sidebar-border: oklch(0.9 0.01 260);
+  --sidebar-ring: oklch(0.62 0.14 200);
+  --role-1: #0ea5e9;
+  --role-2: #06b6d4;
+}
+
+.dark {
+  --background: oklch(0.148 0.018 275);
+  --foreground: oklch(0.965 0.006 275);
+  --card: oklch(0.19 0.019 275);
+  --card-foreground: oklch(0.965 0.006 275);
+  --popover: oklch(0.185 0.02 275);
+  --popover-foreground: oklch(0.965 0.006 275);
+  --primary: oklch(0.78 0.13 195);
+  --primary-foreground: oklch(0.16 0.03 230);
+  --secondary: oklch(0.245 0.022 275);
+  --secondary-foreground: oklch(0.96 0.006 275);
+  --muted: oklch(0.235 0.02 275);
+  --muted-foreground: oklch(0.735 0.02 275);
+  --accent: oklch(0.26 0.03 275);
+  --accent-foreground: oklch(0.97 0.006 275);
+  --destructive: oklch(0.7 0.19 20);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.75 0.12 200 / 65%);
+  --chart-1: oklch(0.8 0.14 195);
+  --chart-2: oklch(0.8 0.16 160);
+  --chart-3: oklch(0.76 0.18 300);
+  --chart-4: oklch(0.84 0.15 82);
+  --chart-5: oklch(0.76 0.18 12);
+  --sidebar: oklch(0.165 0.02 275);
+  --sidebar-foreground: oklch(0.94 0.008 275);
+  --sidebar-primary: oklch(0.78 0.13 195);
+  --sidebar-primary-foreground: oklch(0.16 0.03 230);
+  --sidebar-accent: oklch(0.245 0.025 275);
+  --sidebar-accent-foreground: oklch(0.98 0.006 275);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.75 0.12 200 / 60%);
+}
+
+/* Role palettes — set on <html data-role="…"> so portals (dialogs/sheets)
+   inherit the active workspace colour too. */
+[data-role="STORE"] {
+  --role-1: #22d3ee;
+  --role-2: #60a5fa;
+}
+[data-role="FINANCE"] {
+  --role-1: #34d399;
+  --role-2: #22d3ee;
+}
+[data-role="MANAGER"] {
+  --role-1: #c084fc;
+  --role-2: #f472b6;
+}
+[data-role="HR"] {
+  --role-1: #fbbf24;
+  --role-2: #fb7185;
+}
+[data-role="SALES"] {
+  --role-1: #fb7185;
+  --role-2: #f0abfc;
+}
+[data-role="OWNER"] {
+  --role-1: #818cf8;
+  --role-2: #38bdf8;
+}
+
+/* Primary actions follow the active workspace accent. */
+[data-role] {
+  --primary: var(--role-1);
+  --primary-foreground: #0b0b13;
+  --ring: color-mix(in oklab, var(--role-1) 62%, transparent);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--role-1) 28%, transparent) transparent;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--role-1) 38%, transparent);
+    color: #fff;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.015em;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ---------------------------------------------------------- role utilities */
+
+.role-text {
+  color: var(--role-1);
+}
+
+.role-eyebrow {
+  color: color-mix(in oklab, var(--role-1) 88%, white 12%);
+  letter-spacing: 0.22em;
+}
+
+.role-title {
+  background-image: linear-gradient(
+    100deg,
+    #ffffff 18%,
+    color-mix(in oklab, var(--role-1) 70%, white 30%) 62%,
+    var(--role-2)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.role-gradient-bg {
+  background-image: linear-gradient(135deg, var(--role-1), var(--role-2));
+}
+
+.role-gradient-text {
+  background-image: linear-gradient(120deg, var(--role-1), var(--role-2));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.role-hairline {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--role-1) 70%, transparent),
+    transparent
+  );
+}
+
+.role-nav-active {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--role-1) 26%, transparent),
+    color-mix(in oklab, var(--role-2) 8%, transparent)
+  ) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 2px 0 0 var(--role-1),
+    0 12px 30px -20px var(--role-1);
+}
+
+.role-nav-active svg {
+  color: var(--role-1);
+}
+
+.role-panel-glow {
+  position: relative;
+}
+
+.role-panel-glow::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--role-1) 65%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------- shell surfaces */
+
+.app-shell-bg {
+  position: relative;
+  background-color: #07070d;
+  background-image:
+    radial-gradient(
+      80rem 40rem at 8% -12%,
+      color-mix(in oklab, var(--role-1) 11%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      60rem 34rem at 108% 8%,
+      color-mix(in oklab, var(--role-2) 8%, transparent),
+      transparent 58%
+    ),
+    linear-gradient(180deg, #08080f 0%, #06060b 100%);
+}
+
+.app-shell-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 72% 52% at 62% 0%, black, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 72% 52% at 62% 0%, black, transparent 78%);
+}
+
+/* Floating workspace frame — the inset sits above the shell like a panel. */
+@media (min-width: 768px) {
+  .app-frame {
+    min-height: 0;
+    height: calc(100svh - 1rem);
+    max-height: calc(100svh - 1rem);
+    margin: 0.5rem 0.5rem 0.5rem 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.25rem;
+    background-color: rgba(9, 9, 16, 0.66);
+    box-shadow:
+      0 40px 90px -60px rgba(0, 0, 0, 1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  }
+}
+
+/* Layered top chrome: role wash, inner highlight and a bright accent rail. */
+.workspace-chrome {
+  position: relative;
+  isolation: isolate;
+  background-color: #08080e;
+  background-image:
+    radial-gradient(
+      120% 220% at 0% -80%,
+      color-mix(in oklab, var(--role-1) 20%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      90% 180% at 100% -60%,
+      color-mix(in oklab, var(--role-2) 12%, transparent),
+      transparent 66%
+    ),
+    linear-gradient(180deg, #0b0b15 0%, #08080e 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 14px 34px -28px rgba(0, 0, 0, 0.95);
+}
+
+.workspace-chrome::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 1;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--role-1) 80%, transparent) 28%,
+    color-mix(in oklab, var(--role-2) 70%, transparent) 72%,
+    transparent
+  );
+  opacity: 0.9;
+}
+
+/* Page hero card used by every workspace. */
+.role-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: #0b0b15;
+  background-image:
+    radial-gradient(
+      110% 180% at 0% 0%,
+      color-mix(in oklab, var(--role-1) 15%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      90% 160% at 100% 0%,
+      color-mix(in oklab, var(--role-2) 10%, transparent),
+      transparent 62%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 55%);
+  box-shadow:
+    0 32px 80px -60px rgba(0, 0, 0, 1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.role-hero::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--role-1) 65%, transparent),
+    transparent
+  );
+}
+
+.role-hero::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: 0.35;
+  mask-image: radial-gradient(ellipse 65% 100% at 12% 0%, black, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse 65% 100% at 12% 0%, black, transparent 72%);
+}
+
+.role-sidebar-surface {
+  background-color: #08080e;
+  background-image:
+    radial-gradient(
+      120% 55% at 0% 0%,
+      color-mix(in oklab, var(--role-1) 15%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      90% 45% at 6% 100%,
+      color-mix(in oklab, var(--role-2) 11%, transparent),
+      transparent 68%
+    ),
+    linear-gradient(180deg, #0a0a13 0%, #07070c 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.role-sidebar-surface [data-slot="sidebar-inner"] {
+  background: transparent;
+}
+
+[data-slot="sidebar"][data-mobile="true"] {
+  background-color: #08080e;
+  background-image:
+    radial-gradient(
+      120% 55% at 0% 0%,
+      color-mix(in oklab, var(--role-1) 16%, transparent),
+      transparent 62%
+    ),
+    linear-gradient(180deg, #0a0a13 0%, #07070c 100%);
+}
+
+.role-avatar {
+  background-image: linear-gradient(135deg, var(--role-1), var(--role-2));
+  color: #0b0b12;
+  font-weight: 700;
+}
+
+.role-chip {
+  border: 1px solid color-mix(in oklab, var(--role-1) 24%, transparent);
+  background: color-mix(in oklab, var(--role-1) 10%, transparent);
+  color: color-mix(in oklab, var(--role-1) 58%, white 42%);
+}
+
+.role-control:focus {
+  border-color: color-mix(in oklab, var(--role-1) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--role-1) 16%, transparent);
+}
+
+.role-icon-tile {
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--role-1) 26%, transparent),
+    color-mix(in oklab, var(--role-2) 12%, transparent)
+  );
+  border: 1px solid color-mix(in oklab, var(--role-1) 32%, transparent);
+  color: color-mix(in oklab, var(--role-1) 80%, white 20%);
+}
+
+/* ------------------------------------------------------------- login scene */
+
+.login-scene {
+  background-color: #06060c;
+  background-image:
+    radial-gradient(60rem 40rem at 12% -4%, rgba(34, 211, 238, 0.16), transparent 60%),
+    radial-gradient(48rem 30rem at 92% 4%, rgba(167, 139, 250, 0.18), transparent 60%),
+    radial-gradient(52rem 34rem at 68% 108%, rgba(52, 211, 153, 0.14), transparent 62%),
+    radial-gradient(30rem 24rem at 8% 96%, rgba(251, 113, 133, 0.12), transparent 60%),
+    linear-gradient(180deg, #07070e 0%, #05050a 100%);
+}
+
+.login-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 58px 58px;
+  mask-image: radial-gradient(ellipse 75% 65% at 30% 30%, black, transparent 76%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 30% 30%, black, transparent 76%);
+}
+
+.auth-card-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-card-shimmer::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(103, 232, 249, 0.75),
+    rgba(167, 139, 250, 0.75),
+    rgba(52, 211, 153, 0.6),
+    transparent
+  );
+}
+
+.auth-card-shimmer::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 1px;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(196, 255, 250, 0.95),
+    transparent
+  );
+  animation: auth-shimmer 5.5s ease-in-out infinite;
+}
+
+.auth-brand-shine {
+  background-image: linear-gradient(
+    100deg,
+    #ffffff 0%,
+    #a5f3fc 32%,
+    #6ee7b7 55%,
+    #c4b5fd 78%,
+    #ffffff 100%
+  );
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: auth-brand-shine 7s ease-in-out infinite;
+}
+
+.auth-mark-glow {
+  animation: auth-mark-glow 3.4s ease-in-out infinite;
+}
+
+.auth-orb-ring {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 40px 100px -50px rgba(0, 0, 0, 1);
+}
+
+.auth-orbit {
+  background: conic-gradient(
+    from 120deg,
+    rgba(34, 211, 238, 0.55),
+    rgba(52, 211, 153, 0.35),
+    rgba(167, 139, 250, 0.5),
+    rgba(251, 113, 133, 0.35),
+    rgba(34, 211, 238, 0.55)
+  );
+  filter: blur(0.5px);
+}
+
+.auth-cta {
+  background-image: linear-gradient(110deg, #06b6d4 0%, #10b981 46%, #8b5cf6 100%);
+  color: #fff;
+  box-shadow:
+    0 18px 40px -18px rgba(16, 185, 129, 0.55),
+    0 10px 30px -14px rgba(139, 92, 246, 0.55);
+}
+
+.auth-cta:hover {
+  filter: brightness(1.08) saturate(1.05);
+}
+
+/* -------------------------------------------------------------- animations */
+
+@keyframes aura-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2.5%, -3%, 0) scale(1.08);
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0);
+  }
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--role-1) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes auth-shimmer {
+  0% {
+    transform: translateX(-140%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
+
+@keyframes auth-brand-shine {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes auth-mark-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 16px 2px rgba(34, 211, 238, 0.35),
+      0 18px 40px -16px rgba(34, 211, 238, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 28px 6px rgba(103, 232, 249, 0.55),
+      0 18px 46px -12px rgba(167, 139, 250, 0.65);
+  }
+}
+
+.animate-aura {
+  animation: aura-drift 16s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float-slow 9s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 28s linear infinite;
+}
+
+.auth-rise {
+  animation: rise-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.auth-delay-2 {
+  animation-delay: 0.18s;
+}
+
+.auth-delay-3 {
+  animation-delay: 0.28s;
+}
+
+.role-live-dot {
+  animation: pulse-ring 2.4s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aura,
+  .animate-float-slow,
+  .animate-spin-slow,
+  .auth-rise,
+  .auth-brand-shine,
+  .auth-mark-glow,
+  .auth-card-shimmer::after,
+  .role-live-dot {
+    animation: none !important;
+  }
+}
+
+/* Chrome/Edge autofill would paint a light wash over the dark scene. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--foreground);
+  caret-color: var(--foreground);
+  box-shadow: 0 0 0 1000px #0b0b13 inset;
+  transition: background-color 99999s ease-out 0s;
+}
+
+.auth-field:-webkit-autofill,
+.auth-field:-webkit-autofill:hover,
+.auth-field:-webkit-autofill:focus {
+  -webkit-text-fill-color: #ecfeff;
+  caret-color: #ecfeff;
+  box-shadow: 0 0 0 1000px #0b0b13 inset;
+  border-color: rgba(103, 232, 249, 0.35);
 }
