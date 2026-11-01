@@ -27,7 +27,7 @@ import {
   type HrStepKind,
   type HrWorkflow,
 } from "@/lib/api/hr";
-import { Panel, StatCard, StatusPill } from "@/components/volo/kit";
+import { EmptyRow, Panel, StatCard, StatusPill } from "@/components/volo/kit";
 import {
   CHIP_TONES,
   CodeChip,
@@ -209,7 +209,7 @@ export default function WorkflowsSection({ departments, reload }: SectionProps) 
             {form.steps.map((kind, index) => (
               <div
                 key={index}
-                className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-2"
+                className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/2 p-2"
               >
                 <span
                   className={`grid size-6 shrink-0 place-items-center rounded-lg border text-[11px] font-semibold ${
@@ -280,7 +280,7 @@ export default function WorkflowsSection({ departments, reload }: SectionProps) 
                     {labelFor(row.request_type)}
                     <CodeChip tone="sky">{row.request_type}</CodeChip>
                     {row.department_label && (
-                      <span className="rounded-md border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-zinc-400">
+                      <span className="rounded-md border border-white/10 bg-white/3 px-1.5 py-0.5 text-[10px] text-zinc-400">
                         {row.department_label}
                       </span>
                     )}

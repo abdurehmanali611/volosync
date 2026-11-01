@@ -382,7 +382,7 @@ export default function SalesPage() {
 
 async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000"}${path}`,
+    `${process.env.NEXT_PUBLIC_API_URL ?? "https://volosync-backend.vercel.app"}${path}`,
     {
       ...init,
       headers: {

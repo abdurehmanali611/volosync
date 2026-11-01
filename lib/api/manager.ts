@@ -5,7 +5,7 @@
 
 import { ApiError, getToken, type Asset, type Lot, type Summary } from "@/lib/api";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://volosync-backend.vercel.app";
 
 function messageFrom(detail: unknown): string {
   if (typeof detail === "string") return detail;
