@@ -80,14 +80,14 @@ export function StatCard({
 }) {
   const style = TONES[tone] ?? TONES.emerald;
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d17]/70 p-4 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/[0.04] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-[#10101c]/80">
+    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d17]/70 p-4 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/4 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-[#10101c]/80">
       <div
         className={cn(
-          "pointer-events-none absolute -top-12 -right-10 size-32 rounded-full bg-gradient-to-br to-transparent opacity-70 blur-2xl transition-opacity duration-300 group-hover:opacity-100",
+          "pointer-events-none absolute -top-12 -right-10 size-32 rounded-full bg-linear-to-br to-transparent opacity-70 blur-2xl transition-opacity duration-300 group-hover:opacity-100",
           style.wash,
         )}
       />
-      <div className={cn("absolute inset-x-0 top-0 h-px bg-gradient-to-r", style.bar)} />
+      <div className={cn("absolute inset-x-0 top-0 h-px bg-linear-to-r", style.bar)} />
       <div className="relative flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">
@@ -161,11 +161,11 @@ export function Panel({
   return (
     <section
       className={cn(
-        "role-panel-glow relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d16]/75 shadow-[0_24px_70px_-45px_rgba(0,0,0,0.95)] ring-1 ring-white/[0.03] backdrop-blur-xl transition-colors hover:border-white/15",
+        "role-panel-glow relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d16]/75 shadow-[0_24px_70px_-45px_rgba(0,0,0,0.95)] ring-1 ring-white/3 backdrop-blur-xl transition-colors hover:border-white/15",
         className,
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-gradient-to-r from-white/[0.045] via-white/[0.015] to-transparent px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-linear-to-r from-white/4.5 via-white/1.5 to-transparent px-4 py-3">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 font-heading text-sm font-semibold text-white">
             <span className="size-1.5 rounded-full bg-role-1 shadow-[0_0_10px_var(--role-1)]" />
@@ -184,7 +184,7 @@ export function Panel({
 
 export function EmptyRow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-4 py-10 text-center text-sm text-zinc-500">
+    <div className="relative overflow-hidden rounded-xl border border-dashed border-white/10 bg-white/1.5 px-4 py-10 text-center text-sm text-zinc-500">
       <div className="role-hairline pointer-events-none absolute inset-x-6 top-0 opacity-60" />
       {children}
     </div>

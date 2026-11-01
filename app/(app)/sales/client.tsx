@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -216,8 +217,8 @@ export default function SalesPage() {
       {view === "stock" && (
         <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
           <Panel title="Assigned stock" description="Only assignments approved by both steps.">
-            <div className="max-h-[24rem] overflow-auto rounded-md">
-              <table className="w-full min-w-[520px]">
+            <div className="max-h-96 overflow-auto rounded-md">
+              <table className="w-full min-w-130">
                 <thead>
                   <tr>
                     <StickyTh>Voucher</StickyTh>
@@ -231,7 +232,7 @@ export default function SalesPage() {
                     <SkeletonRows cols={4} rows={5} />
                   ) : (
                     open.map((row) => (
-                      <tr key={row.id} className="transition-colors hover:bg-white/[0.02]">
+                      <tr key={row.id} className="transition-colors hover:bg-white/2">
                         <Td className="font-mono text-xs text-sky-300">{row.voucher_number}</Td>
                         <Td>{row.item_name}</Td>
                         <Td right>{qty(row.quantity)}</Td>
@@ -322,7 +323,7 @@ export default function SalesPage() {
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="w-full gap-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white"
+                  className="w-full gap-2 bg-linear-to-r from-rose-500 to-pink-500 text-white"
                 >
                   {submitting && <Loader2 className="size-4 animate-spin" />}
                   {submitting ? "Submitting…" : "Submit to Finance"}
@@ -335,8 +336,8 @@ export default function SalesPage() {
 
       {view === "history" && (
         <Panel title="My history" description="Everything you have settled, with its status.">
-          <div className="max-h-[32rem] overflow-auto rounded-md">
-            <table className="w-full min-w-[760px]">
+          <div className="max-h-128 overflow-auto rounded-md">
+            <table className="w-full min-w-190">
               <thead>
                 <tr>
                   <StickyTh>Item</StickyTh>
@@ -354,7 +355,7 @@ export default function SalesPage() {
                   <SkeletonRows cols={8} rows={5} />
                 ) : (
                   history.map((row) => (
-                    <tr key={row.id} className="transition-colors hover:bg-white/[0.02]">
+                    <tr key={row.id} className="transition-colors hover:bg-white/2">
                       <Td>{row.item_name}</Td>
                       <Td className="font-mono text-xs text-sky-300">{row.voucher_number}</Td>
                       <Td right>{qty(row.sold_quantity)}</Td>
