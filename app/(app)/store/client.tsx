@@ -268,6 +268,8 @@ const blankSupplier = () => ({
 const REGISTRATION_CATEGORIES = [
   "Daily Groceries and Essentials",
   "Basic Foods",
+  "Alcoholic Beverages",
+  "Non-Alcoholic Beverages",
   "Building Supplies",
   "Medicine and Health Supplies",
   "Home Electronics",
@@ -276,7 +278,15 @@ const REGISTRATION_CATEGORIES = [
   "others",
 ];
 
-const REGISTRATION_UNITS = ["Litre", "Kilogram", "Piece", "Packet", "Dozen", "Other"];
+const REGISTRATION_UNITS = [
+  "Litre",
+  "Kilogram",
+  "Piece",
+  "Packet",
+  "Dozen",
+  "Box",
+  "Other",
+];
 
 const emptyLine = (): RegistrationLine => ({
   item_name: "",
@@ -2675,16 +2685,14 @@ export default function StorePage() {
             </span>
           </div>
           <div className="max-h-[32rem] overflow-auto rounded-md">
-            <table className="w-full min-w-[1000px]">
+            <table className="w-full min-w-[880px]">
               <thead>
                 <tr>
                   <StickyTh>Item</StickyTh>
                   <StickyTh>Category</StickyTh>
                   <StickyTh right>Reg. qty</StickyTh>
-                  <StickyTh right>In store qty</StickyTh>
-                  <StickyTh right>In store value</StickyTh>
-                  <StickyTh right>Stocked out qty</StickyTh>
-                  <StickyTh right>Stocked out value</StickyTh>
+                  <StickyTh right>In store</StickyTh>
+                  <StickyTh right>Stocked out</StickyTh>
                   <StickyTh right>Base</StickyTh>
                   <StickyTh right>VAT</StickyTh>
                   <StickyTh right>Inclusive</StickyTh>
@@ -2693,7 +2701,7 @@ export default function StorePage() {
               </thead>
               <tbody>
                 {taxLoading && !taxGroups.length ? (
-                  <SkeletonRows cols={11} rows={6} />
+                  <SkeletonRows cols={9} rows={6} />
                 ) : (
                   visibleTaxGroups.map((group) => (
                     <tr
@@ -2708,11 +2716,17 @@ export default function StorePage() {
                       </Td>
                       <Td className="text-zinc-400">{group.category}</Td>
                       <Td right className="text-zinc-300">{qty(group.registeredQty)}</Td>
-                      <Td right className="text-sky-300">{qty(group.inStoreQty)}</Td>
-                      <Td right className="text-sky-300">{money(group.inStoreValue)}</Td>
-                      <Td right className="text-violet-300">{qty(group.stockedOutQty)}</Td>
+                      <Td right className="text-sky-300">
+                        {qty(group.inStoreQty)}
+                        <span className="block text-[10px] text-sky-300/60">
+                          {money(group.inStoreValue)}
+                        </span>
+                      </Td>
                       <Td right className="text-violet-300">
-                        {money(group.stockedOutValue)}
+                        {qty(group.stockedOutQty)}
+                        <span className="block text-[10px] text-violet-300/60">
+                          {money(group.stockedOutValue)}
+                        </span>
                       </Td>
                       <Td right>{money(group.baseValue)}</Td>
                       <Td right className="text-amber-300">{money(group.vatAmount)}</Td>

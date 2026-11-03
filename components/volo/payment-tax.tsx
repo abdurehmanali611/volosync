@@ -341,16 +341,14 @@ export function PaymentTaxPanel({
       </div>
 
       <div className="max-h-[32rem] overflow-auto rounded-md">
-        <table className="w-full min-w-[1000px]">
+        <table className="w-full min-w-[880px]">
           <thead>
             <tr>
               <StickyTh>Item</StickyTh>
               <StickyTh>Category</StickyTh>
               <StickyTh right>Reg. qty</StickyTh>
-              <StickyTh right>In store qty</StickyTh>
-              <StickyTh right>In store value</StickyTh>
-              <StickyTh right>Stocked out qty</StickyTh>
-              <StickyTh right>Stocked out value</StickyTh>
+              <StickyTh right>In store</StickyTh>
+              <StickyTh right>Stocked out</StickyTh>
               <StickyTh right>Base</StickyTh>
               <StickyTh right>VAT</StickyTh>
               <StickyTh right>Inclusive</StickyTh>
@@ -359,7 +357,7 @@ export function PaymentTaxPanel({
           </thead>
           <tbody>
             {loading && !groups.length ? (
-              <SkeletonRows cols={11} rows={6} />
+              <SkeletonRows cols={9} rows={6} />
             ) : (
               visibleGroups.map((group) => (
                 <tr key={group.key} className="transition-colors hover:bg-white/[0.03]">
@@ -375,15 +373,15 @@ export function PaymentTaxPanel({
                   </Td>
                   <Td right className="text-sky-300">
                     {qty(group.inStoreQty)}
-                  </Td>
-                  <Td right className="text-sky-300">
-                    {money(group.inStoreValue)}
+                    <span className="block text-[10px] text-sky-300/60">
+                      {money(group.inStoreValue)}
+                    </span>
                   </Td>
                   <Td right className="text-violet-300">
                     {qty(group.stockedOutQty)}
-                  </Td>
-                  <Td right className="text-violet-300">
-                    {money(group.stockedOutValue)}
+                    <span className="block text-[10px] text-violet-300/60">
+                      {money(group.stockedOutValue)}
+                    </span>
                   </Td>
                   <Td right>{money(group.baseValue)}</Td>
                   <Td right className="text-amber-300">
