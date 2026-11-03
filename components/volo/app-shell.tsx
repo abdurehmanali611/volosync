@@ -5,18 +5,10 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Boxes, ChevronRight, LogOut } from "lucide-react";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { PasswordKeyButton } from "@/components/volo/password-button";
 import {
   api,
   clearSession,
@@ -27,7 +19,6 @@ import {
   type TenantInfo,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
@@ -48,35 +39,93 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import {
-  activeLabel,
   isNavActive,
   navFor,
   portalRole,
   ROLE_META,
+  type NavChild,
 } from "@/components/volo/nav";
 import { SalesMenubar } from "@/components/volo/sales-menubar";
-import { UserMenu } from "@/components/volo/user-menu";
+import { WorkspaceTopBar } from "@/components/volo/workspace-top-bar";
 
-function PortalMark({
-  logoUrl,
-  name,
-  fallback,
+function containsView(child: NavChild, view: string | null): boolean {
+  if (!view) return false;
+  if (child.view === view) return true;
+  return Boolean(child.children?.some((entry) => containsView(entry, view)));
+}
+
+function NavSubTree({
+  children,
+  currentView,
+  openGroups,
+  onOpenChange,
 }: {
-  logoUrl?: string;
-  name: string;
-  fallback: React.ReactNode;
+  children: NavChild[];
+  currentView: string | null;
+  openGroups: Record<string, boolean>;
+  onOpenChange: (href: string, open: boolean) => void;
 }) {
-  if (logoUrl) {
-    return (
-      <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.05] p-1">
-        <img src={logoUrl} alt={name} className="size-full object-contain" />
-      </span>
-    );
-  }
   return (
-    <span className="role-icon-tile grid size-8 shrink-0 place-items-center rounded-xl">
-      {fallback}
-    </span>
+    <>
+      {children.map((child) => {
+        if (child.children) {
+          const active = containsView(child, currentView);
+          const open = openGroups[child.href] ?? active;
+          return (
+            <Collapsible
+              key={child.href}
+              open={open}
+              onOpenChange={(next) => onOpenChange(child.href, next)}
+              className="group/subnav"
+            >
+              <SidebarMenuSubItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuSubButton
+                    asChild
+                    isActive={active}
+                    className={cn(
+                      "h-9 w-full cursor-pointer rounded-lg px-2.5 text-[12.5px] text-zinc-400 transition-colors hover:bg-white/[0.055] hover:text-white",
+                      active && "font-medium text-white",
+                    )}
+                  >
+                    <button type="button" className="flex w-full items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-left">{child.label}</span>
+                      <ChevronRight className="ml-auto size-3 shrink-0 opacity-60 transition-transform group-data-[state=open]/subnav:rotate-90" />
+                    </button>
+                  </SidebarMenuSubButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub className="mx-2 my-1 gap-0.5 border-white/10 px-2 py-0.5">
+                    <NavSubTree
+                      children={child.children}
+                      currentView={currentView}
+                      openGroups={openGroups}
+                      onOpenChange={onOpenChange}
+                    />
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuSubItem>
+            </Collapsible>
+          );
+        }
+
+        const active = currentView === child.view;
+        return (
+          <SidebarMenuSubItem key={child.href}>
+            <SidebarMenuSubButton
+              asChild
+              isActive={active}
+              className={cn(
+                "h-9 rounded-lg px-2.5 text-[12.5px] text-zinc-400 transition-colors hover:bg-white/[0.055] hover:text-white",
+                active && "font-medium text-white",
+              )}
+            >
+              <Link href={child.href}>{child.label}</Link>
+            </SidebarMenuSubButton>
+          </SidebarMenuSubItem>
+        );
+      })}
+    </>
   );
 }
 
@@ -153,7 +202,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (user.role === "SALES") {
     return (
       <div className="app-shell-bg flex min-h-svh flex-col">
-        <SalesMenubar user={user} logoUrl={tenant?.logo_url} />
+        <SalesMenubar
+          user={user}
+          logoUrl={tenant?.logo_url}
+          tenantName={tenant?.name ?? user.tenant}
+        />
         <main className="relative z-[1] mx-auto w-full max-w-[1500px] min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </main>
@@ -162,20 +215,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const meta = ROLE_META[visualRole];
-  const MetaIcon = meta.icon;
   const sections = navFor(visualRole);
-  const label = activeLabel(visualRole, pathname, currentView);
 
   return (
     <SidebarProvider className="app-shell-bg">
       <Sidebar collapsible="icon" className="role-sidebar-surface">
         <SidebarHeader className="gap-2 p-3">
-          <Link
-            href={roleHome(user.role)}
-            className="group flex items-center gap-2.5 rounded-xl px-1 py-1"
-          >
+          <div className="flex items-center gap-2.5 px-1 py-1">
             {tenant?.logo_url ? (
-              <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] p-1.5 shadow-[0_14px_32px_-16px_var(--role-1)] ring-1 ring-white/10 transition-transform group-hover:scale-[1.04]">
+              <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] p-1.5 shadow-[0_14px_32px_-16px_var(--role-1)] ring-1 ring-white/10">
                 <img
                   src={tenant.logo_url}
                   alt={tenant.name}
@@ -183,7 +231,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 />
               </span>
             ) : (
-              <span className="role-gradient-bg grid size-10 shrink-0 place-items-center rounded-2xl text-white shadow-[0_14px_32px_-14px_var(--role-1)] ring-1 ring-white/20 transition-transform group-hover:scale-[1.04]">
+              <span className="role-gradient-bg grid size-10 shrink-0 place-items-center rounded-2xl text-white shadow-[0_14px_32px_-14px_var(--role-1)] ring-1 ring-white/20">
                 <Boxes className="size-5" />
               </span>
             )}
@@ -195,15 +243,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {meta.label} portal
               </span>
             </span>
-          </Link>
-          <div className="role-chip flex items-center gap-2 rounded-xl px-2.5 py-2 text-[11px] font-medium group-data-[collapsible=icon]:hidden">
-            <span className="size-1.5 shrink-0 rounded-full bg-role-1 shadow-[0_0_10px_var(--role-1)]" />
-            <span className="truncate">{user.tenant}</span>
           </div>
         </SidebarHeader>
         <div className="role-hairline mx-3 opacity-50" />
 
-        <SidebarContent className="px-1.5 pt-2 pb-2">
+        <SidebarContent className="px-2 pt-2 pb-2">
           {sections.map((section) => (
             <SidebarGroup key={section.label} className="p-1.5">
               <SidebarGroupLabel className="flex items-center gap-2 px-2 text-[9px] font-semibold tracking-[0.22em] text-white/35 uppercase">
@@ -211,10 +255,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <span className="h-px flex-1 bg-white/5" />
               </SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu className="gap-0.5">
+                <SidebarMenu className="gap-1">
                   {section.items.map((leaf) => {
                     const active = isNavActive(leaf, pathname, currentView);
-                    if (leaf.children?.length) {
+                    if (leaf.children) {
                       const open = openGroups[leaf.href] ?? active;
                       return (
                         <Collapsible
@@ -234,7 +278,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                                 isActive={active}
                                 tooltip={leaf.label}
                                 className={cn(
-                                  "h-9 w-full rounded-xl px-2.5 text-[13px] text-zinc-400 transition-all duration-150 hover:bg-white/[0.055] hover:text-white",
+                                  "h-10 w-full cursor-pointer rounded-xl px-3 text-[13px] text-zinc-400 transition-colors hover:bg-white/[0.055] hover:text-white data-[active=true]:shadow-sm",
                                   active && "role-nav-active font-medium",
                                 )}
                               >
@@ -244,25 +288,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               </SidebarMenuButton>
                             </CollapsibleTrigger>
                             <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
-                              <SidebarMenuSub className="mx-2 my-1 gap-0.5 border-white/10 px-2 py-0.5">
-                                {leaf.children.map((child) => {
-                                  const childActive = currentView === child.view;
-                                  return (
-                                    <SidebarMenuSubItem key={child.href}>
-                                      <SidebarMenuSubButton
-                                        asChild
-                                        isActive={childActive}
-                                        className={cn(
-                                          "h-8 rounded-lg px-2 text-[12px] text-zinc-500 transition-colors hover:bg-white/[0.05] hover:text-white",
-                                          childActive && "font-medium text-white",
-                                        )}
-                                      >
-                                        <Link href={child.href}>{child.label}</Link>
-                                      </SidebarMenuSubButton>
-                                    </SidebarMenuSubItem>
-                                  );
-                                })}
-                              </SidebarMenuSub>
+                              {leaf.children.length ? (
+                                <SidebarMenuSub className="mx-2 my-1 gap-0.5 border-white/10 px-2 py-0.5">
+                                  <NavSubTree
+                                    children={leaf.children}
+                                    currentView={currentView}
+                                    openGroups={openGroups}
+                                    onOpenChange={(href, open) =>
+                                      setOpenGroups((current) => ({
+                                        ...current,
+                                        [href]: open,
+                                      }))
+                                    }
+                                  />
+                                </SidebarMenuSub>
+                              ) : (
+                                <p className="mx-2 my-1 px-2 py-1 text-[11px] italic text-zinc-600">
+                                  Nothing here yet.
+                                </p>
+                              )}
                             </CollapsibleContent>
                           </SidebarMenuItem>
                         </Collapsible>
@@ -275,7 +319,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           isActive={active}
                           tooltip={leaf.label}
                           className={cn(
-                            "h-9 rounded-xl px-2.5 text-[13px] text-zinc-400 transition-all duration-150 hover:bg-white/[0.055] hover:text-white",
+                            "h-10 cursor-pointer rounded-xl px-3 text-[13px] text-zinc-400 transition-colors hover:bg-white/[0.055] hover:text-white data-[active=true]:shadow-sm",
                             active && "role-nav-active font-medium",
                           )}
                         >
@@ -309,42 +353,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Sidebar>
 
       <SidebarInset className="app-frame relative min-h-svh min-w-0">
-        <header className="workspace-chrome relative z-30 flex h-14 shrink-0 items-center gap-3 border-b border-white/5 px-4 sm:px-6 md:h-16">
-          <SidebarTrigger className="-ml-1 text-zinc-400 hover:bg-white/[0.06] hover:text-white" />
-          <Separator orientation="vertical" className="h-5 bg-white/10" />
-          <div className="flex min-w-0 items-center gap-2.5">
-            <PortalMark
-              logoUrl={tenant?.logo_url}
-              name={tenant?.name ?? user.tenant}
-              fallback={<MetaIcon className="size-4" />}
-            />
-            <div className="min-w-0">
-              <p className="text-[8.5px] font-semibold tracking-[0.22em] text-zinc-500 uppercase">
-                {meta.label} workspace
-              </p>
-              <p className="role-text truncate text-[13px] font-semibold tracking-[0.12em] uppercase">
-                {label}
-              </p>
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Breadcrumb className="hidden sm:block">
-              <BreadcrumbList className="items-center gap-1.5 text-[11px]">
-                <BreadcrumbItem>
-                  <span className="max-w-40 truncate text-zinc-400">
-                    {tenant?.name ?? user.tenant}
-                  </span>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="text-zinc-600" />
-                <BreadcrumbPage className="role-text text-[10px] font-semibold tracking-[0.18em] uppercase">
-                  {visualRole}
-                </BreadcrumbPage>
-              </BreadcrumbList>
-            </Breadcrumb>
-            <PasswordKeyButton />
-            <UserMenu user={user} workspaceLabel={meta.label} />
-          </div>
-        </header>
+        <WorkspaceTopBar
+          user={user}
+          tenantName={tenant?.name ?? user.tenant}
+          logoUrl={tenant?.logo_url}
+          workspaceLabel={meta.label}
+          sidebarTrigger={
+            <SidebarTrigger className="-ml-1 shrink-0 text-zinc-400 hover:bg-white/[0.06] hover:text-white" />
+          }
+        />
         <div className="relative z-[1] flex-1 md:min-h-0 md:overflow-y-auto">
           <div className="mx-auto w-full max-w-[1500px] min-w-0 px-4 py-6 sm:px-6 lg:px-8">
             {children}

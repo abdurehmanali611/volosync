@@ -135,9 +135,11 @@
   --role-1: #c084fc;
   --role-2: #f472b6;
 }
+/* HR shares the Manager purple/pink palette so people ops reads as part of
+   the same governance workspace. */
 [data-role="HR"] {
-  --role-1: #fbbf24;
-  --role-2: #fb7185;
+  --role-1: #c084fc;
+  --role-2: #f472b6;
 }
 [data-role="SALES"] {
   --role-1: #fb7185;

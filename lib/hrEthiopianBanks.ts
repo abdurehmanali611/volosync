@@ -1,0 +1,32 @@
+/** Common Ethiopian commercial banks for HR payroll / employee master. */
+export const ETHIOPIAN_BANKS = [
+  "Commercial Bank of Ethiopia",
+  "Awash Bank",
+  "Bank of Abyssinia",
+  "Dashen Bank",
+  "Cooperative Bank of Oromia",
+  "Wegagen Bank",
+  "United Bank",
+  "Nib International Bank",
+  "Hibret Bank",
+  "Lion International Bank",
+  "Zemen Bank",
+  "Bunna International Bank",
+  "Abay Bank",
+  "Addis International Bank",
+  "Debub Global Bank",
+  "Enat Bank",
+  "Goh Betoch Bank",
+  "Hijra Bank",
+  "Siinqee Bank",
+  "Tsedey Bank",
+  "Amhara Bank",
+  "Ahadu Bank",
+  "Shabelle Bank",
+  "Tsehay Bank",
+  "Gadaa Bank",
+  "Oromia Bank",
+  "Development Bank of Ethiopia",
+] as const;
+
+export type EthiopianBank = (typeof ETHIOPIAN_BANKS)[number];

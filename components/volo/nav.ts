@@ -1,43 +1,31 @@
 import type { Role } from "@/lib/api";
 import {
   Banknote,
-  Bell,
-  Briefcase,
-  CalendarCheck,
-  CalendarDays,
   ChartColumn,
   ClipboardCheck,
   ClipboardList,
-  Clock,
-  Coins,
   Crown,
-  FileText,
   HandCoins,
   KeyRound,
-  ListChecks,
-  MessagesSquare,
   MinusCircle,
   PackageSearch,
   Printer,
   ReceiptText,
   ScrollText,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Store,
   Truck,
-  UserCog,
-  UserRound,
   Users,
   Wallet,
   Warehouse,
-  Workflow,
 } from "lucide-react";
 
 export type NavChild = {
   label: string;
   href: string;
   view: string;
+  children?: NavChild[];
 };
 
 export type NavLeaf = {
@@ -55,13 +43,24 @@ export type NavSection = {
 
 export const ROLE_META: Record<
   Role,
-  { label: string; tagline: string; icon: React.ComponentType<{ className?: string }> }
+  {
+    label: string;
+    tagline: string;
+    icon: React.ComponentType<{ className?: string }>;
+    /** Portal roots whose menus render outside the shared sidebar. */
+    views?: string[];
+  }
 > = {
   STORE: { label: "Store", tagline: "Intake, stock control & dispatch", icon: Store },
   FINANCE: { label: "Finance", tagline: "Approvals, tax & reconciliation", icon: Wallet },
   MANAGER: { label: "Manager", tagline: "Final approvals & governance", icon: ShieldCheck },
   HR: { label: "HR", tagline: "People, hours & payroll", icon: Users },
-  SALES: { label: "Sales agent", tagline: "Your stock & settlements", icon: HandCoins },
+  SALES: {
+    label: "Sales agent",
+    tagline: "Your stock & settlements",
+    icon: HandCoins,
+    views: ["sales", "orders", "history"],
+  },
   OWNER: { label: "Owner", tagline: "Tenant-wide insight", icon: Crown },
 };
 
@@ -71,7 +70,7 @@ export const DEFAULT_VIEW: Record<string, string> = {
   "/finance": "sales",
   "/manager": "approvals",
   "/hr": "employees",
-  "/sales": "stock",
+  "/sales": "sales",
 };
 
 /** The portal a route belongs to — independent of who signed in. */
@@ -83,23 +82,35 @@ export function portalRole(pathname: string): Role {
   return "STORE";
 }
 
+type NavChildSpec = {
+  label: string;
+  view: string;
+  children?: NavChildSpec[];
+};
+
+function childrenOf(base: string, specs?: NavChildSpec[]): NavChild[] | undefined {
+  if (!specs) return undefined;
+  return specs.map((spec) => ({
+    label: spec.label,
+    view: spec.view,
+    href: `${base}?view=${spec.view}`,
+    children: childrenOf(base, spec.children),
+  }));
+}
+
 function item(
   label: string,
   base: string,
   view: string,
   icon: NavLeaf["icon"],
-  children?: { label: string; view: string }[],
+  children?: NavChildSpec[],
 ): NavLeaf {
   return {
     label,
     href: `${base}?view=${view}`,
     view,
     icon,
-    children: children?.map((child) => ({
-      label: child.label,
-      view: child.view,
-      href: `${base}?view=${child.view}`,
-    })),
+    children: childrenOf(base, children),
   };
 }
 
@@ -107,7 +118,6 @@ const STORE_ROOT = "/store";
 const FINANCE_ROOT = "/finance";
 const MANAGER_ROOT = "/manager";
 const HR_ROOT = "/hr";
-const SALES_ROOT = "/sales";
 
 /**
  * Mirrors the views each portal's original tab strip offered — no more,
@@ -173,95 +183,75 @@ export const ROLE_NAV: Record<Role, NavSection[]> = {
   ],
   MANAGER: [
     {
-      label: "Insight",
-      items: [item("Reports", MANAGER_ROOT, "reports", ChartColumn)],
-    },
-    {
       label: "Control",
       items: [
-        item("Approvals", MANAGER_ROOT, "approvals", ShieldCheck),
-        item("Inventory", MANAGER_ROOT, "inventory", Warehouse),
-        item("Payment & tax", MANAGER_ROOT, "tax", ReceiptText, [
-          { label: "All lines", view: "tax" },
-          { label: "With VAT", view: "tax-with" },
-          { label: "Without VAT", view: "tax-without" },
+        item("Inventory", MANAGER_ROOT, "inventory", Warehouse, [
+          { label: "Reports", view: "reports" },
+          { label: "Approvals", view: "approvals" },
+          { label: "Inventory", view: "inventory" },
+          {
+            label: "Payment & tax",
+            view: "tax",
+            children: [
+              { label: "All lines", view: "tax" },
+              { label: "With VAT", view: "tax-with" },
+              { label: "Without VAT", view: "tax-without" },
+            ],
+          },
+          { label: "Agents", view: "agents" },
+          { label: "Promotions", view: "promotions" },
+          { label: "Assets", view: "assets" },
         ]),
-        item("Agents", MANAGER_ROOT, "agents", Users),
         item("Access", MANAGER_ROOT, "access", KeyRound),
-        item("Promotions", MANAGER_ROOT, "promotions", Sparkles),
-        item("Assets", MANAGER_ROOT, "assets", Wallet),
-      ],
-    },
-    {
-      label: "People & HR",
-      items: [
-        item("OTP Resets", MANAGER_ROOT, "hr-otp", KeyRound),
-        item("Departments", MANAGER_ROOT, "hr-departments", Briefcase),
-        item("Workflows", MANAGER_ROOT, "hr-workflows", Workflow),
-        item("Leave types", MANAGER_ROOT, "hr-leave-types", CalendarDays),
-        item("Incident types", MANAGER_ROOT, "hr-incident-types", ShieldAlert),
-        item("Shift templates", MANAGER_ROOT, "hr-shifts", Clock),
-        item("Checklist templates", MANAGER_ROOT, "hr-checklists", ListChecks),
-        item("Hiring desk", MANAGER_ROOT, "hr-ats", ClipboardCheck),
-        item("Chat control", MANAGER_ROOT, "hr-chat", MessagesSquare),
+        item("HR", MANAGER_ROOT, "hr", Users, [
+          // Round one — the original Manager control surface.
+          { label: "Overview", view: "hr" },
+          {
+            label: "Approvals",
+            view: "hr-approvals",
+            children: [
+              { label: "Terminations", view: "hr-termination" },
+              { label: "Attendance", view: "hr-attendance" },
+              { label: "Payroll", view: "hr-payroll" },
+            ],
+          },
+          { label: "OTP resets", view: "hr-otp" },
+          { label: "ATS OTP", view: "hr-ats-otp" },
+          { label: "Chat control", view: "hr-chat" },
+          { label: "Workflows", view: "hr-workflows" },
+          { label: "Leave types", view: "hr-leave-types" },
+          // Round two — attendance reporting through nested payroll control.
+          { label: "Attendance", view: "hr-attendance-report" },
+          { label: "Incident types", view: "hr-incident-types" },
+          { label: "Departments", view: "hr-departments" },
+          { label: "Documents", view: "hr-documents" },
+          { label: "Shift templates", view: "hr-shifts" },
+          { label: "Checklists", view: "hr-checklists" },
+          { label: "Compensation", view: "hr-compensation" },
+          { label: "People ops", view: "hr-people-ops" },
+          {
+            label: "Payroll",
+            view: "hr-payroll-runs",
+            children: [
+              { label: "Runs & pay", view: "hr-payroll-runs" },
+              { label: "Settings", view: "hr-payroll-settings" },
+              { label: "History", view: "hr-payroll-history" },
+            ],
+          },
+        ]),
       ],
     },
   ],
   HR: [
     {
-      label: "People",
-      items: [
-        item("People", HR_ROOT, "employees", Users),
-      ],
-    },
-    {
-      label: "Operations",
-      items: [
-        item("Shifts", HR_ROOT, "shifts", Clock),
-        item("Checklists", HR_ROOT, "checklists", ListChecks),
-        item("People Ops", HR_ROOT, "people", UserCog),
-        item("Leave", HR_ROOT, "leave", CalendarDays),
-        item("Attendance", HR_ROOT, "attendance", CalendarCheck),
-      ],
-    },
-    {
-      label: "Records",
-      items: [
-        item("Payroll", HR_ROOT, "payroll", Coins),
-        item("Incidents", HR_ROOT, "incidents", ShieldAlert),
-        item("Documents", HR_ROOT, "documents", FileText),
-      ],
-    },
-    {
-      label: "Communication",
-      items: [
-        item("Notifications", HR_ROOT, "notifications", Bell),
-      ],
-    },
-    {
-      label: "Portals",
-      items: [
-        item("Employee Portal", HR_ROOT, "emp", UserRound),
-      ],
-    },
-    {
       label: "Account",
       items: [item("Password", HR_ROOT, "password", KeyRound)],
     },
   ],
-  SALES: [
-    {
-      label: "My work",
-      items: [
-        item("My stock", SALES_ROOT, "stock", PackageSearch),
-        item("My history", SALES_ROOT, "history", ClipboardList),
-      ],
-    },
-    {
-      label: "Account",
-      items: [item("Password", SALES_ROOT, "password", KeyRound)],
-    },
-  ],
+  // The Sales portal has no sidebar: its flat menus live in the right-aligned
+  // menubar under the top bar (components/volo/sales-menubar.tsx), and the
+  // password changer already sits in the top bar for every role.
+  SALES: [],
   OWNER: [
     {
       label: "Control",
@@ -281,6 +271,11 @@ export function defaultViewFor(pathname: string): string {
   return DEFAULT_VIEW[pathname] ?? "";
 }
 
+function matchesView(child: NavChild, view: string): boolean {
+  if (child.view === view) return true;
+  return Boolean(child.children?.some((entry) => matchesView(entry, view)));
+}
+
 export function isNavActive(
   leaf: NavLeaf,
   pathname: string,
@@ -292,7 +287,16 @@ export function isNavActive(
   // Store's Payment & tax tab also covers its with/without VAT sub-views.
   if (base === STORE_ROOT && leaf.view === "tax") return view.startsWith("tax");
   if (leaf.view === view) return true;
-  return Boolean(leaf.children?.some((child) => child.view === view));
+  return Boolean(leaf.children?.some((child) => matchesView(child, view)));
+}
+
+function childLabel(child: NavChild, view: string): string | null {
+  if (child.view === view) return child.label;
+  for (const entry of child.children ?? []) {
+    const nested = childLabel(entry, view);
+    if (nested) return nested;
+  }
+  return null;
 }
 
 export function activeLabel(
@@ -304,8 +308,9 @@ export function activeLabel(
   for (const section of navFor(role)) {
     for (const leaf of section.items) {
       if (isNavActive(leaf, pathname, currentView)) {
-        const child = leaf.children?.find((entry) => entry.view === view);
-        return child?.label ?? leaf.label;
+        const child =
+          leaf.children?.find((entry) => matchesView(entry, view)) ?? null;
+        return (child ? childLabel(child, view) : null) ?? leaf.label;
       }
     }
   }

@@ -45,10 +45,10 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  AlertTriangle,
   FileDown,
   Filter,
   Image as ImageIcon,
-  Landmark,
   Loader2,
   PackageMinus,
   Plus,
@@ -56,7 +56,6 @@ import {
   Receipt,
   RotateCcw,
   ShieldCheck,
-  Smartphone,
   Sparkles,
   Trash2,
   Wallet,
@@ -64,6 +63,7 @@ import {
 } from "lucide-react";
 import {
   EmptyRow,
+  Field,
   PageHeader,
   Panel,
   StatCard,
@@ -73,7 +73,7 @@ import {
 import { PaymentTaxPanel, TableSearch } from "@/components/volo/payment-tax";
 import { FinancePayrollSection } from "@/components/finance/finance-payroll";
 import { groupLotsByItem, matchesQuery } from "@/components/volo/lots";
-import { ComboSelect, DateField } from "@/components/volo/controls";
+import { ComboSelect, DateField, PaymentMethodPicker } from "@/components/volo/controls";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,33 +90,6 @@ const METHODS = [
   { value: "TELEBIRR", label: "Telebirr" },
   { value: "BANK", label: "Bank" },
   { value: "RECEIPT", label: "Receipt (cash)" },
-];
-
-const METHOD_CARDS = [
-  {
-    value: "TELEBIRR",
-    label: "Telebirr",
-    hint: "Mobile wallet",
-    icon: Smartphone,
-    active: "border-violet-400/50 bg-violet-500/15 text-violet-200 shadow-[0_0_24px_-10px_rgba(167,139,250,0.9)]",
-    idle: "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-violet-400/30 hover:text-violet-200",
-  },
-  {
-    value: "BANK",
-    label: "Bank transfer",
-    hint: "Account transfer",
-    icon: Landmark,
-    active: "border-sky-400/50 bg-sky-500/15 text-sky-200 shadow-[0_0_24px_-10px_rgba(56,189,248,0.9)]",
-    idle: "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-sky-400/30 hover:text-sky-200",
-  },
-  {
-    value: "RECEIPT",
-    label: "Cash receipt",
-    hint: "Counter cash",
-    icon: Banknote,
-    active: "border-amber-400/50 bg-amber-500/15 text-amber-200 shadow-[0_0_24px_-10px_rgba(251,191,36,0.9)]",
-    idle: "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-amber-400/30 hover:text-amber-200",
-  },
 ];
 
 const SETTLEMENT_STATUSES = [
@@ -148,17 +121,40 @@ const categoryLabel = (code: string) =>
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
 
-type StagedSale = {
-  assignment: number;
-  item_name: string;
-  voucher_number: string;
-  agent_name: string;
-  assigned_quantity: string;
+const registrationDate = (value?: string | null) => {
+  if (!value) return "—";
+  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+type SaleLine = {
+  key: number;
+  item: string;
+  assignment: string;
   sold_quantity: string;
-  payment_method: string;
-  sales_amount: string;
+  method: string;
   penalty: boolean;
 };
+
+function blankSaleLine(key: number): SaleLine {
+  return {
+    key,
+    item: "",
+    assignment: "",
+    sold_quantity: "",
+    method: "TELEBIRR",
+    penalty: false,
+  };
+}
+
+const SALE_LINE_ACCENTS = [
+  { bar: "from-emerald-400 to-teal-300", chip: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" },
+  { bar: "from-violet-400 to-fuchsia-300", chip: "border-violet-400/30 bg-violet-400/10 text-violet-200" },
+  { bar: "from-sky-400 to-cyan-300", chip: "border-sky-400/30 bg-sky-400/10 text-sky-200" },
+];
 
 export default function FinancePage() {
   const [view] = useView("sales");
@@ -199,14 +195,9 @@ export default function FinancePage() {
   const [queueRegQuery, setQueueRegQuery] = useState("");
   const [queueStockQuery, setQueueStockQuery] = useState("");
 
-  // sales approval form
-  const [item, setItem] = useState("");
-  const [assignmentId, setAssignmentId] = useState("");
-  const [method, setMethod] = useState("TELEBIRR");
-  const [soldQuantity, setSoldQuantity] = useState("");
-  const [salesAmount, setSalesAmount] = useState("");
-  const [penalty, setPenalty] = useState(false);
-  const [staged, setStaged] = useState<StagedSale[]>([]);
+  // sales approval form — independent lines posted as one batch
+  const nextSaleLineKey = useRef(2);
+  const [saleLines, setSaleLines] = useState<SaleLine[]>([blankSaleLine(1)]);
 
   // promotion form
   const [promoDate, setPromoDate] = useState(today());
@@ -348,13 +339,6 @@ export default function FinancePage() {
     };
   }, [view, promoFrom, promoTo]);
 
-  const agentOptions = useMemo(
-    () => assignments.filter((row) => String(row.lot) === item),
-    [assignments, item],
-  );
-
-  const chosen = assignments.find((row) => String(row.assignment) === assignmentId);
-
   const settlementFilterActive = Object.values(settlementFilters).some(Boolean);
 
   async function reloadSettlements(filters: SettlementFilterState) {
@@ -387,50 +371,89 @@ export default function FinancePage() {
     reloadSettlements(EMPTY_SETTLEMENT_FILTERS);
   }
 
-  function stageSale() {
-    if (!chosen) {
-      toast.error("Choose the item and the sales agent first.");
-      return;
-    }
-    if (!Number(soldQuantity) || Number(soldQuantity) > Number(chosen.assigned_quantity)) {
-      toast.error("Sold quantity must be between 0 and the assigned quantity.");
-      return;
-    }
-    setStaged((current) => [
-      ...current,
-      {
-        assignment: chosen.assignment,
-        item_name: chosen.item_name,
-        voucher_number: chosen.voucher_number,
-        agent_name: chosen.agent_name,
-        assigned_quantity: chosen.assigned_quantity,
-        sold_quantity: soldQuantity,
-        payment_method: method,
-        sales_amount: salesAmount || "0",
-        penalty,
-      },
-    ]);
-    setAssignmentId("");
-    setSoldQuantity("");
-    setSalesAmount("");
-    setPenalty(false);
+  function patchSaleLine(key: number, patch: Partial<SaleLine>) {
+    setSaleLines((current) =>
+      current.map((line) => (line.key === key ? { ...line, ...patch } : line)),
+    );
   }
 
+  function addSaleLine() {
+    setSaleLines((current) => [
+      ...current,
+      blankSaleLine(nextSaleLineKey.current++),
+    ]);
+  }
+
+  function removeSaleLine(key: number) {
+    setSaleLines((current) =>
+      current.length === 1
+        ? [blankSaleLine(nextSaleLineKey.current++)]
+        : current.filter((line) => line.key !== key),
+    );
+  }
+
+  // With the Sales role on, agents raise their own approvals and Finance only
+  // verifies them — the manual entry form would collide with their submissions.
+  const salesEnabled = Boolean(dashboard?.tenant.sales_role_enabled);
+
+  const lineAgents = (line: SaleLine) =>
+    assignments.filter((row) => String(row.lot) === line.item);
+  const lineChosen = (line: SaleLine) =>
+    assignments.find((row) => String(row.assignment) === line.assignment);
+  const lineAmount = (line: SaleLine) => {
+    const picked = lineChosen(line);
+    return picked ? Number(picked.unit_price) * Number(line.sold_quantity || 0) : 0;
+  };
+  const readySaleLines = saleLines.filter(
+    (line) => line.assignment && Number(line.sold_quantity) > 0,
+  );
+  const stagedTotal = readySaleLines.reduce(
+    (sum, line) => sum + lineAmount(line),
+    0,
+  );
+
   async function submitStaged() {
-    if (!staged.length) return;
+    if (!readySaleLines.length) {
+      toast.error("Add at least one sale line first.");
+      return;
+    }
+    const invalid = saleLines.find((line) => {
+      if (!line.assignment && !line.sold_quantity) return false;
+      const picked = lineChosen(line);
+      return (
+        !picked ||
+        !Number(line.sold_quantity) ||
+        Number(line.sold_quantity) > Number(picked.assigned_quantity)
+      );
+    });
+    if (invalid) {
+      toast.error(
+        "Each filled line needs a sales agent and a sold quantity within the assignment.",
+      );
+      return;
+    }
+    const duplicate = readySaleLines.find(
+      (line, index) =>
+        readySaleLines.findIndex((other) => other.assignment === line.assignment) !==
+        index,
+    );
+    if (duplicate) {
+      toast.error("Each assignment can appear only once per batch.");
+      return;
+    }
     setBusy(true);
     try {
-      for (const row of staged) {
+      for (const line of readySaleLines) {
         await salesApi.createSettlement({
-          assignment: row.assignment,
-          sold_quantity: row.sold_quantity,
-          payment_method: row.payment_method,
-          sales_amount: row.sales_amount,
-          penalty: row.penalty,
+          assignment: Number(line.assignment),
+          sold_quantity: line.sold_quantity,
+          payment_method: line.method,
+          sales_amount: lineAmount(line).toFixed(2),
+          penalty: line.penalty,
         });
       }
-      toast.success(`${staged.length} sales line(s) sent for approval.`);
-      setStaged([]);
+      toast.success(`${readySaleLines.length} sales line(s) sent for approval.`);
+      setSaleLines([blankSaleLine(nextSaleLineKey.current++)]);
       settlementFiltersRef.current = EMPTY_SETTLEMENT_FILTERS;
       setSettlementFilters(EMPTY_SETTLEMENT_FILTERS);
       await load();
@@ -441,11 +464,26 @@ export default function FinancePage() {
     }
   }
 
-  async function decideSettlement(id: number, decision: "APPROVED" | "REJECTED") {
-    setDecidingKey(`settlement-${id}-${decision}`);
+  /**
+   * Finance's verdict on one settlement. Approving with a penalty is only
+   * allowed when the agent brought stock back unsold, and every approval hands
+   * the document to the Manager, who releases the remainings back to the store.
+   */
+  async function settleDecision(id: number, verdict: "approve" | "penalty" | "decline") {
+    setDecidingKey(`settlement-${id}-${verdict}`);
     try {
-      await salesApi.decideSettlement(id, decision);
-      toast.success(`Settlement ${decision.toLowerCase()}.`);
+      if (verdict === "decline") {
+        await salesApi.decideSettlement(id, "REJECTED");
+      } else {
+        await salesApi.decideSettlement(id, "APPROVED", "", verdict === "penalty");
+      }
+      toast.success(
+        verdict === "approve"
+          ? "Verified — sent to the Manager."
+          : verdict === "penalty"
+            ? "Approved with penalty — sent to the Manager."
+            : "Settlement declined.",
+      );
       await load();
     } catch (error) {
       toast.error(errorMessage(error, "Decision failed"));
@@ -963,252 +1001,342 @@ export default function FinancePage() {
       <PageHeader
         eyebrow="Finance workspace"
         title="Sales approval, promotions & tax"
-        description="Enter or verify sales, raise promotions for the manufacturer and keep the VAT picture straight."
+        description="Verify agent sales, raise promotions for the manufacturer and keep the VAT picture straight."
+        stats={
+          <>
+            <StatCard
+              label="Awaiting finance"
+              value={String(
+                awaitingFinance.registrations.length +
+                  awaitingFinance.stockouts.length +
+                  awaitingFinance.settlements.length,
+              )}
+              hint="Store documents & settlements"
+              tone="amber"
+              icon={<ShieldCheck className="size-4" />}
+            />
+            <StatCard
+              label="Settled sales"
+              value={money(
+                settlements
+                  .filter((row) => row.status === "APPROVED")
+                  .reduce((sum, row) => sum + Number(row.sales_amount), 0),
+              )}
+              hint={`${settlements.filter((row) => row.status === "APPROVED").length} approved lines`}
+              tone="violet"
+              icon={<Banknote className="size-4" />}
+            />
+          </>
+        }
       />
-
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Awaiting finance"
-          value={String(
-            awaitingFinance.registrations.length +
-              awaitingFinance.stockouts.length +
-              awaitingFinance.settlements.length,
-          )}
-          hint="Store documents & settlements"
-          tone="amber"
-          icon={<ShieldCheck className="size-4" />}
-        />
-        <StatCard
-          label="Input VAT"
-          value={money(summary?.totals.total_input_vat ?? 0)}
-          hint="Reclaimable on registered cost"
-          tone="emerald"
-          icon={<Receipt className="size-4" />}
-        />
-        <StatCard
-          label="Settled sales"
-          value={money(
-            settlements
-              .filter((row) => row.status === "APPROVED")
-              .reduce((sum, row) => sum + Number(row.sales_amount), 0),
-          )}
-          hint={`${settlements.filter((row) => row.status === "APPROVED").length} approved lines`}
-          tone="violet"
-          icon={<Banknote className="size-4" />}
-        />
-        <StatCard
-          label="Assets on the books"
-          value={money(assets.reduce((sum, asset) => sum + Number(asset.book_value), 0))}
-          hint={`${assets.filter((asset) => asset.status === "ASSIGNED").length} assigned`}
-          tone="sky"
-          icon={<Wallet className="size-4" />}
-        />
-      </div>
 
       {view === "sales" && (
         <div className="space-y-4">
           <Panel
-            title="Sales approval"
-            description="Stage the sold quantities, then post them as one batch. Returns go back to the exact voucher at approval."
+            title="Sales approvals"
+            description="Finance's decision on every agent handover. Approving forwards it to the Manager, and the Manager's approval puts any unsold remainings back into the store."
             actions={
-              <Button
-                size="sm"
-                onClick={submitStaged}
-                disabled={busy || !staged.length}
-                className="gap-2 bg-emerald-600 text-white shadow-[0_12px_30px_-16px_rgba(16,185,129,0.9)] hover:bg-emerald-500"
-              >
-                {busy ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <Check className="size-3.5" />
-                )}
-                Post {staged.length || ""} sale{staged.length === 1 ? "" : "s"}
-              </Button>
+              <span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 font-mono text-[11px] text-amber-300">
+                {awaitingFinance.settlements.length} awaiting finance
+              </span>
             }
           >
-            <div className="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-linear-to-br from-emerald-500/[0.08] via-[#0b0b13] to-violet-500/[0.07] p-4">
-              <div className="pointer-events-none absolute -top-20 -right-12 size-48 rounded-full bg-emerald-400/10 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-24 -left-16 size-48 rounded-full bg-violet-400/10 blur-3xl" />
-              <div className="relative">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <p className="flex items-center gap-2 text-[10px] font-semibold tracking-[0.18em] text-emerald-300 uppercase">
-                    <Sparkles className="size-3.5" /> Batch sale line
-                  </p>
-                  <span className="text-[11px] text-zinc-500">
-                    Add every line, then post the batch in one go.
-                  </span>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <Field label="Item (open stock)">
-                    <ComboSelect
-                      value={item}
-                      onChange={(value) => {
-                        setItem(value);
-                        setAssignmentId("");
-                      }}
-                      options={openItems.map((row) => ({
-                        value: String(row.lot),
-                        label: `${row.item_name} · ${row.voucher_number} (${qty(row.assigned_quantity)} out)`,
-                      }))}
-                      placeholder="Choose open stock…"
-                      searchPlaceholder="Search item or voucher…"
-                      emptyText="No open stock found."
-                    />
-                  </Field>
-                  <Field label="Sales agent">
-                    <ComboSelect
-                      value={assignmentId}
-                      onChange={(value) => {
-                        setAssignmentId(value);
-                        const row = assignments.find(
-                          (candidate) => String(candidate.assignment) === value,
-                        );
-                        setSoldQuantity(row?.assigned_quantity ?? "");
-                        setSalesAmount(row?.expected_amount ?? "");
-                      }}
-                      options={agentOptions.map((row) => ({
-                        value: String(row.assignment),
-                        label: `${row.agent_name || "Unassigned"} · ${qty(row.assigned_quantity)} @ ${money(row.unit_price)}`,
-                      }))}
-                      placeholder="Choose the agent…"
-                      searchPlaceholder="Search sales agents…"
-                      emptyText="No agent holds this voucher."
-                    />
-                  </Field>
-                  <Field
-                    label={`Sold quantity${chosen ? ` (max ${qty(chosen.assigned_quantity)})` : ""}`}
-                  >
-                    <Input
-                      type="number"
-                      step="0.001"
-                      value={soldQuantity}
-                      onChange={(event) => setSoldQuantity(event.target.value)}
-                      className="border-white/10 bg-white/[0.03]"
-                    />
-                  </Field>
-                  <Field label="Sales amount">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={salesAmount}
-                      onChange={(event) => setSalesAmount(event.target.value)}
-                      className="border-white/10 bg-white/[0.03]"
-                    />
-                  </Field>
-                </div>
-
-                <div className="mt-3">
-                  <Field label="Payment approval method">
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      {METHOD_CARDS.map((option) => {
-                        const Icon = option.icon;
-                        const active = method === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setMethod(option.value)}
-                            aria-pressed={active}
-                            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
-                              active ? option.active : option.idle
-                            }`}
-                          >
-                            <span
-                              className={`grid size-8 shrink-0 place-items-center rounded-lg border ${
-                                active
-                                  ? "border-current/30 bg-white/10"
-                                  : "border-white/10 bg-white/[0.03]"
-                              }`}
-                            >
-                              <Icon className="size-4" />
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block text-xs font-semibold">{option.label}</span>
-                              <span className="block text-[10px] opacity-70">{option.hint}</span>
-                            </span>
-                            {active && <Check className="ml-auto size-4 shrink-0" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </Field>
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                  <label
-                    className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${
-                      penalty
-                        ? "border-rose-400/40 bg-rose-500/15 text-rose-200"
-                        : "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-rose-400/30 hover:text-rose-200"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={penalty}
-                      onChange={(event) => setPenalty(event.target.checked)}
-                      className="size-3.5 accent-rose-400"
-                    />
-                    Penalty
-                    <span className="text-[10px] opacity-70">affects agent ranking</span>
-                  </label>
-                  <Button
-                    onClick={stageSale}
-                    className="gap-2 bg-emerald-600 text-white shadow-[0_12px_30px_-14px_rgba(16,185,129,0.9)] hover:bg-emerald-500"
-                  >
-                    <Plus className="size-3.5" /> Add to batch
-                  </Button>
-                </div>
-
-                {!!staged.length && (
-                  <div className="mt-4 space-y-2 border-t border-white/10 pt-3">
-                    <div className="flex items-center justify-between text-[10px] font-semibold tracking-[0.16em] text-zinc-500 uppercase">
-                      <span>
-                        {staged.length} staged line{staged.length === 1 ? "" : "s"}
-                      </span>
-                      <span className="text-emerald-300">
-                        {money(staged.reduce((sum, row) => sum + Number(row.sales_amount || 0), 0))}
-                      </span>
-                    </div>
-                    {staged.map((row, index) => (
-                      <div
-                        key={index}
-                        className="relative flex flex-wrap items-center justify-between gap-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] py-2 pr-3 pl-4 text-sm"
-                      >
-                        <span className="absolute inset-y-0 left-0 w-1 bg-linear-to-b from-emerald-400 to-teal-300" />
-                        <span className="text-zinc-200">
-                          <span className="mr-2 font-mono text-[10px] text-emerald-300">
-                            #{String(index + 1).padStart(2, "0")}
-                          </span>
+            {awaitingFinance.settlements.length ? (
+              <div className="space-y-2">
+                {awaitingFinance.settlements.map((row) => {
+                  const hasRemainings = Number(row.returned_quantity) > 0;
+                  const busyHere = decidingKey !== null;
+                  return (
+                    <div
+                      key={row.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20 hover:bg-white/[0.04]"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-mono text-xs text-emerald-300">{row.voucher_number}</p>
+                        <p className="text-sm text-zinc-200">
                           {row.item_name}
-                          <span className="ml-2 text-xs text-zinc-500">
-                            {row.agent_name || "unassigned"} · {qty(row.sold_quantity)} sold ·{" "}
-                            {methodLabel(row.payment_method)}
+                          <span className="text-zinc-500">
+                            {" · "}
+                            {row.agent_name || "unassigned agent"}
                           </span>
-                        </span>
-                        <span className="flex items-center gap-2 text-xs">
+                        </p>
+                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-500">
+                          <span>Sold {qty(row.sold_quantity)}</span>
+                          <span className="text-zinc-700">·</span>
+                          <span className={hasRemainings ? "text-amber-300" : undefined}>
+                            Unsold {qty(row.returned_quantity)}
+                          </span>
+                          <span className="text-zinc-700">·</span>
+                          <span>
+                            {money(row.sales_amount)} collected vs {money(row.expected_amount)}{" "}
+                            expected
+                          </span>
                           {row.penalty && (
-                            <span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-rose-300">
-                              penalty
+                            <span className="inline-flex rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
+                              Penalty already on this sale
                             </span>
                           )}
-                          <span className="text-emerald-300">{money(row.sales_amount)}</span>
-                          <button
-                            onClick={() =>
-                              setStaged((current) => current.filter((_, i) => i !== index))
-                            }
-                            className="rounded-md p-1 text-zinc-500 transition hover:bg-rose-500/10 hover:text-rose-300"
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </span>
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 border-emerald-400/30 text-emerald-300 hover:bg-emerald-400/10 hover:text-emerald-200"
+                          disabled={busyHere}
+                          onClick={() => settleDecision(row.id, "approve")}
+                        >
+                          {decidingKey === `settlement-${row.id}-approve` ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <Check className="size-3.5" />
+                          )}
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 border-amber-400/30 text-amber-300 hover:bg-amber-400/10 hover:text-amber-200"
+                          disabled={busyHere || !hasRemainings}
+                          title={
+                            hasRemainings
+                              ? "Approve and record a penalty for the unsold remainings"
+                              : "A penalty needs unsold remainings on this sale"
+                          }
+                          onClick={() => settleDecision(row.id, "penalty")}
+                        >
+                          {decidingKey === `settlement-${row.id}-penalty` ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <AlertTriangle className="size-3.5" />
+                          )}
+                          Approve with penalty
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 border-rose-400/30 text-rose-300 hover:bg-rose-400/10 hover:text-rose-200"
+                          disabled={busyHere}
+                          onClick={() => settleDecision(row.id, "decline")}
+                        >
+                          {decidingKey === `settlement-${row.id}-decline` ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <X className="size-3.5" />
+                          )}
+                          Decline
+                        </Button>
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            ) : (
+              <EmptyRow>No handover is waiting on finance.</EmptyRow>
+            )}
           </Panel>
+
+          {!salesEnabled && (
+            <Panel
+              title="Sales approval"
+              description="Add as many sale lines as needed — each amount is the item's selling price × sold quantity. Posting sends the whole batch at once."
+              actions={
+                <Button
+                  size="sm"
+                  onClick={submitStaged}
+                  disabled={busy || !readySaleLines.length}
+                  className="gap-2 bg-emerald-600 text-white shadow-[0_12px_30px_-16px_rgba(16,185,129,0.9)] hover:bg-emerald-500"
+                >
+                  {busy ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Check className="size-3.5" />
+                  )}
+                  Post {readySaleLines.length || ""} sale{readySaleLines.length === 1 ? "" : "s"}
+                </Button>
+              }
+            >
+              <div className="relative overflow-hidden rounded-2xl border border-emerald-400/20 bg-linear-to-br from-emerald-500/[0.08] via-[#0b0b13] to-violet-500/[0.07] p-4">
+                <div className="pointer-events-none absolute -top-20 -right-12 size-48 rounded-full bg-emerald-400/10 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-24 -left-16 size-48 rounded-full bg-violet-400/10 blur-3xl" />
+                <div className="relative">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="flex items-center gap-2 text-[10px] font-semibold tracking-[0.18em] text-emerald-300 uppercase">
+                      <Sparkles className="size-3.5" /> Batch sale lines
+                    </p>
+                    <span className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+                      <span>
+                        {saleLines.length} line{saleLines.length === 1 ? "" : "s"}
+                      </span>
+                      <span className="text-zinc-700">·</span>
+                      <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 font-mono text-emerald-200">
+                        {money(stagedTotal)}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {saleLines.map((line, index) => {
+                      const accent = SALE_LINE_ACCENTS[index % SALE_LINE_ACCENTS.length];
+                      const picked = lineChosen(line);
+                      return (
+                        <div
+                          key={line.key}
+                          className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025] p-3 pl-4 sm:p-4 sm:pl-5"
+                        >
+                          <span
+                            className={`absolute inset-y-0 left-0 w-1 bg-linear-to-b ${accent.bar}`}
+                          />
+                          <div className="mb-3 flex items-center justify-between gap-2">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] uppercase ${accent.chip}`}
+                            >
+                              Line {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeSaleLine(line.key)}
+                              aria-label={`Remove sale line ${index + 1}`}
+                              className="rounded-md p-1 text-zinc-500 transition hover:bg-rose-500/10 hover:text-rose-300"
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <Field label="Item (open stock)">
+                              <ComboSelect
+                                value={line.item}
+                                onChange={(value) =>
+                                  patchSaleLine(line.key, {
+                                    item: value,
+                                    assignment: "",
+                                    sold_quantity: "",
+                                  })
+                                }
+                                options={openItems.map((row) => ({
+                                  value: String(row.lot),
+                                  label: `${row.item_name} · ${row.voucher_number} (${qty(row.assigned_quantity)} out)`,
+                                }))}
+                                placeholder="Choose open stock…"
+                                searchPlaceholder="Search item or voucher…"
+                                emptyText="No open stock found."
+                              />
+                            </Field>
+                            <Field label="Sales agent">
+                              <ComboSelect
+                                value={line.assignment}
+                                onChange={(value) => {
+                                  const pickedAgent = lineAgents(line).find(
+                                    (row) => String(row.assignment) === value,
+                                  );
+                                  patchSaleLine(line.key, {
+                                    assignment: value,
+                                    sold_quantity: pickedAgent?.assigned_quantity ?? "",
+                                  });
+                                }}
+                                options={lineAgents(line).map((row) => ({
+                                  value: String(row.assignment),
+                                  label: `${row.agent_name || "Unassigned"} · ${qty(row.assigned_quantity)} @ ${money(row.unit_price)}`,
+                                }))}
+                                placeholder="Choose the agent…"
+                                searchPlaceholder="Search sales agents…"
+                                emptyText="No agent holds this voucher."
+                              />
+                            </Field>
+                            <Field
+                              label={`Sold quantity${picked ? ` (max ${qty(picked.assigned_quantity)})` : ""}`}
+                            >
+                              <Input
+                                type="number"
+                                step="0.001"
+                                min="0"
+                                max={picked?.assigned_quantity}
+                                value={line.sold_quantity}
+                                onChange={(event) =>
+                                  patchSaleLine(line.key, {
+                                    sold_quantity: event.target.value,
+                                  })
+                                }
+                                placeholder="0.000"
+                                className="border-white/10 bg-white/[0.03]"
+                              />
+                            </Field>
+                            <Field label="Sales amount · system">
+                              <div className="flex h-9 items-center justify-between gap-2 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3">
+                                <span className="text-sm font-semibold text-emerald-200">
+                                  {money(lineAmount(line))}
+                                </span>
+                                <span className="truncate text-[10px] text-emerald-300/70">
+                                  {picked
+                                    ? `${money(picked.unit_price)} × ${qty(line.sold_quantity || 0)}`
+                                    : "price × qty"}
+                                </span>
+                              </div>
+                            </Field>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+                            <PaymentMethodPicker
+                              name={`finance-method-${line.key}`}
+                              value={line.method}
+                              onChange={(value) =>
+                                patchSaleLine(line.key, { method: value })
+                              }
+                            />
+                            <label
+                              className={`flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition ${
+                                line.penalty
+                                  ? "border-rose-400/40 bg-rose-500/15 text-rose-200"
+                                  : "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-rose-400/30 hover:text-rose-200"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={line.penalty}
+                                onChange={(event) =>
+                                  patchSaleLine(line.key, { penalty: event.target.checked })
+                                }
+                                className="size-3.5 accent-rose-400"
+                              />
+                              Penalty
+                              <span className="text-[10px] opacity-70">
+                                affects agent ranking
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addSaleLine}
+                    className="mt-3 w-full gap-2 border-dashed border-white/20 bg-transparent text-zinc-300 hover:border-violet-400/40 hover:bg-violet-400/5 hover:text-violet-200"
+                  >
+                    <Plus className="size-4" /> Add line
+                  </Button>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-3">
+                    <div>
+                      <p className="text-[10px] font-semibold tracking-[0.16em] text-emerald-300 uppercase">
+                        {readySaleLines.length} ready line
+                        {readySaleLines.length === 1 ? "" : "s"}
+                      </p>
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        Amounts are calculated as the item&apos;s selling price × sold quantity.
+                      </p>
+                    </div>
+                    <span className="text-lg font-semibold text-emerald-200">
+                      {money(stagedTotal)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Panel>
+          )}
 
           <Panel
             title="Settlement report"
@@ -1421,18 +1549,31 @@ export default function FinancePage() {
                           {row.status === "PENDING_FINANCE" ? (
                             <span className="inline-flex gap-1">
                               <IconButton
-                                label="Verify"
+                                label="Approve"
                                 tone="emerald"
-                                pending={decidingKey === `settlement-${row.id}-APPROVED`}
+                                pending={decidingKey === `settlement-${row.id}-approve`}
                                 disabled={decidingKey !== null}
-                                onClick={() => decideSettlement(row.id, "APPROVED")}
+                                onClick={() => settleDecision(row.id, "approve")}
                               />
                               <IconButton
-                                label="Reject"
+                                label={
+                                  Number(row.returned_quantity) > 0
+                                    ? "Approve with penalty"
+                                    : "Approve with penalty — no unsold remainings on this sale"
+                                }
+                                tone="amber"
+                                pending={decidingKey === `settlement-${row.id}-penalty`}
+                                disabled={
+                                  decidingKey !== null || Number(row.returned_quantity) <= 0
+                                }
+                                onClick={() => settleDecision(row.id, "penalty")}
+                              />
+                              <IconButton
+                                label="Decline"
                                 tone="rose"
-                                pending={decidingKey === `settlement-${row.id}-REJECTED`}
+                                pending={decidingKey === `settlement-${row.id}-decline`}
                                 disabled={decidingKey !== null}
-                                onClick={() => decideSettlement(row.id, "REJECTED")}
+                                onClick={() => settleDecision(row.id, "decline")}
                               />
                             </span>
                           ) : (
@@ -1962,7 +2103,16 @@ export default function FinancePage() {
               />
               <ExportButtons
                 title="Inventory report"
-                headers={["Voucher", "Item", "Category", "In store", "Unit cost", "Unit sales", "Remaining value"]}
+                headers={[
+                  "Voucher",
+                  "Item",
+                  "Category",
+                  "In store",
+                  "Unit cost",
+                  "Unit sales",
+                  "Remaining value",
+                  "Registration date",
+                ]}
                 rows={visibleInventoryLots.map((lot) => [
                   lot.voucher_number,
                   lot.item_name,
@@ -1971,6 +2121,7 @@ export default function FinancePage() {
                   Number(lot.unit_cost),
                   Number(lot.unit_sales),
                   Number(lot.remaining_quantity) * Number(lot.unit_cost),
+                  registrationDate(lot.registration_date),
                 ])}
                 file="volosync-inventory"
                 business={{ name: dashboard?.tenant.name, tin: dashboard?.tenant.tin }}
@@ -1986,7 +2137,7 @@ export default function FinancePage() {
             </span>
           </div>
           <div className="max-h-[70vh] overflow-auto rounded-xl border border-white/10">
-            <table className="w-full min-w-[780px]">
+            <table className="w-full min-w-[1020px]">
               <thead>
                 <tr>
                   <StickyTh>Voucher</StickyTh>
@@ -1995,6 +2146,7 @@ export default function FinancePage() {
                   <StickyTh right>Unit cost</StickyTh>
                   <StickyTh right>Unit sales</StickyTh>
                   <StickyTh right>Remaining value</StickyTh>
+                  <StickyTh>Registration date</StickyTh>
                 </tr>
               </thead>
               <tbody>
@@ -2013,6 +2165,11 @@ export default function FinancePage() {
                         <Td right>{money(lot.unit_sales)}</Td>
                         <Td right className="text-emerald-300">
                           {money(Number(lot.remaining_quantity) * Number(lot.unit_cost))}
+                        </Td>
+                        <Td>
+                          <span className="font-mono text-xs text-zinc-300">
+                            {registrationDate(lot.registration_date)}
+                          </span>
                         </Td>
                       </tr>
                     );
@@ -2049,6 +2206,7 @@ export default function FinancePage() {
                         <Td right className="text-zinc-600">—</Td>
                         <Td right className="text-zinc-600">—</Td>
                         <Td right className="font-semibold text-emerald-300">{money(remainingValue)}</Td>
+                        <Td className="text-zinc-600">—</Td>
                       </tr>
                       {open &&
                         group.lots.map((lot) => (
@@ -2063,6 +2221,11 @@ export default function FinancePage() {
                             <Td right>{money(lot.unit_sales)}</Td>
                             <Td right className="text-emerald-300">
                               {money(Number(lot.remaining_quantity) * Number(lot.unit_cost))}
+                            </Td>
+                            <Td>
+                              <span className="font-mono text-xs text-zinc-300">
+                                {registrationDate(lot.registration_date)}
+                              </span>
                             </Td>
                           </tr>
                         ))}
@@ -2693,15 +2856,6 @@ export default function FinancePage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-[11px] tracking-wide text-zinc-400 uppercase">{label}</Label>
-      {children}
-    </div>
-  );
-}
-
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between border-b border-white/5 py-1.5">
@@ -2789,11 +2943,12 @@ function IconButton({
   disabled = false,
 }: {
   label: string;
-  tone: "emerald" | "rose";
+  tone: "emerald" | "amber" | "rose";
   onClick: () => void;
   pending?: boolean;
   disabled?: boolean;
 }) {
+  const Icon = tone === "emerald" ? Check : tone === "amber" ? AlertTriangle : X;
   return (
     <button
       onClick={onClick}
@@ -2802,15 +2957,15 @@ function IconButton({
       className={`rounded-lg border p-1.5 transition disabled:cursor-not-allowed disabled:opacity-50 ${
         tone === "emerald"
           ? "border-emerald-400/30 text-emerald-300 hover:bg-emerald-400/10"
-          : "border-rose-400/30 text-rose-300 hover:bg-rose-400/10"
+          : tone === "amber"
+            ? "border-amber-400/30 text-amber-300 hover:bg-amber-400/10"
+            : "border-rose-400/30 text-rose-300 hover:bg-rose-400/10"
       }`}
     >
       {pending ? (
         <Loader2 className="size-3.5 animate-spin" />
-      ) : tone === "emerald" ? (
-        <Check className="size-3.5" />
       ) : (
-        <X className="size-3.5" />
+        <Icon className="size-3.5" />
       )}
     </button>
   );

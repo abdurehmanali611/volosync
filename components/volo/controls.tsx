@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
+import {
+  Banknote,
+  CalendarIcon,
+  Check,
+  ChevronsUpDown,
+  Landmark,
+  Smartphone,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -19,6 +26,89 @@ import { parsePickerDate } from "@/components/date-picker";
 import { cn } from "@/lib/utils";
 
 export type ComboOption = { value: string; label: string };
+
+/** The three settlement channels, shared by the Sales and Finance sale forms. */
+export const PAYMENT_METHOD_CHOICES = [
+  {
+    value: "TELEBIRR",
+    label: "Telebirr",
+    hint: "Mobile wallet",
+    icon: Smartphone,
+    on: "border-violet-400/50 bg-violet-500/15 text-violet-200 shadow-[0_0_24px_-10px_rgba(167,139,250,0.9)]",
+    off: "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-violet-400/30 hover:text-violet-200",
+  },
+  {
+    value: "BANK",
+    label: "Bank transfer",
+    hint: "Account transfer",
+    icon: Landmark,
+    on: "border-sky-400/50 bg-sky-500/15 text-sky-200 shadow-[0_0_24px_-10px_rgba(56,189,248,0.9)]",
+    off: "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-sky-400/30 hover:text-sky-200",
+  },
+  {
+    value: "RECEIPT",
+    label: "Cash receipt",
+    hint: "Counter cash",
+    icon: Banknote,
+    on: "border-amber-400/50 bg-amber-500/15 text-amber-200 shadow-[0_0_24px_-10px_rgba(251,191,36,0.9)]",
+    off: "border-white/10 bg-white/[0.02] text-zinc-400 hover:border-amber-400/30 hover:text-amber-200",
+  },
+] as const;
+
+/** Radio group over the payment channels — `name` must be unique per sale line. */
+export function PaymentMethodPicker({
+  value,
+  onChange,
+  name,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  name: string;
+  className?: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Payment method"
+      className={cn("flex flex-wrap gap-2", className)}
+    >
+      {PAYMENT_METHOD_CHOICES.map((option) => {
+        const Icon = option.icon;
+        const checked = value === option.value;
+        return (
+          <label
+            key={option.value}
+            className={cn(
+              "inline-flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition",
+              checked ? option.on : option.off,
+            )}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={checked}
+              onChange={() => onChange(option.value)}
+              className="peer sr-only"
+            />
+            <Icon className="size-3.5 shrink-0" />
+            <span className="truncate">{option.label}</span>
+            <span className="hidden text-[10px] opacity-70 sm:inline">{option.hint}</span>
+            <span
+              className={cn(
+                "grid size-3.5 shrink-0 place-items-center rounded-full border",
+                checked ? "border-current" : "border-white/25",
+              )}
+            >
+              {checked ? <span className="size-1.5 rounded-full bg-current" /> : null}
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 export function ComboSelect({
   value,

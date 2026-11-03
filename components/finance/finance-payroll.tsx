@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Loader2,
   Lock,
-  RefreshCw,
   Wallet,
   XCircle,
 } from "lucide-react";
@@ -145,20 +144,6 @@ export function FinancePayrollSection() {
       <Panel
         title="HR payroll"
         description="Confirm payslips after HR marks them paid. Only Finance approval finalises Marked paid for employees."
-        actions={
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-white/15 bg-transparent"
-            disabled={busy}
-            onClick={() => {
-              void load();
-              if (selectedId != null) void loadDetail(selectedId);
-            }}
-          >
-            <RefreshCw className="size-3.5" /> Refresh
-          </Button>
-        }
       >
         {!periods.length ? (
           <EmptyRow>

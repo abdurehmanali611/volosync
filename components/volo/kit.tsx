@@ -1,3 +1,4 @@
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 type Tone = "emerald" | "amber" | "violet" | "rose" | "sky" | "slate";
@@ -80,7 +81,7 @@ export function StatCard({
 }) {
   const style = TONES[tone] ?? TONES.emerald;
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d17]/70 p-4 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/4 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-[#10101c]/80">
+    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d17]/70 p-3.5 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/4 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-[#10101c]/80">
       <div
         className={cn(
           "pointer-events-none absolute -top-12 -right-10 size-32 rounded-full bg-linear-to-br to-transparent opacity-70 blur-2xl transition-opacity duration-300 group-hover:opacity-100",
@@ -93,15 +94,15 @@ export function StatCard({
           <p className="text-[10px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">
             {label}
           </p>
-          <p className="mt-1.5 font-heading text-[1.5rem] leading-none font-semibold tracking-tight text-white">
+          <p className="mt-1.5 font-heading text-[1.35rem] leading-none font-semibold tracking-tight text-white">
             {value}
           </p>
-          {hint && <p className="mt-1.5 text-xs text-zinc-500">{hint}</p>}
+          {hint && <p className="mt-1 truncate text-xs text-zinc-500">{hint}</p>}
         </div>
         {icon && (
           <span
             className={cn(
-              "grid size-9 shrink-0 place-items-center rounded-xl border shadow-inner shadow-black/20",
+              "grid size-8 shrink-0 place-items-center rounded-xl border shadow-inner shadow-black/20",
               style.icon,
             )}
           >
@@ -118,28 +119,38 @@ export function PageHeader({
   title,
   description,
   actions,
+  stats,
 }: {
   eyebrow: string;
   title: string;
   description: string;
   actions?: React.ReactNode;
+  /** Up to two StatCards, rendered as tiles inside the hero band. */
+  stats?: React.ReactNode;
 }) {
   return (
-    <header className="role-hero mb-6 rounded-3xl px-5 py-5 sm:px-6 sm:py-6">
-      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0 max-w-3xl">
+    <header className="role-hero mb-5 rounded-3xl px-4 py-4 sm:px-5">
+      <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 max-w-2xl">
           <p className="role-eyebrow flex items-center gap-2 text-[10px] font-semibold uppercase">
             <span className="role-gradient-bg size-1.5 rounded-full shadow-[0_0_12px_var(--role-1)]" />
             {eyebrow}
           </p>
-          <h1 className="role-title mt-2 font-heading text-[1.7rem] font-semibold tracking-tight sm:text-[2rem]">
+          <h1 className="role-title mt-1.5 font-heading text-[1.45rem] leading-tight font-semibold tracking-tight sm:text-[1.65rem]">
             {title}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-400">
-            {description}
-          </p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-400">{description}</p>
         </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
+        {stats || actions ? (
+          <div className="flex shrink-0 flex-col items-stretch gap-3 lg:items-end">
+            {stats ? (
+              <div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2 lg:w-[30rem]">
+                {stats}
+              </div>
+            ) : null}
+            {actions ? <div className="flex flex-wrap gap-2 lg:justify-end">{actions}</div> : null}
+          </div>
+        ) : null}
       </div>
     </header>
   );
@@ -191,6 +202,16 @@ export function EmptyRow({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Micro-capped field label used by every form control in the role portals. */
+export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[11px] tracking-wide text-zinc-400 uppercase">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
 export function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
     <th
@@ -208,13 +229,16 @@ export function Td({
   children,
   right,
   className,
+  colSpan,
 }: {
   children: React.ReactNode;
   right?: boolean;
   className?: string;
+  colSpan?: number;
 }) {
   return (
     <td
+      colSpan={colSpan}
       className={cn(
         "border-b border-white/5 px-3 py-2.5 text-sm text-zinc-300",
         right && "text-right tabular-nums",

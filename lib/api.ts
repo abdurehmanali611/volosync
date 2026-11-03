@@ -90,7 +90,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   const response = await fetch(`${BASE}${path}`, { ...init, headers });
   const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  let body: any = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      throw new ApiError(
+        response.ok
+          ? "The server returned an unexpected response."
+          : `The server failed this request (HTTP ${response.status}). Please try again.`,
+        text.slice(0, 400),
+      );
+    }
+  }
 
   if (!response.ok) {
     const detail = body?.errors ?? body;
@@ -515,14 +527,15 @@ export const salesApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  decideSettlement: (id: number, decision: string, note = "") =>
+  decideSettlement: (id: number, decision: string, note = "", penalty?: boolean) =>
     request<{ data: Settlement }>(`/api/sales/settlements/${id}/decision/`, {
       method: "POST",
-      body: JSON.stringify({ decision, note }),
+      body: JSON.stringify(
+        penalty === undefined ? { decision, note } : { decision, note, penalty },
+      ),
     }),
   agents: () =>
     request<{ data: SalesAgentRow[]; sales_username?: string }>("/api/sales/agents/"),
-  agentMe: () => request<{ data: SalesAgentRow }>("/api/sales/agents/me/"),
   createAgent: (payload: {
     first_name: string;
     last_name: string;
@@ -633,6 +646,8 @@ export type HrPayrollPeriod = {
   decision_note: string;
   closed_by: string;
   closed_at: string | null;
+  wage_type: number | null;
+  wage_type_label: string;
   payslip_count: number;
   counts: { unpaid: number; awaiting_finance: number; marked_paid: number };
   totals: { gross: string; deductions: string; net: string };
@@ -738,6 +753,7 @@ export const hrApi = {
     from_ymd?: string;
     to_ymd?: string;
     month_name?: string;
+    wage_type?: number | null;
   }) =>
     request<{ data: HrPayrollPeriod }>("/api/hr/payroll-periods/", {
       method: "POST",
@@ -845,4 +861,16 @@ export const assetsApi = {
     }),
   remove: (id: number) =>
     request<{ data: Asset }>(`/api/assets/${id}/remove/`, { method: "POST" }),
+};
+
+/** Read watermarks for the bell's queue notifications. */
+export type NoticeAckRow = { key: string; count: number };
+
+export const noticeApi = {
+  acks: () => request<{ data: NoticeAckRow[] }>("/api/user/notice-acks/"),
+  markRead: (items: NoticeAckRow[]) =>
+    request<{ data: NoticeAckRow[] }>("/api/user/notice-acks/", {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    }),
 };

@@ -102,13 +102,11 @@ import {
   Pencil,
   Plus,
   Printer,
-  ReceiptText,
   Search,
   SlidersHorizontal,
   Trash2,
   Truck,
   Users,
-  Warehouse,
 } from "lucide-react";
 import {
   EmptyRow,
@@ -1011,38 +1009,25 @@ export default function StorePage() {
         eyebrow="Store workspace"
         title="Item registration & stock control"
         description="Register vouchers, hand stock to sales agents and follow every document through Finance and Manager approval."
+        stats={
+          <>
+            <StatCard
+              label="In store"
+              value={money(summary?.totals.in_store_value ?? 0)}
+              hint="Remaining quantity at cost"
+              tone="sky"
+              icon={<Boxes className="size-4" />}
+            />
+            <StatCard
+              label="Stocked out"
+              value={money(summary?.totals.stocked_out_value ?? 0)}
+              hint="Handed to sales agents"
+              tone="violet"
+              icon={<PackagePlus className="size-4" />}
+            />
+          </>
+        }
       />
-
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Stock value"
-          value={money(dashboard?.stock_value ?? 0)}
-          hint={`${dashboard?.lots ?? 0} voucher lots`}
-          tone="emerald"
-          icon={<Warehouse className="size-4" />}
-        />
-        <StatCard
-          label="In store"
-          value={money(summary?.totals.in_store_value ?? 0)}
-          hint="Remaining quantity at cost"
-          tone="sky"
-          icon={<Boxes className="size-4" />}
-        />
-        <StatCard
-          label="Stocked out"
-          value={money(summary?.totals.stocked_out_value ?? 0)}
-          hint="Handed to sales agents"
-          tone="violet"
-          icon={<PackagePlus className="size-4" />}
-        />
-        <StatCard
-          label="Input VAT"
-          value={money(summary?.totals.vat ?? 0)}
-          hint="15% on registered cost"
-          tone="amber"
-          icon={<ReceiptText className="size-4" />}
-        />
-      </div>
 
       {view === "register" && (
         <Panel

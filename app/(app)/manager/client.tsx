@@ -22,8 +22,6 @@ import {
 import {
   managerApi,
   type AssetRow,
-  type HrQueueItem,
-  type HrQueueType,
   type LotDetail,
   type LotPatch,
   type RankRow,
@@ -178,6 +176,15 @@ const stamp = (value?: string | null) =>
       })
     : "";
 
+const registrationDate = (value?: string | null) => {
+  if (!value) return "—";
+  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 export default function ManagerPage() {
   const [view] = useView("approvals");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -198,8 +205,6 @@ export default function ManagerPage() {
     status: "",
     condition: "",
   });
-  const [hrQueue, setHrQueue] = useState<HrQueueItem[]>([]);
-  const [hrNotes, setHrNotes] = useState<Record<string, string>>({});
   const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
   const [deletingLotId, setDeletingLotId] = useState<number | null>(null);
@@ -284,7 +289,6 @@ export default function ManagerPage() {
       promotionRows,
       agentRows,
       assetRows,
-      hr,
       rankingRows,
     ] = await Promise.all([
       api.dashboard(),
@@ -297,9 +301,6 @@ export default function ManagerPage() {
       promoApi.list(),
       salesApi.agents(),
       managerApi.listAssets(assetFiltersRef.current),
-      managerApi.hrQueue().catch(() => ({
-        data: { count: 0, items: [] as HrQueueItem[], role: "MANAGER", who: "" },
-      })),
       managerApi.ranking(periodRef.current).catch(() => ({ data: [] as RankRow[] })),
     ]);
     setDashboard(dash.data);
@@ -313,7 +314,6 @@ export default function ManagerPage() {
     setAgents(agentRows.data);
     setSalesUsername(agentRows.sales_username ?? "");
     setAssets(assetRows.data);
-    setHrQueue(hr.data.items);
     setRanking(rankingRows.data);
   }, []);
 
@@ -395,8 +395,10 @@ export default function ManagerPage() {
     [registrations, stockouts, settlements, promotions],
   );
 
-  const totalQueue =
-    Object.values(queues).reduce((sum, list) => sum + list.length, 0) + hrQueue.length;
+  const totalQueue = Object.values(queues).reduce(
+    (sum, list) => sum + list.length,
+    0,
+  );
 
   async function decideRegistration(id: number, decision: "APPROVED" | "REJECTED") {
     setDecidingKey(`registration-${id}-${decision}`);
@@ -442,26 +444,6 @@ export default function ManagerPage() {
     try {
       await promoApi.decide(id, decision);
       toast.success(`Promotion ${decision.toLowerCase()}.`);
-      await load();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Decision failed");
-    } finally {
-      setDecidingKey(null);
-    }
-  }
-
-  async function decideHrItem(item: HrQueueItem, decision: "APPROVED" | "REJECTED") {
-    const key = hrNoteKey(item);
-    const note = (hrNotes[key] ?? "").trim();
-    setDecidingKey(`hr-${item.type}-${item.id}-${decision}`);
-    try {
-      await managerApi.decideHr(item.type, item.id, decision, note);
-      toast.success(`${HR_TYPE_LABELS[item.type]} ${decision === "APPROVED" ? "approved" : "rejected"}.`);
-      setHrNotes((current) => {
-        const next = { ...current };
-        delete next[key];
-        return next;
-      });
       await load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Decision failed");
@@ -979,7 +961,7 @@ export default function ManagerPage() {
 
   // HR control views carry their own hero and stat strip, so the generic
   // Manager header would only add noise above them.
-  const hrControl = view.startsWith("hr-");
+  const hrControl = view === "hr" || view.startsWith("hr-");
 
   return (
     <>
@@ -989,43 +971,25 @@ export default function ManagerPage() {
             eyebrow="Manager workspace"
             title="Final approvals, people and property"
             description="You are the last step in every chain, the only role that edits inventory and the one who registers assets."
+            stats={
+              <>
+                <StatCard
+                  label="Waiting on you"
+                  value={String(totalQueue)}
+                  hint="Across every chain"
+                  tone="violet"
+                  icon={<ShieldCheck className="size-4" />}
+                />
+                <StatCard
+                  label="Stock value"
+                  value={money(dashboard?.stock_value ?? 0)}
+                  hint={`${dashboard?.lots ?? 0} voucher lots`}
+                  tone="emerald"
+                  icon={<Warehouse className="size-4" />}
+                />
+              </>
+            }
           />
-
-          <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Waiting on you"
-              value={String(totalQueue)}
-              hint="Across every chain"
-              tone="violet"
-              icon={<ShieldCheck className="size-4" />}
-            />
-            <StatCard
-              label="Stock value"
-              value={money(dashboard?.stock_value ?? 0)}
-              hint={`${dashboard?.lots ?? 0} voucher lots`}
-              tone="emerald"
-              icon={<Warehouse className="size-4" />}
-            />
-            <StatCard
-              label="Agents"
-              value={String(agents.length)}
-              hint="Registered sales agents"
-              tone="sky"
-              icon={<Users className="size-4" />}
-            />
-            <StatCard
-              label="Assets"
-              value={money(
-                assets.reduce(
-                  (sum, asset) => sum + Number(asset.unit_cost) * Number(asset.quantity),
-                  0,
-                ),
-              )}
-              hint="Total cost on the register"
-              tone="amber"
-              icon={<Wallet className="size-4" />}
-            />
-          </div>
         </>
       )}
 
@@ -1120,54 +1084,7 @@ export default function ManagerPage() {
         </div>
       )}
 
-      {view === "approvals" && (
-        <div className="mt-4">
-          <Panel
-            title="HR approvals"
-            description="Leave, payroll, incidents, documents, attendance corrections, people events and checklist runs — one Manager queue."
-            actions={
-              <span className="rounded-full border border-violet-400/30 bg-violet-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-violet-300">
-                {hrQueue.length} waiting
-              </span>
-            }
-          >
-            {booting ? (
-              <div className="space-y-2">
-                {[0, 1, 2].map((index) => (
-                  <SkeletonRow key={index} />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {hrQueue.map((item) => (
-                  <HrApprovalCard
-                    key={`${item.type}-${item.id}`}
-                    item={item}
-                    note={hrNotes[hrNoteKey(item)] ?? ""}
-                    onNote={(value) =>
-                      setHrNotes((current) => ({ ...current, [hrNoteKey(item)]: value }))
-                    }
-                    onDecide={(decision) => decideHrItem(item, decision)}
-                    pending={
-                      decidingKey === `hr-${item.type}-${item.id}-APPROVED`
-                        ? "approve"
-                        : decidingKey === `hr-${item.type}-${item.id}-REJECTED`
-                          ? "reject"
-                          : null
-                    }
-                    busy={decidingKey !== null}
-                  />
-                ))}
-                {!hrQueue.length && (
-                  <EmptyRow>Nothing is waiting on an HR decision.</EmptyRow>
-                )}
-              </div>
-            )}
-          </Panel>
-        </div>
-      )}
-
-      {view.startsWith("hr-") && (
+      {(view === "hr" || view.startsWith("hr-")) && (
         <div>
           <ManagerHrSection view={view} />
         </div>
@@ -1193,7 +1110,7 @@ export default function ManagerPage() {
                   exportPdf({
                     title: "Inventory report",
                     subtitle: dashboard?.tenant.name ?? "",
-                    headers: ["Voucher", "Item", "Category", "Quantity", "Unit cost", "Unit sales", "Price + VAT"],
+                    headers: ["Voucher", "Item", "Category", "Quantity", "Unit cost", "Unit sales", "Price + VAT", "Registration date"],
                     rows: visibleInventoryLots.map((lot) => [
                       lot.voucher_number,
                       lot.item_name,
@@ -1202,6 +1119,7 @@ export default function ManagerPage() {
                       Number(lot.unit_cost),
                       Number(lot.unit_sales),
                       Number(lot.price_with_vat),
+                      registrationDate(lot.registration_date),
                     ]),
                     file: "volosync-inventory",
                     business: { name: dashboard?.tenant.name, tin: dashboard?.tenant.tin },
@@ -1217,7 +1135,7 @@ export default function ManagerPage() {
                 onClick={() =>
                   exportExcel({
                     title: "Inventory report",
-                    headers: ["Voucher", "Item", "Category", "Quantity", "Unit cost", "Unit sales", "Price + VAT"],
+                    headers: ["Voucher", "Item", "Category", "Quantity", "Unit cost", "Unit sales", "Price + VAT", "Registration date"],
                     rows: visibleInventoryLots.map((lot) => [
                       lot.voucher_number,
                       lot.item_name,
@@ -1226,6 +1144,7 @@ export default function ManagerPage() {
                       Number(lot.unit_cost),
                       Number(lot.unit_sales),
                       Number(lot.price_with_vat),
+                      registrationDate(lot.registration_date),
                     ]),
                     file: "volosync-inventory",
                     note: dashboard?.tenant.name,
@@ -1251,7 +1170,7 @@ export default function ManagerPage() {
             </div>
           ) : (
             <div className="max-h-[520px] overflow-auto">
-              <table className="w-full min-w-[860px]">
+              <table className="w-full min-w-[1080px]">
                 <thead>
                   <tr>
                     <ThSt>Voucher</ThSt>
@@ -1260,6 +1179,7 @@ export default function ManagerPage() {
                     <ThSt right>Unit cost</ThSt>
                     <ThSt right>Unit sales</ThSt>
                     <ThSt right>Price + VAT</ThSt>
+                    <ThSt>Registration date</ThSt>
                     <ThSt right>Actions</ThSt>
                   </tr>
                 </thead>
@@ -1290,6 +1210,11 @@ export default function ManagerPage() {
                           <Td right>{money(lot.unit_cost)}</Td>
                           <Td right>{money(lot.unit_sales)}</Td>
                           <Td right className="text-emerald-300">{money(lot.price_with_vat)}</Td>
+                          <Td>
+                            <span className="font-mono text-xs text-zinc-300">
+                              {registrationDate(lot.registration_date)}
+                            </span>
+                          </Td>
                           <Td right>
                             <div className="flex items-center justify-end gap-1.5">
                               <button
@@ -1344,6 +1269,7 @@ export default function ManagerPage() {
                           <Td right className="text-zinc-600">—</Td>
                           <Td right className="text-zinc-600">—</Td>
                           <Td right className="text-zinc-600">—</Td>
+                          <Td className="text-zinc-600">—</Td>
                           <Td right className="text-zinc-600">—</Td>
                         </tr>
                         {open &&
@@ -1370,6 +1296,11 @@ export default function ManagerPage() {
                               <Td right>{money(lot.unit_cost)}</Td>
                               <Td right>{money(lot.unit_sales)}</Td>
                               <Td right className="text-emerald-300">{money(lot.price_with_vat)}</Td>
+                              <Td>
+                                <span className="font-mono text-xs text-zinc-300">
+                                  {registrationDate(lot.registration_date)}
+                                </span>
+                              </Td>
                               <Td right>
                                 <div className="flex items-center justify-end gap-1.5">
                                   <button
@@ -3268,39 +3199,6 @@ function CategoryCombobox({
   );
 }
 
-const HR_TYPE_LABELS: Record<HrQueueType, string> = {
-  leave: "Leave",
-  payroll_period: "Payroll run",
-  incident: "Incident",
-  document: "Document",
-  attendance_correction: "Attendance correction",
-  people_event: "People event",
-  checklist_run: "Checklist run",
-};
-
-const HR_TYPE_TONES: Record<HrQueueType, string> = {
-  leave: "border-sky-400/30 bg-sky-400/10 text-sky-300",
-  payroll_period: "border-amber-400/30 bg-amber-400/10 text-amber-300",
-  incident: "border-rose-400/30 bg-rose-400/10 text-rose-300",
-  document: "border-violet-400/30 bg-violet-400/10 text-violet-300",
-  attendance_correction: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
-  people_event: "border-teal-400/30 bg-teal-400/10 text-teal-300",
-  checklist_run: "border-zinc-400/30 bg-zinc-400/10 text-zinc-300",
-};
-
-// The decision views that actually persist `note`.
-const HR_TYPES_WITH_NOTE: HrQueueType[] = [
-  "leave",
-  "document",
-  "attendance_correction",
-  "people_event",
-  "payroll_period",
-];
-
-function hrNoteKey(item: HrQueueItem) {
-  return `${item.type}-${item.id}`;
-}
-
 // ------------------------------------------------------------------ widgets
 
 function ThSt({ children, right }: { children: React.ReactNode; right?: boolean }) {
@@ -3378,209 +3276,6 @@ function ExportButtons({
     </div>
   );
 }
-
-function hrFacts(item: HrQueueItem): { label: string; value: React.ReactNode }[] {
-  const payload = item.payload;
-  switch (item.type) {
-    case "leave": {
-      const stepIndex = Number(payload.current_step_index ?? 0) + 1;
-      const stepKind = String(payload.step_kind ?? "manager").replaceAll("_", " ");
-      return [
-        { label: "Employee", value: item.employee_name ?? "—" },
-        { label: "Type", value: payload.leave_type ?? "—" },
-        { label: "From", value: payload.from_ymd ?? "—" },
-        { label: "To", value: payload.to_ymd ?? "—" },
-        { label: "Days", value: qty(payload.days ?? 0) },
-        { label: "Workflow step", value: `${stepIndex} · ${stepKind}` },
-        { label: "Reason", value: payload.reason || "—" },
-      ];
-    }
-    case "payroll_period":
-      return [
-        { label: "Period", value: payload.period_key ?? "—" },
-        { label: "Window", value: `${payload.from_ymd ?? "—"} → ${payload.to_ymd ?? "—"}` },
-        { label: "Payslips", value: qty(payload.payslip_count ?? 0) },
-        { label: "Gross", value: money(payload.totals?.gross ?? 0) },
-        { label: "Deductions", value: money(payload.totals?.deductions ?? 0) },
-        { label: "Net", value: money(payload.totals?.net ?? 0) },
-        { label: "Raised by", value: payload.created_by ?? "HR" },
-      ];
-    case "incident":
-      return [
-        { label: "Employee", value: item.employee_name ?? "unassigned" },
-        { label: "Kind", value: payload.kind ?? "—" },
-        { label: "Occurred", value: payload.occurred_ymd ?? "—" },
-        { label: "Salary deduct", value: payload.salary_deduct ? "Yes" : "No" },
-        { label: "Amount", value: money(payload.amount_etb ?? 0) },
-        { label: "Detail", value: payload.detail || item.detail || "—" },
-      ];
-    case "document":
-      return [
-        { label: "Employee", value: item.employee_name ?? "—" },
-        { label: "Kind", value: payload.kind ?? "—" },
-        { label: "Uploaded by", value: payload.uploaded_by || "HR" },
-        {
-          label: "File",
-          value: payload.file_url ? (
-            <a
-              href={payload.file_url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sky-300 hover:underline"
-            >
-              Open
-            </a>
-          ) : (
-            "—"
-          ),
-        },
-      ];
-    case "attendance_correction":
-      return [
-        { label: "Employee", value: item.employee_name ?? "—" },
-        { label: "Day", value: payload.day ?? "—" },
-        { label: "New status", value: payload.new_status ?? "—" },
-        {
-          label: "New in / out",
-          value: `${payload.new_check_in ?? "—"} · ${payload.new_check_out ?? "—"}`,
-        },
-        { label: "Reason", value: payload.reason || "—" },
-      ];
-    case "people_event":
-      return [
-        { label: "Employee", value: item.employee_name ?? "—" },
-        { label: "Event", value: payload.kind ?? "—" },
-        {
-          label: "From",
-          value:
-            [payload.from_department_label, payload.from_title].filter(Boolean).join(" · ") || "—",
-        },
-        {
-          label: "To",
-          value:
-            [payload.to_department_label, payload.to_title].filter(Boolean).join(" · ") || "—",
-        },
-        { label: "Effective", value: payload.effective_ymd ?? "—" },
-      ];
-    case "checklist_run": {
-      const steps = payload.items ?? [];
-      const done = steps.filter((step) => step.done).length;
-      return [
-        { label: "Employee", value: item.employee_name ?? "—" },
-        { label: "Kind", value: payload.kind ?? "—" },
-        { label: "Steps", value: `${done}/${steps.length} done` },
-        {
-          label: "Remaining",
-          value:
-            steps
-              .filter((step) => !step.done)
-              .map((step) => step.label)
-              .join(", ") || "None",
-        },
-      ];
-    }
-    default:
-      return [];
-  }
-}
-
-function HrApprovalCard({
-  item,
-  note,
-  onNote,
-  onDecide,
-  pending = null,
-  busy = false,
-}: {
-  item: HrQueueItem;
-  note: string;
-  onNote: (value: string) => void;
-  onDecide: (decision: "APPROVED" | "REJECTED") => void;
-  pending?: "approve" | "reject" | null;
-  busy?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const facts = hrFacts(item);
-  const created = item.created_at
-    ? new Date(item.created_at).toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "";
-  const withNote = HR_TYPES_WITH_NOTE.includes(item.type);
-  // An incident "reject" would just re-open an already open incident.
-  const withReject = item.type !== "incident";
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${HR_TYPE_TONES[item.type]}`}
-            >
-              {HR_TYPE_LABELS[item.type]}
-            </span>
-            <StatusPill status={item.status} tone={statusTone(item.status)} />
-            {created && <span className="text-[11px] text-zinc-500">{created}</span>}
-          </div>
-          <p className="mt-1.5 text-sm text-zinc-100">{item.title}</p>
-          {item.detail && <p className="text-xs text-zinc-500">{item.detail}</p>}
-          <button
-            type="button"
-            onClick={() => setOpen((current) => !current)}
-            className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white"
-          >
-            {open ? "Hide details" : "Show details"}
-            <ChevronDown className={`size-3 transition ${open ? "rotate-180" : ""}`} />
-          </button>
-          {open && (
-            <div className="mt-2 grid gap-x-4 gap-y-1.5 rounded-lg border border-white/10 bg-white/[0.03] p-2.5 sm:grid-cols-2">
-              {facts.map((fact) => (
-                <div
-                  key={fact.label}
-                  className="flex items-baseline justify-between gap-3 text-[11px]"
-                >
-                  <span className="text-zinc-500">{fact.label}</span>
-                  <span className="min-w-0 truncate text-right text-zinc-300">{fact.value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <span className="flex items-center gap-1.5">
-          <IconAction
-            tone="emerald"
-            onClick={() => onDecide("APPROVED")}
-            pending={pending === "approve"}
-            disabled={busy}
-          />
-          {withReject && (
-            <IconAction
-              tone="rose"
-              onClick={() => onDecide("REJECTED")}
-              pending={pending === "reject"}
-              disabled={busy}
-            />
-          )}
-        </span>
-      </div>
-      {withNote && (
-        <div className="mt-2">
-          <Input
-            value={note}
-            onChange={(event) => onNote(event.target.value)}
-            placeholder="Decision note (optional)"
-            className="h-8 max-w-md text-xs"
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
 
 /* ------------------------------------------------------------------ */
 /* Access — managers create/remove staff logins for their own tenant.  */

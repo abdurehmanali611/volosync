@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, roleHome, saveSession } from "@/lib/api";
+import { refreshTenantSubscription } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,11 @@ export default function LoginPage() {
     try {
       const response = await api.login(username, password);
       saveSession(response.access, response.user);
+      try {
+        await refreshTenantSubscription();
+      } catch {
+        // The route guard retries this; keep the session usable if it fails.
+      }
       toast.success(`Welcome back, ${response.user.name.split(" ")[0]}`);
       router.replace(roleHome(response.user.role));
     } catch (error) {

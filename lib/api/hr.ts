@@ -2,7 +2,7 @@
 // Mirrors lib/api.ts: a thin request() over the {data}/{errors} envelope.
 // Existing hrApi in lib/api.ts stays untouched; import and reuse it there.
 
-import { ApiError, getToken, type HrDashboard, type HrEmployee } from "@/lib/api";
+import { ApiError, getToken, type HrDashboard, type HrDepartment, type HrEmployee } from "@/lib/api";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://volosync-backend.vercel.app";
 
@@ -187,6 +187,8 @@ export type HrIncidentType = {
   code: string;
   label: string;
   deduct: boolean;
+  percent_of_salary: string | number;
+  attendance_link: string;
   active: boolean;
 };
 
@@ -311,6 +313,8 @@ export type HrChecklistTemplate = {
   name: string;
   department: number | null;
   department_label: string;
+  team: number | null;
+  team_label: string;
   job_title: string;
   active: boolean;
   items: HrChecklistTemplateItem[];
@@ -346,14 +350,195 @@ export type HrChecklistRun = {
 
 export const DOCUMENT_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
 
+export type HrBulkResult<T> = {
+  created: T[];
+  skipped: Record<string, unknown>[];
+};
+
+export type HrOtpResetRequest = {
+  id: number;
+  employee: number;
+  employee_name: string;
+  employee_no: string;
+  department_label: string;
+  reason: string;
+  status: string;
+  otp_code: string;
+  requested_by: string;
+  decided_by: string;
+  decided_at: string | null;
+  decision_note: string;
+  used_at: string | null;
+  created_at: string;
+};
+
+export type HrAtsOtp = {
+  id: number;
+  role: string;
+  code: string;
+  status: string;
+  must_change_otp: boolean;
+  generated_by: string;
+  generated_at: string;
+  used_at: string | null;
+};
+
+export type HrManagerDashboard = {
+  headcount: number;
+  active: number;
+  on_leave: number;
+  terminated: number;
+  departments: { label: string; count: number }[];
+  attendance: {
+    day: string;
+    total: number;
+    present: number;
+    late: number;
+    absent: number;
+  }[];
+  leave_usage: { code: string; label: string; days: number }[];
+  payroll: {
+    id: number;
+    period_key: string;
+    status: string;
+    payslips: number;
+    gross: string;
+    deductions: string;
+    net: string;
+  } | null;
+  pending: {
+    terminations: number;
+    attendance: number;
+    payroll: number;
+    otp_resets: number;
+    otp_issued: number;
+  };
+  otp: {
+    portal_ready: number;
+    first_login_pending: number;
+    ats_active: number;
+    resets_30d: number;
+  };
+  recent_terminations: {
+    id: number;
+    employee: string;
+    effective_ymd: string | null;
+    status: string;
+  }[];
+};
+
+export type HrChatHistoryRow = {
+  id: number;
+  thread: number;
+  thread_title: string;
+  thread_kind: string;
+  sender: number | null;
+  sender_name: string;
+  sender_is_manager: boolean;
+  body: string;
+  image_url: string;
+  created_at: string;
+};
+
+export type HrChatBlock = {
+  id: number;
+  employee_a: number;
+  employee_a_name: string;
+  employee_b: number | null;
+  employee_b_name: string;
+  note: string;
+  active: boolean;
+  created_by: string;
+  created_at: string;
+};
+
+export type HrChatBlockInput = {
+  employee_a: number;
+  employee_b: number | null;
+  note?: string;
+};
+
+export type HrWageType = {
+  id: number;
+  code: string;
+  name: string;
+  frequency: string;
+  min_day: number;
+  to_day: number;
+  active: boolean;
+};
+
+export type HrPayrollAdjustment = {
+  id: number;
+  kind: string;
+  label: string;
+  percent_of_salary: string | number;
+  when_mode: string;
+  salary_from: string | number;
+  salary_to: string | number | null;
+  start_ymd: string | null;
+  end_ymd: string | null;
+  active: boolean;
+  created_at: string;
+};
+
+export type HrCompensation = {
+  id: number;
+  employee: number;
+  employee_id: number;
+  employee_name: string;
+  department_label: string;
+  kind: string;
+  amount: string;
+  effective_ymd: string | null;
+  detail: string;
+  status: string;
+  created_by: string;
+  decided_by: string;
+  decided_at: string | null;
+  decision_note: string;
+  applied_period: number | null;
+  applied_period_key: string;
+  created_at: string;
+};
+
+export type HrPayroll = {
+  id: number;
+  employee_id: number;
+  employee_name: string;
+  job_title: string;
+  period_id: number;
+  period_key: string;
+  gross: string;
+  deductions: string;
+  net: string;
+  status: string;
+  hr_marked_paid_at: string | null;
+  hr_marked_paid_by: string;
+  manager_approved_at: string | null;
+  manager_approved_by: string;
+  created_at: string;
+};
+
 // --------------------------------------------------------------------- api
 
 export const hrExt = {
   dashboard: () => request<{ data: HrDashboardFull }>("/api/hr/dashboard/"),
+  managerDashboard: () =>
+    request<{ data: HrManagerDashboard }>("/api/hr/manager-dashboard/"),
 
   // ------------------------------------------------------------- otp reset
   otpReset: (id: number) =>
     request<{ data: HrOtpReset }>(`/api/hr/employees/${id}/otp-reset/`, { method: "POST" }),
+  otpResetRequests: (queue = false) =>
+    request<{ data: HrOtpResetRequest[] }>(
+      `/api/hr/otp-resets/${queue ? "?queue=1" : ""}`,
+    ),
+  decideOtpReset: (id: number, decision: string, note = "") =>
+    request<{ data: HrOtpResetRequest }>(`/api/hr/otp-resets/${id}/decision/`, {
+      method: "POST",
+      body: JSON.stringify({ decision, note }),
+    }),
 
   // Employees incl. shift fields the shared HrEmployee type predates.
   employees: (search = "") =>
@@ -393,6 +578,17 @@ export const hrExt = {
     }),
   deleteTeam: (id: number) =>
     request<{ data: { deleted: boolean } }>(`/api/hr/teams/${id}/`, { method: "DELETE" }),
+
+  // ------------------------------------------------------------ departments
+  updateDepartment: (id: number, payload: { label: string; leader?: string }) =>
+    request<{ data: HrDepartment }>(`/api/hr/departments/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteDepartment: (id: number) =>
+    request<{ data: { deleted: boolean } }>(`/api/hr/departments/${id}/`, {
+      method: "DELETE",
+    }),
 
   // --------------------------------------------------------- leave balances
   leaveBalances: (employee: number, year?: number) => {
@@ -454,6 +650,42 @@ export const hrExt = {
     }),
   markChatRead: (threadId: number) =>
     request<{ data: HrChatThread }>(`/api/hr/chat/threads/${threadId}/read/`, { method: "POST" }),
+  chatBlocks: (all = false) =>
+    request<{ data: HrChatBlock[] }>(
+      `/api/hr/chat/blocks/${all ? "?all=1" : ""}`,
+    ),
+  createChatBlocks: (blocks: HrChatBlockInput[]) =>
+    request<{ data: HrBulkResult<HrChatBlock> }>("/api/hr/chat/blocks/", {
+      method: "POST",
+      body: JSON.stringify({ blocks }),
+    }),
+  updateChatBlock: (id: number, note: string) =>
+    request<{ data: HrChatBlock }>(`/api/hr/chat/blocks/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify({ note }),
+    }),
+  deleteChatBlock: (id: number) =>
+    request<{ data: { deleted: boolean } }>(`/api/hr/chat/blocks/${id}/`, {
+      method: "DELETE",
+    }),
+  chatHistory: (filters: {
+    from?: string;
+    to?: string;
+    employee?: number | null;
+    thread_type?: string;
+    manager?: string;
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    if (filters.employee) params.set("employee", String(filters.employee));
+    if (filters.thread_type) params.set("thread_type", filters.thread_type);
+    if (filters.manager) params.set("manager", filters.manager);
+    const query = params.toString();
+    return request<{ data: HrChatHistoryRow[] }>(
+      `/api/hr/chat/history/${query ? `?${query}` : ""}`,
+    );
+  },
 
   // ------------------------------------------------------------ hiring desk
   atsCredential: () => request<{ data: HrAtsCredential }>("/api/hr/ats-credential/"),
@@ -461,6 +693,21 @@ export const hrExt = {
     request<{ data: HrAtsCredential }>("/api/hr/ats-credential/", {
       method: "POST",
       body: JSON.stringify({ role }),
+    }),
+  atsOtps: (status = "ACTIVE") =>
+    request<{ data: HrAtsOtp[] }>(
+      `/api/hr/ats-otps/?status=${encodeURIComponent(status)}`,
+    ),
+  createAtsOtp: (role: string) =>
+    request<{ data: HrAtsOtp }>("/api/hr/ats-otps/", {
+      method: "POST",
+      body: JSON.stringify({ role }),
+    }),
+  resetAtsOtp: (id: number) =>
+    request<{ data: HrAtsOtp }>(`/api/hr/ats-otps/${id}/reset/`, { method: "POST" }),
+  deleteAtsOtp: (id: number) =>
+    request<{ data: { deleted: boolean } }>(`/api/hr/ats-otps/${id}/`, {
+      method: "DELETE",
     }),
 
   // ------------------------------------------------------- shift templates
@@ -498,6 +745,22 @@ export const hrExt = {
     }),
   deleteShiftTemplate: (id: number) =>
     request<{ data: { deleted: boolean } }>(`/api/hr/shift-templates/${id}/`, { method: "DELETE" }),
+  bulkShiftTemplates: (payload: {
+    shifts: {
+      name: string;
+      code?: string;
+      department?: number | null;
+      start_time?: string;
+      end_time?: string;
+      weekdays?: number[];
+      note?: string;
+      active?: boolean;
+    }[];
+  }) =>
+    request<{ data: HrBulkResult<HrShiftTemplate> }>("/api/hr/shift-templates/bulk/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 
   // ---------------------------------------------------------- leave types
   leaveTypes: () => request<{ data: HrLeaveType[] }>("/api/hr/leave-types/"),
@@ -525,12 +788,42 @@ export const hrExt = {
 
   // -------------------------------------------------------- incident types
   incidentTypes: () => request<{ data: HrIncidentType[] }>("/api/hr/incident-types/"),
-  createIncidentType: (payload: { code?: string; label: string; deduct?: boolean; active?: boolean }) =>
+  createIncidentType: (payload: {
+    code?: string;
+    label: string;
+    deduct?: boolean;
+    percent_of_salary?: string | number;
+    attendance_link?: string;
+    active?: boolean;
+  }) =>
     request<{ data: HrIncidentType }>("/api/hr/incident-types/", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  updateIncidentType: (id: number, payload: Partial<{ label: string; deduct: boolean; active: boolean }>) =>
+  bulkIncidentTypes: (
+    types: {
+      label: string;
+      code?: string;
+      deduct?: boolean;
+      percent_of_salary?: string | number;
+      attendance_link?: string;
+      active?: boolean;
+    }[],
+  ) =>
+    request<{ data: HrBulkResult<HrIncidentType> }>("/api/hr/incident-types/bulk/", {
+      method: "POST",
+      body: JSON.stringify({ types }),
+    }),
+  updateIncidentType: (
+    id: number,
+    payload: Partial<{
+      label: string;
+      deduct: boolean;
+      percent_of_salary: string | number;
+      attendance_link: string;
+      active: boolean;
+    }>,
+  ) =>
     request<{ data: HrIncidentType }>(`/api/hr/incident-types/${id}/`, {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -582,10 +875,20 @@ export const hrExt = {
     }),
 
   // ------------------------------------------------------ attendance bits
-  attendance: (from = "", to = "") => {
+  attendance: (
+    range:
+      | string
+      | { from?: string; to?: string; employee?: number | null } = "",
+    to = "",
+  ) => {
+    const filters =
+      typeof range === "string"
+        ? { from: range, to, employee: null }
+        : { from: range.from ?? "", to: range.to ?? "", employee: range.employee ?? null };
     const params = new URLSearchParams();
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    if (filters.employee) params.set("employee", String(filters.employee));
     const query = params.toString();
     return request<{ data: HrAttendanceFull[] }>(`/api/hr/attendance/${query ? `?${query}` : ""}`);
   },
@@ -676,6 +979,116 @@ export const hrExt = {
       body: JSON.stringify({ decision, note }),
     }),
 
+  // ---------------------------------------------------------- compensation
+  compensation: () => request<{ data: HrCompensation[] }>("/api/hr/compensation/"),
+  decideCompensation: (id: number, decision: string, note = "") =>
+    request<{ data: HrCompensation }>(`/api/hr/compensation/${id}/decision/`, {
+      method: "POST",
+      body: JSON.stringify({ decision, note }),
+    }),
+
+  // ------------------------------------------------------- payroll config
+  wageTypes: () => request<{ data: HrWageType[] }>("/api/hr/wage-types/"),
+  bulkWageTypes: (
+    wage_types: {
+      name: string;
+      code?: string;
+      frequency?: string;
+      min_day?: number;
+      to_day?: number;
+      active?: boolean;
+    }[],
+  ) =>
+    request<{ data: HrBulkResult<HrWageType> }>("/api/hr/wage-types/bulk/", {
+      method: "POST",
+      body: JSON.stringify({ wage_types }),
+    }),
+  updateWageType: (
+    id: number,
+    payload: Partial<{
+      name: string;
+      frequency: string;
+      min_day: number;
+      to_day: number;
+      active: boolean;
+    }>,
+  ) =>
+    request<{ data: HrWageType }>(`/api/hr/wage-types/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteWageType: (id: number) =>
+    request<{ data: { deleted: boolean } }>(`/api/hr/wage-types/${id}/`, {
+      method: "DELETE",
+    }),
+
+  payrollAdjustments: () =>
+    request<{ data: HrPayrollAdjustment[] }>("/api/hr/payroll-adjustments/"),
+  bulkPayrollAdjustments: (
+    adjustments: {
+      kind?: string;
+      label: string;
+      percent_of_salary?: string | number;
+      when_mode?: string;
+      salary_from?: string | number;
+      salary_to?: string | number | null;
+      start_ymd?: string;
+      end_ymd?: string;
+      active?: boolean;
+    }[],
+  ) =>
+    request<{ data: HrBulkResult<HrPayrollAdjustment> }>(
+      "/api/hr/payroll-adjustments/bulk/",
+      {
+        method: "POST",
+        body: JSON.stringify({ adjustments }),
+      },
+    ),
+  updatePayrollAdjustment: (
+    id: number,
+    payload: Partial<{
+      kind: string;
+      label: string;
+      percent_of_salary: string | number;
+      when_mode: string;
+      salary_from: string | number;
+      salary_to: string | number | null;
+      start_ymd: string;
+      end_ymd: string;
+      active: boolean;
+    }>,
+  ) =>
+    request<{ data: HrPayrollAdjustment }>(`/api/hr/payroll-adjustments/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deletePayrollAdjustment: (id: number) =>
+    request<{ data: { deleted: boolean } }>(`/api/hr/payroll-adjustments/${id}/`, {
+      method: "DELETE",
+    }),
+  payrollHistory: (filters: {
+    from?: string;
+    to?: string;
+    employee?: number;
+    amount_from?: string;
+    amount_to?: string;
+    wage_type?: number;
+    status?: string;
+  } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.from) params.set("from", filters.from);
+    if (filters.to) params.set("to", filters.to);
+    if (filters.employee) params.set("employee", String(filters.employee));
+    if (filters.amount_from) params.set("amount_from", filters.amount_from);
+    if (filters.amount_to) params.set("amount_to", filters.amount_to);
+    if (filters.wage_type) params.set("wage_type", String(filters.wage_type));
+    if (filters.status) params.set("status", filters.status);
+    const query = params.toString();
+    return request<{ data: HrPayroll[] }>(
+      `/api/hr/payroll/history/${query ? `?${query}` : ""}`,
+    );
+  },
+
   // ------------------------------------------------------------ checklists
   checklistTemplates: (kind = "") => {
     const query = kind ? `?kind=${encodeURIComponent(kind)}` : "";
@@ -685,6 +1098,7 @@ export const hrExt = {
     kind: string;
     name: string;
     department?: number | null;
+    team?: number | null;
     job_title?: string;
     active?: boolean;
     items: { label: string; required: boolean; owner_role?: string; sort_order: number }[];
@@ -699,6 +1113,7 @@ export const hrExt = {
       kind: string;
       name: string;
       department: number | null;
+      team: number | null;
       job_title: string;
       active: boolean;
       items: { label: string; required: boolean; owner_role?: string; sort_order: number }[];
