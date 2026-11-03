@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileDown, Layers3, Search } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,7 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { exportExcel, exportPdf } from "@/lib/export";
-import { money, qty } from "@/lib/api";
+import { amount, money, qty } from "@/lib/api";
 import { EmptyRow, Panel, Td } from "@/components/volo/kit";
 import { cn } from "@/lib/utils";
 
@@ -371,17 +372,19 @@ export function PaymentTaxPanel({
                   <Td right className="text-zinc-300">
                     {qty(group.registeredQty)}
                   </Td>
-                  <Td right className="text-sky-300">
-                    {qty(group.inStoreQty)}
-                    <span className="block text-[10px] text-sky-300/60">
-                      {money(group.inStoreValue)}
-                    </span>
+                  <Td right>
+                    <QtyValueCell
+                      tone="inStore"
+                      quantity={group.inStoreQty}
+                      value={group.inStoreValue}
+                    />
                   </Td>
-                  <Td right className="text-violet-300">
-                    {qty(group.stockedOutQty)}
-                    <span className="block text-[10px] text-violet-300/60">
-                      {money(group.stockedOutValue)}
-                    </span>
+                  <Td right>
+                    <QtyValueCell
+                      tone="stockedOut"
+                      quantity={group.stockedOutQty}
+                      value={group.stockedOutValue}
+                    />
                   </Td>
                   <Td right>{money(group.baseValue)}</Td>
                   <Td right className="text-amber-300">
@@ -519,17 +522,19 @@ export function PaymentTaxPanel({
                           <Td right className="text-zinc-300">
                             {qty(row.registered_qty)}
                           </Td>
-                          <Td right className="text-sky-300">
-                            {qty(row.in_store_qty)}
-                            <span className="block text-[10px] text-sky-300/60">
-                              {money(row.in_store_value)}
-                            </span>
+                          <Td right>
+                            <QtyValueCell
+                              tone="inStore"
+                              quantity={row.in_store_qty}
+                              value={row.in_store_value}
+                            />
                           </Td>
-                          <Td right className="text-violet-300">
-                            {qty(row.stocked_out_qty)}
-                            <span className="block text-[10px] text-violet-300/60">
-                              {money(row.stocked_out_value)}
-                            </span>
+                          <Td right>
+                            <QtyValueCell
+                              tone="stockedOut"
+                              quantity={row.stocked_out_qty}
+                              value={row.stocked_out_value}
+                            />
                           </Td>
                           <Td right>{money(row.base_value)}</Td>
                           <Td right className="text-amber-300">
@@ -549,11 +554,19 @@ export function PaymentTaxPanel({
                         <Td right className="font-semibold text-white">
                           {qty(detail.registeredQty)}
                         </Td>
-                        <Td right className="font-semibold text-sky-300">
-                          {qty(detail.inStoreQty)}
+                        <Td right>
+                          <QtyValueCell
+                            tone="inStore"
+                            quantity={detail.inStoreQty}
+                            value={detail.inStoreValue}
+                          />
                         </Td>
-                        <Td right className="font-semibold text-violet-300">
-                          {qty(detail.stockedOutQty)}
+                        <Td right>
+                          <QtyValueCell
+                            tone="stockedOut"
+                            quantity={detail.stockedOutQty}
+                            value={detail.stockedOutValue}
+                          />
                         </Td>
                         <Td right className="font-semibold text-white">
                           {money(detail.baseValue)}
@@ -629,6 +642,45 @@ const taxTone = {
 } as const;
 
 type TaxTone = keyof typeof taxTone;
+
+const toneColor = {
+  inStore: "text-sky-200",
+  stockedOut: "text-violet-200",
+} as const;
+
+const tonePill = {
+  inStore: "bg-sky-500/12 text-sky-200/90",
+  stockedOut: "bg-violet-500/12 text-violet-200/90",
+} as const;
+
+/**
+ * One table cell carrying both the quantity and its value: the count leads in the
+ * column tone, the money rides beneath it in a pill with ETB trailing the figure.
+ */
+export function QtyValueCell({
+  quantity,
+  value,
+  tone,
+}: {
+  quantity: string | number;
+  value: string | number;
+  tone: "inStore" | "stockedOut";
+}) {
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <span className={cn("text-[13px] leading-none font-semibold tabular-nums", toneColor[tone])}>
+        {qty(quantity)}
+      </span>
+      <Badge
+        variant="secondary"
+        className={cn("h-[17px] rounded-full px-1.5 py-0 text-[10px] leading-none", tonePill[tone])}
+      >
+        {amount(value)}
+        <span className="text-[9px] font-semibold tracking-wider uppercase opacity-60">ETB</span>
+      </Badge>
+    </div>
+  );
+}
 
 function TaxTotalPill({
   label,

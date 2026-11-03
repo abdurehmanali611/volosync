@@ -358,10 +358,14 @@ export type Movement = {
 };
 
 export const money = (value: string | number, currency = "ETB") =>
-  `${currency} ${Number(value).toLocaleString("en-GB", {
+  `${currency} ${amount(value)}`;
+
+/** Amount without the currency word, for cells that show "1,234.00 ETB". */
+export const amount = (value: string | number) =>
+  Number(value).toLocaleString("en-GB", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
 
 export const qty = (value: string | number) =>
   Number(value).toLocaleString("en-GB", { maximumFractionDigits: 3 });

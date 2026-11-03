@@ -118,6 +118,7 @@ import {
   Th,
 } from "@/components/volo/kit";
 import { PhoneField } from "@/components/volo/phone-field";
+import { QtyValueCell } from "@/components/volo/payment-tax";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const lineVatRate = (line: RegistrationLine) => Number(line.vat_rate ?? 15);
@@ -2716,17 +2717,19 @@ export default function StorePage() {
                       </Td>
                       <Td className="text-zinc-400">{group.category}</Td>
                       <Td right className="text-zinc-300">{qty(group.registeredQty)}</Td>
-                      <Td right className="text-sky-300">
-                        {qty(group.inStoreQty)}
-                        <span className="block text-[10px] text-sky-300/60">
-                          {money(group.inStoreValue)}
-                        </span>
+                      <Td right>
+                        <QtyValueCell
+                          tone="inStore"
+                          quantity={group.inStoreQty}
+                          value={group.inStoreValue}
+                        />
                       </Td>
-                      <Td right className="text-violet-300">
-                        {qty(group.stockedOutQty)}
-                        <span className="block text-[10px] text-violet-300/60">
-                          {money(group.stockedOutValue)}
-                        </span>
+                      <Td right>
+                        <QtyValueCell
+                          tone="stockedOut"
+                          quantity={group.stockedOutQty}
+                          value={group.stockedOutValue}
+                        />
                       </Td>
                       <Td right>{money(group.baseValue)}</Td>
                       <Td right className="text-amber-300">{money(group.vatAmount)}</Td>
@@ -2862,17 +2865,19 @@ export default function StorePage() {
                               <Td right className="text-zinc-300">
                                 {qty(row.registered_qty)}
                               </Td>
-                              <Td right className="text-sky-300">
-                                {qty(row.in_store_qty)}
-                                <span className="block text-[10px] text-sky-300/60">
-                                  {money(row.in_store_value)}
-                                </span>
+                              <Td right>
+                                <QtyValueCell
+                                  tone="inStore"
+                                  quantity={row.in_store_qty}
+                                  value={row.in_store_value}
+                                />
                               </Td>
-                              <Td right className="text-violet-300">
-                                {qty(row.stocked_out_qty)}
-                                <span className="block text-[10px] text-violet-300/60">
-                                  {money(row.stocked_out_value)}
-                                </span>
+                              <Td right>
+                                <QtyValueCell
+                                  tone="stockedOut"
+                                  quantity={row.stocked_out_qty}
+                                  value={row.stocked_out_value}
+                                />
                               </Td>
                               <Td right>{money(row.base_value)}</Td>
                               <Td right className="text-amber-300">
@@ -2892,11 +2897,19 @@ export default function StorePage() {
                             <Td right className="font-semibold text-white">
                               {qty(taxDetail.registeredQty)}
                             </Td>
-                            <Td right className="font-semibold text-sky-300">
-                              {qty(taxDetail.inStoreQty)}
+                            <Td right>
+                              <QtyValueCell
+                                tone="inStore"
+                                quantity={taxDetail.inStoreQty}
+                                value={taxDetail.inStoreValue}
+                              />
                             </Td>
-                            <Td right className="font-semibold text-violet-300">
-                              {qty(taxDetail.stockedOutQty)}
+                            <Td right>
+                              <QtyValueCell
+                                tone="stockedOut"
+                                quantity={taxDetail.stockedOutQty}
+                                value={taxDetail.stockedOutValue}
+                              />
                             </Td>
                             <Td right className="font-semibold text-white">
                               {money(taxDetail.baseValue)}
