@@ -30,6 +30,7 @@ export function clearAuthStorage(): void {
 export function scheduleSessionExpiredRedirect(): void {
   if (typeof window === "undefined") return;
   if (redirectScheduled) return;
+  if (window.location.pathname === LOGIN_PATH) return;
   redirectScheduled = true;
   toast.error("Your session has expired. Please sign in again.", {
     id: TOAST_ID,

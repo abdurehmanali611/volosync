@@ -5,6 +5,8 @@
 
 import { ApiError, getToken, type Asset, type Lot, type Summary } from "@/lib/api";
 
+import { scheduleSessionExpiredRedirect } from "@/lib/sessionExpiry";
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://volosync-backend.vercel.app";
 
 function messageFrom(detail: unknown): string {
@@ -32,6 +34,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const body = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
+    if (response.status === 401 && !path.includes("/auth/login/")) {
+      scheduleSessionExpiredRedirect();
+    }
     const detail = body?.errors ?? body;
     throw new ApiError(messageFrom(detail), detail);
   }
@@ -48,6 +53,15 @@ export type RankingPeriod =
   | "halfyear"
   | "yearly";
 
+/** One penalty Finance raised, kept with the document that carried it. */
+export type PenaltyMark = {
+  amount: string;
+  reason: string;
+  item: string;
+  voucher: string;
+  at: string;
+};
+
 // Exactly the serializer output of GET /api/sales/agents/ranking/.
 export type RankRow = {
   agent_id: number;
@@ -56,7 +70,9 @@ export type RankRow = {
   units_sold: string;
   returned_quantity: string;
   penalty_count: number;
+  penalty_amount: string;
   has_penalty: boolean;
+  penalty_reasons: PenaltyMark[];
   rank: number;
 };
 
@@ -207,8 +223,15 @@ export type SummaryExt = Summary & { totals: SummaryTotals };
 // ------------------------------------------------------------------- client
 
 export const managerApi = {
-  ranking: (period: RankingPeriod = "alltime") =>
-    request<{ data: RankRow[] }>(`/api/sales/agents/ranking/?period=${period}`),
+  /** `period` is the preset window; an explicit from/to pair overrides it. */
+  ranking: (period: RankingPeriod = "alltime", from?: string, to?: string) => {
+    const params = new URLSearchParams({ period });
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    return request<{ data: RankRow[] }>(
+      `/api/sales/agents/ranking/?${params.toString()}`,
+    );
+  },
 
   patchLot: (id: number, payload: LotPatch) =>
     request<{ data: Lot }>(`/api/inventory/lots/${id}/`, {

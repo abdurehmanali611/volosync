@@ -44,6 +44,11 @@ function iso(day: string, time: string): string | null {
 function ymd(v: unknown): string {
   return s(v).slice(0, 10);
 }
+/** The roster column stores M/F; the HR forms speak male/female. */
+function genderOf(v: unknown): string {
+  const key = s(v).toUpperCase();
+  return key === "M" ? "male" : key === "F" ? "female" : "";
+}
 
 type Emp = Record<string, unknown> & {
   id: number;
@@ -87,6 +92,40 @@ async function employeeMap() {
   return map;
 }
 
+/**
+ * Persist a whole editor list as a patch/create/delete diff instead of
+ * deleting every row first. Ids survive, a read in flight never sees an empty
+ * table, and employees keep the department they point at.
+ */
+async function syncByCode(
+  base: string,
+  wanted: Record<string, unknown>[],
+): Promise<Record<string, unknown>[]> {
+  const existing = (await get<Record<string, unknown>[]>(base)) || [];
+  const byCode = new Map<string, Record<string, unknown>>();
+  for (const row of existing) {
+    const code = s(row.code).toUpperCase();
+    if (code && !byCode.has(code)) byCode.set(code, row);
+  }
+  const kept = new Set<unknown>();
+  const saved: Record<string, unknown>[] = [];
+  for (const payload of wanted) {
+    const hit = byCode.get(s(payload.code).toUpperCase());
+    if (hit) {
+      kept.add(hit.id);
+      saved.push(
+        await patch<Record<string, unknown>>(`${base}${num(hit.id)}/`, payload),
+      );
+    } else {
+      saved.push(await post<Record<string, unknown>>(base, payload));
+    }
+  }
+  for (const row of existing) {
+    if (!kept.has(row.id)) await del(`${base}${num(row.id)}/`);
+  }
+  return saved;
+}
+
 async function mapEmployee(e: Emp): Promise<Record<string, unknown>> {
   return {
     id: num(e.id),
@@ -101,24 +140,24 @@ async function mapEmployee(e: Emp): Promise<Record<string, unknown>> {
     status: low(e.status),
     hireDate: ymd(e.hired_on),
     endDate: "",
-    wageType: "monthly",
+    wageType: low(e.wage_type) || "monthly",
     baseSalaryETB: num(e.salary),
-    bankName: "",
-    accountNumber: "",
+    bankName: s(e.bank_name),
+    accountNumber: s(e.account_number),
     credentialUserId: null,
     credentialUserName: "",
-    notes: "",
+    notes: s(e.notes),
     portalOtpPreview: s(e.portal_otp),
     portalOtpViewer: s(e.portal_otp),
     mustChangeOtp: Boolean(e.must_change_otp),
     portalOtpIssuedAt: e.otp_reset_at ?? null,
     portalFirstLoginAt: e.portal_first_login_at ?? null,
     profileImageUrl: s(e.profile_image_url),
-    gender: s(e.sex),
-    education: "",
-    personalTin: "",
-    yearsExperience: 0,
-    medicalNote: "",
+    gender: genderOf(e.sex),
+    education: s(e.education),
+    personalTin: s(e.personal_tin),
+    yearsExperience: num(e.years_experience),
+    medicalNote: s(e.medical_note),
     createdAt: s(e.created_at),
     updatedAt: s(e.created_at),
   };
@@ -343,8 +382,8 @@ function mapPayslip(
     payDate: period ? ymd(period.to_ymd) : "",
     hireDate: emp ? ymd(emp.hired_on) : "",
     wageType: period ? low(period.wage_type_label) : "",
-    bankName: "",
-    accountNumber: "",
+    bankName: s(r.bank_name),
+    accountNumber: s(r.account_number),
     basePayETB: gross,
     overtimeETB: 0,
     tipsETB: 0,
@@ -697,7 +736,16 @@ async function employeePayload(v: Record<string, unknown>) {
   if (v.orgPosition !== undefined) payload.org_position = s(v.orgPosition);
   if (v.hireDate !== undefined) payload.hired_on = s(v.hireDate) || null;
   if (v.baseSalaryETB !== undefined) payload.salary = num(v.baseSalaryETB);
+  if (v.bankName !== undefined) payload.bank_name = s(v.bankName);
+  if (v.accountNumber !== undefined) payload.account_number = s(v.accountNumber);
   if (v.gender !== undefined) payload.sex = s(v.gender);
+  if (v.wageType !== undefined) payload.wage_type = s(v.wageType).toUpperCase();
+  if (v.education !== undefined) payload.education = s(v.education);
+  if (v.personalTin !== undefined) payload.personal_tin = s(v.personalTin);
+  if (v.yearsExperience !== undefined)
+    payload.years_experience = Math.round(num(v.yearsExperience));
+  if (v.medicalNote !== undefined) payload.medical_note = s(v.medicalNote);
+  if (v.notes !== undefined) payload.notes = s(v.notes);
   if (v.teamId !== undefined) payload.team = v.teamId ?? null;
   if (v.status !== undefined) payload.status = s(v.status).toUpperCase();
   if (v.department !== undefined) payload.department = await deptId(v.department);
@@ -731,7 +779,7 @@ async function op(name: string, v: Record<string, unknown>): Promise<unknown> {
       return mapEmployee(row);
     }
     case "deleteHrEmployee": {
-      await patch<Emp>(`/employees/${num(v.id)}/`, { status: "TERMINATED" });
+      await del(`/employees/${num(v.id)}/`);
       return true;
     }
     case "enableHrEmployeePortal": {
@@ -754,18 +802,16 @@ async function op(name: string, v: Record<string, unknown>): Promise<unknown> {
     }
     case "replaceHrDepartments": {
       const items = (v.departments as Record<string, unknown>[]) || [];
-      const existing = await get<Record<string, unknown>[]>("/departments/");
-      for (const row of existing || []) await del(`/departments/${num(row.id)}/`);
-      for (const item of items) {
-        await post("/departments/", {
+      const saved = await syncByCode(
+        "/departments/",
+        items.map((item) => ({
           code: s(item.code),
           label: s(item.label),
           leader: s(item.leader),
-        });
-      }
-      const rows = await get<Record<string, unknown>[]>("/departments/");
+        })),
+      );
       deptCache = null;
-      return (rows || []).map(mapDepartment);
+      return saved.map(mapDepartment);
     }
     case "hrTeams": {
       const rows = await get<Record<string, unknown>[]>("/teams/", {
@@ -818,19 +864,17 @@ async function op(name: string, v: Record<string, unknown>): Promise<unknown> {
     }
     case "replaceHrLeaveTypes": {
       const items = (v.types as Record<string, unknown>[]) || [];
-      const existing = await get<Record<string, unknown>[]>("/leave-types/");
-      for (const row of existing || []) await del(`/leave-types/${num(row.id)}/`);
-      for (const item of items) {
-        await post("/leave-types/", {
+      const saved = await syncByCode(
+        "/leave-types/",
+        items.map((item) => ({
           code: s(item.code),
           label: s(item.label),
           paid: item.paid !== false,
           quota_days: num(item.defaultDays) || 15,
           active: item.active !== false,
-        });
-      }
-      const rows = await get<Record<string, unknown>[]>("/leave-types/");
-      return (rows || []).map(mapLeaveType);
+        })),
+      );
+      return saved.map(mapLeaveType);
     }
     case "hrIncidentTypes": {
       const rows = await get<Record<string, unknown>[]>("/incident-types/");
@@ -838,20 +882,18 @@ async function op(name: string, v: Record<string, unknown>): Promise<unknown> {
     }
     case "replaceHrIncidentTypes": {
       const items = (v.types as Record<string, unknown>[]) || [];
-      const existing = await get<Record<string, unknown>[]>("/incident-types/");
-      for (const row of existing || []) await del(`/incident-types/${num(row.id)}/`);
-      for (const item of items) {
-        await post("/incident-types/", {
+      const saved = await syncByCode(
+        "/incident-types/",
+        items.map((item) => ({
           code: s(item.code),
           label: s(item.label),
           deduct: Boolean(item.deduct),
           percent_of_salary: num(item.percentOfSalary),
           attendance_link: s(item.attendanceLink || "NONE").toUpperCase(),
           active: item.active !== false,
-        });
-      }
-      const rows = await get<Record<string, unknown>[]>("/incident-types/");
-      return (rows || []).map(mapIncidentType);
+        })),
+      );
+      return saved.map(mapIncidentType);
     }
 
     // ── otp / notifications ────────────────────────────────────────────────
@@ -1259,8 +1301,8 @@ async function op(name: string, v: Record<string, unknown>): Promise<unknown> {
         payslipId: num(r.id),
         employeeId: num(r.employee_id),
         employeeName: s(r.employee_name),
-        bankName: "",
-        accountNumber: "",
+        bankName: s(r.bank_name),
+        accountNumber: s(r.account_number),
         netPayETB: num(r.net),
         payslipNumber: `PS-${s(r.period_id).padStart(4, "0")}-${s(r.id).padStart(4, "0")}`,
       }));

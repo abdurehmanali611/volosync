@@ -156,19 +156,61 @@ export function PageHeader({
   );
 }
 
+/**
+ * Per-card accents, so two panels side by side read as different subjects at a
+ * glance instead of as one repeated block.
+ */
+const PANEL_TONES = {
+  emerald: {
+    dot: "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.75)]",
+    rule: "from-emerald-400/85 via-teal-300/35",
+    header: "from-emerald-400/9 via-teal-400/2.5 to-transparent",
+  },
+  sky: {
+    dot: "bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.75)]",
+    rule: "from-sky-400/85 via-cyan-300/35",
+    header: "from-sky-400/9 via-cyan-400/2.5 to-transparent",
+  },
+  violet: {
+    dot: "bg-violet-400 shadow-[0_0_10px_rgba(167,139,250,0.75)]",
+    rule: "from-violet-400/85 via-fuchsia-300/35",
+    header: "from-violet-400/9 via-fuchsia-400/2.5 to-transparent",
+  },
+  amber: {
+    dot: "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.75)]",
+    rule: "from-amber-400/85 via-orange-300/35",
+    header: "from-amber-400/9 via-orange-400/2.5 to-transparent",
+  },
+  rose: {
+    dot: "bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.75)]",
+    rule: "from-rose-400/85 via-pink-300/35",
+    header: "from-rose-400/9 via-pink-400/2.5 to-transparent",
+  },
+  indigo: {
+    dot: "bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.75)]",
+    rule: "from-indigo-400/85 via-blue-300/35",
+    header: "from-indigo-400/9 via-blue-400/2.5 to-transparent",
+  },
+} as const;
+
+export type PanelTone = keyof typeof PANEL_TONES;
+
 export function Panel({
   title,
   description,
   children,
   actions,
   className,
+  tone,
 }: {
   title: string;
   description?: string;
   children: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
+  tone?: PanelTone;
 }) {
+  const accent = tone ? PANEL_TONES[tone] : null;
   return (
     <section
       className={cn(
@@ -176,10 +218,29 @@ export function Panel({
         className,
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-linear-to-r from-white/4.5 via-white/1.5 to-transparent px-4 py-3">
+      {accent ? (
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r to-transparent",
+            accent.rule,
+          )}
+        />
+      ) : null}
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-linear-to-r px-4 py-3",
+          accent ? accent.header : "from-white/4.5 via-white/1.5 to-transparent",
+        )}
+      >
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 font-heading text-sm font-semibold text-white">
-            <span className="size-1.5 rounded-full bg-role-1 shadow-[0_0_10px_var(--role-1)]" />
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                accent ? accent.dot : "bg-role-1 shadow-[0_0_10px_var(--role-1)]",
+              )}
+            />
             {title}
           </h2>
           {description && (

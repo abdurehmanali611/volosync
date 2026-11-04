@@ -18,6 +18,11 @@ import { useView } from "@/lib/use-view";
 import { useRouter } from "next/navigation";
 import { exportExcel, exportPdf } from "@/lib/export";
 import { printReceipts, type ReceiptBusiness, type ReceiptDoc } from "@/lib/print";
+import {
+  buildRegistrationReceipt,
+  buildStockOutReceipt,
+  tenantBusiness,
+} from "@/lib/receipts";
 import { storeApi, type SummaryTab, type SummaryTabRow, type TabSummary } from "@/lib/api/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -863,80 +868,15 @@ export default function StorePage() {
   }
 
   function receiptBusiness(): ReceiptBusiness {
-    return {
-      name: tenantInfo?.name || dashboard?.tenant.name || "Wholesale business",
-      tin: tenantInfo?.tin || dashboard?.tenant.tin || null,
-      logoUrl: tenantInfo?.logo_url ?? null,
-    };
+    return tenantBusiness(tenantInfo, dashboard?.tenant);
   }
 
   function registrationReceipt(doc: Registration): ReceiptDoc {
-    const base = doc.lines.reduce((sum, line) => sum + lineBase(line), 0);
-    const inclusive = Number(doc.total_value);
-    const vat = Math.max(0, inclusive - base);
-    return {
-      title: "Item registration receipt",
-      reference: doc.voucher_number,
-      date: doc.lines[0]?.registration_date ?? today(),
-      status: doc.status,
-      business: receiptBusiness(),
-      parties: [
-        { label: "Supplier (manufacturer)", value: doc.supplier_name },
-        { label: "Supplier TIN", value: doc.supplier_tin },
-        { label: "Supplier phone", value: doc.supplier_phone },
-        { label: "Supplier address", value: doc.supplier_address },
-        { label: "Registered by", value: doc.created_by_name },
-      ],
-      lines: doc.lines.map((line) => ({
-        item: line.item_name,
-        voucher: line.category,
-        quantity: qty(line.quantity),
-        unitPrice: money(line.unit_cost),
-        total: money(Number(line.quantity) * Number(line.unit_cost)),
-        note: line.note,
-      })),
-      totals:
-        vat > 0.005
-          ? [
-              { label: "Subtotal", value: money(base) },
-              { label: "VAT", value: money(vat) },
-              { label: "Total including VAT", value: money(inclusive) },
-            ]
-          : [{ label: "Total", value: money(inclusive) }],
-      note: doc.note,
-      signatures: ["Supplier / manufacturer", "Store keeper"],
-    };
+    return buildRegistrationReceipt(doc, receiptBusiness());
   }
 
   function stockOutReceipt(doc: StockOut): ReceiptDoc {
-    const units = doc.assignments.reduce((sum, row) => sum + Number(row.quantity), 0);
-    return {
-      title: "Stock out receipt",
-      reference: doc.voucher_number,
-      date: doc.date,
-      status: doc.status,
-      business: receiptBusiness(),
-      columnLabels: ["Qty", "Sales agent", "Change / unit"],
-      parties: [
-        { label: "Mode", value: doc.mode },
-        { label: "Raised by", value: doc.created_by_name },
-        {
-          label: "Agents",
-          value: doc.assignments.map((row) => row.agent_name || "Unassigned").join(", "),
-        },
-      ],
-      lines: doc.assignments.map((row) => ({
-        item: row.item_name,
-        voucher: row.voucher_number,
-        quantity: qty(row.quantity),
-        unitPrice: row.agent_name || "Unassigned",
-        total: money(row.changing_amount),
-        note: row.change_reason,
-      })),
-      totals: [{ label: "Total units handed out", value: qty(units) }],
-      note: doc.note,
-      signatures: ["Store keeper", "Sales agent"],
-    };
+    return buildStockOutReceipt(doc, receiptBusiness());
   }
 
   const taxRows = useMemo<SummaryTabRow[]>(() => tax?.rows ?? [], [tax]);
@@ -2664,7 +2604,7 @@ export default function StorePage() {
                     totals: taxExportTotals,
                     file: "volosync-payment-tax",
                     sheet: "Payment & tax",
-                    note: dashboard?.tenant.name,
+                    business: receiptBusiness(),
                   })
                 }
               >

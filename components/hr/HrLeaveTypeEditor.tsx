@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Loader2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { CalendarDays, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { PendingButton } from "@/components/ui/pending-button";
 import { cn } from "@/lib/utils";
 import { notifyApiFailure } from "@/lib/actions";
 import { fetchHrLeaveTypes, replaceHrLeaveTypesApi } from "@/lib/api/hrSource";
@@ -62,13 +64,16 @@ function settingsFromLines(lines: LeaveTypeLine[]): HrLeaveTypeSetting[] {
   return next;
 }
 
+function signature(lines: LeaveTypeLine[]): string {
+  return JSON.stringify(settingsFromLines(lines));
+}
+
 export function HrLeaveTypeEditor() {
   const rowIdRef = useRef(0);
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const persistGen = useRef(0);
-  const linesRef = useRef<LeaveTypeLine[]>([]);
   const [lines, setLines] = useState<LeaveTypeLine[]>([]);
+  const [saved, setSaved] = useState("[]");
   const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,8 +83,8 @@ export function HrLeaveTypeEditor() {
         if (cancelled) return;
         const next = linesFromSettings(types);
         rowIdRef.current = next.length;
-        linesRef.current = next;
         setLines(next);
+        setSaved(signature(next));
       } catch (e) {
         notifyApiFailure(e, "Could not load leave types");
       } finally {
@@ -88,73 +93,42 @@ export function HrLeaveTypeEditor() {
     })();
     return () => {
       cancelled = true;
-      if (persistTimer.current) clearTimeout(persistTimer.current);
     };
   }, []);
 
-  const schedulePersist = (immediate = false) => {
-    if (persistTimer.current) clearTimeout(persistTimer.current);
-    const gen = ++persistGen.current;
-    const run = async () => {
-      const snapshot = linesRef.current;
-      try {
-        const saved = await replaceHrLeaveTypesApi(settingsFromLines(snapshot));
-        if (gen !== persistGen.current) return;
-        let savedIndex = 0;
-        const codeByKey = new Map<string, string>();
-        for (const line of snapshot) {
-          if (!line.label.trim()) continue;
-          const setting = saved[savedIndex++];
-          if (setting?.code) codeByKey.set(line.key, setting.code);
-        }
-        setLines((current) => {
-          const next = current.map((line) => {
-            const code = codeByKey.get(line.key);
-            return code != null && code !== line.code
-              ? { ...line, code }
-              : line;
-          });
-          linesRef.current = next;
-          return next;
-        });
-      } catch (e) {
-        if (gen === persistGen.current) {
-          notifyApiFailure(e, "Could not save leave types");
-        }
-      }
-    };
-    if (immediate) void run();
-    else persistTimer.current = setTimeout(() => void run(), 500);
-  };
-
-  const commitLines = (
-    updater: (current: LeaveTypeLine[]) => LeaveTypeLine[],
-    immediate = false,
-  ) => {
-    setLines((current) => {
-      const next = updater(current);
-      linesRef.current = next;
-      return next;
-    });
-    schedulePersist(immediate);
-  };
+  const draft = useMemo(() => settingsFromLines(lines), [lines]);
+  const dirty = signature(lines) !== saved;
+  const hasBlankLine = lines.some((line) => !line.label.trim());
 
   const addLine = () => {
     rowIdRef.current += 1;
-    commitLines((current) => [...current, emptyLine(`line-${rowIdRef.current}`)], true);
+    setLines((current) => [...current, emptyLine(`line-${rowIdRef.current}`)]);
   };
 
   const removeLine = (index: number) => {
-    commitLines(
-      (current) => current.filter((_, i) => i !== index),
-      true,
-    );
+    setLines((current) => current.filter((_, i) => i !== index));
   };
 
   const updateLine = (index: number, patch: Partial<LeaveTypeLine>) => {
-    commitLines((current) =>
+    setLines((current) =>
       current.map((line, i) => (i === index ? { ...line, ...patch } : line)),
     );
+  };
+
+  const save = async () => {
+    setPending(true);
+    try {
+      const types = await replaceHrLeaveTypesApi(draft);
+      const next = linesFromSettings(types);
+      rowIdRef.current = next.length;
+      setLines(next);
+      setSaved(signature(next));
+      toast.success("Leave types saved");
+    } catch (e) {
+      notifyApiFailure(e, "Could not save leave types");
+    } finally {
+      setPending(false);
+    }
   };
 
   if (loading) {
@@ -201,6 +175,11 @@ export function HrLeaveTypeEditor() {
               >
                 {lines.length}
               </Badge>
+              {dirty ? (
+                <Badge className="h-5 border-amber-500/30 bg-amber-500/15 px-1.5 text-[10px] text-amber-900 dark:text-amber-200">
+                  Unsaved
+                </Badge>
+              ) : null}
             </div>
           </div>
 
@@ -320,15 +299,34 @@ export function HrLeaveTypeEditor() {
             </div>
           </ScrollArea>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addLine}
-            className="mt-3 w-full border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 sm:w-auto"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add leave type
-          </Button>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addLine}
+              className="border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add leave type
+            </Button>
+            <PendingButton
+              type="button"
+              pending={pending}
+              disabled={!dirty || hasBlankLine}
+              className={hrPrimaryBtnClass}
+              onClick={save}
+            >
+              <Save className="h-4 w-4" />
+              Save leave types
+            </PendingButton>
+            {dirty ? (
+              <p className="text-xs text-muted-foreground">
+                {hasBlankLine
+                  ? "Fill in every leave type name before saving"
+                  : "Changes stay local until you save"}
+              </p>
+            ) : null}
+          </div>
         </>
       )}
     </div>

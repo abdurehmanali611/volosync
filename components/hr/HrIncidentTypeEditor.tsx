@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { AlertTriangle, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { PendingButton } from "@/components/ui/pending-button";
 import {
   Select,
   SelectContent,
@@ -117,13 +119,16 @@ function settingsFromLines(lines: IncidentTypeLine[]): HrIncidentTypeSetting[] {
   return next;
 }
 
+function signature(lines: IncidentTypeLine[]): string {
+  return JSON.stringify(settingsFromLines(lines));
+}
+
 export function HrIncidentTypeEditor() {
   const rowIdRef = useRef(0);
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const persistGen = useRef(0);
-  const linesRef = useRef<IncidentTypeLine[]>([]);
   const [lines, setLines] = useState<IncidentTypeLine[]>([]);
+  const [saved, setSaved] = useState("[]");
   const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,8 +140,8 @@ export function HrIncidentTypeEditor() {
         if (cancelled) return;
         const next = linesFromSettings(types);
         rowIdRef.current = next.length;
-        linesRef.current = next;
         setLines(next);
+        setSaved(signature(next));
       } catch (e) {
         notifyApiFailure(e, "Could not load incident types");
       } finally {
@@ -145,79 +150,61 @@ export function HrIncidentTypeEditor() {
     })();
     return () => {
       cancelled = true;
-      if (persistTimer.current) clearTimeout(persistTimer.current);
     };
   }, []);
 
-  const schedulePersist = (immediate = false) => {
-    if (persistTimer.current) clearTimeout(persistTimer.current);
-    const gen = ++persistGen.current;
-    const run = async () => {
-      const snapshot = linesRef.current;
-      try {
-        const saved = await replaceHrIncidentTypesApi(
-          settingsFromLines(snapshot),
-        );
-        if (gen !== persistGen.current) return;
-        let savedIndex = 0;
-        const codeByKey = new Map<string, string>();
-        for (const line of snapshot) {
-          if (!line.label.trim()) continue;
-          const setting = saved[savedIndex++];
-          if (setting?.code) codeByKey.set(line.key, setting.code);
-        }
-        setLines((current) => {
-          const next = current.map((line) => {
-            const code = codeByKey.get(line.key);
-            return code != null && code !== line.code
-              ? { ...line, code }
-              : line;
-          });
-          linesRef.current = next;
-          return next;
-        });
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("hotcol-hr-incident-types"));
-        }
-      } catch (e) {
-        if (gen === persistGen.current) {
-          notifyApiFailure(e, "Could not save incident types");
-        }
-      }
-    };
-    if (immediate) void run();
-    else persistTimer.current = setTimeout(() => void run(), 500);
-  };
-
-  const commitLines = (
-    updater: (current: IncidentTypeLine[]) => IncidentTypeLine[],
-    immediate = false,
-  ) => {
-    setLines((current) => {
-      const next = updater(current);
-      linesRef.current = next;
-      return next;
-    });
-    schedulePersist(immediate);
-  };
+  const draft = useMemo(() => settingsFromLines(lines), [lines]);
+  const dirty = signature(lines) !== saved;
+  const hasBlankLine = lines.some((line) => !line.label.trim());
 
   const addLine = () => {
     rowIdRef.current += 1;
-    const key = `line-${rowIdRef.current}`;
-    commitLines((current) => [...current, emptyLine(key)], true);
+    setLines((current) => [...current, emptyLine(`line-${rowIdRef.current}`)]);
   };
 
   const updateLine = (index: number, patch: Partial<IncidentTypeLine>) => {
-    commitLines((current) =>
+    setLines((current) =>
       current.map((line, i) => (i === index ? { ...line, ...patch } : line)),
     );
   };
 
   const removeLine = (index: number) => {
-    commitLines(
-      (current) => current.filter((_, i) => i !== index),
-      true,
+    setLines((current) => current.filter((_, i) => i !== index));
+  };
+
+  const linkAttendance = (index: number, value: string) => {
+    setLines((current) =>
+      current.map((line, i) => {
+        if (i !== index) return line;
+        return {
+          ...line,
+          attendanceLink:
+            value === "none"
+              ? ""
+              : (value as IncidentTypeLine["attendanceLink"]),
+          deduct: value !== "none" ? true : line.deduct,
+        };
+      }),
     );
+  };
+
+  const save = async () => {
+    setPending(true);
+    try {
+      const types = await replaceHrIncidentTypesApi(draft);
+      const next = linesFromSettings(
+        types.map(incidentTypeSettingFromApi),
+      );
+      rowIdRef.current = next.length;
+      setLines(next);
+      setSaved(signature(next));
+      window.dispatchEvent(new Event("hotcol-hr-incident-types"));
+      toast.success("Incident types saved");
+    } catch (e) {
+      notifyApiFailure(e, "Could not save incident types");
+    } finally {
+      setPending(false);
+    }
   };
 
   if (loading) {
@@ -260,6 +247,11 @@ export function HrIncidentTypeEditor() {
               >
                 {lines.length}
               </Badge>
+              {dirty ? (
+                <Badge className="h-5 border-amber-500/30 bg-amber-500/15 px-1.5 text-[10px] text-amber-900 dark:text-amber-200">
+                  Unsaved
+                </Badge>
+              ) : null}
             </div>
           </div>
 
@@ -378,19 +370,7 @@ export function HrIncidentTypeEditor() {
                       <Select
                         value={line.attendanceLink || "none"}
                         onValueChange={(value) =>
-                          commitLines((current) =>
-                            current.map((line, i) => {
-                              if (i !== index) return line;
-                              return {
-                                ...line,
-                                attendanceLink:
-                                  value === "none"
-                                    ? ""
-                                    : (value as IncidentTypeLine["attendanceLink"]),
-                                deduct: value !== "none" ? true : line.deduct,
-                              };
-                            }),
-                          )
+                          linkAttendance(index, value)
                         }
                       >
                         <SelectTrigger
@@ -430,15 +410,34 @@ export function HrIncidentTypeEditor() {
             </div>
           </ScrollArea>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addLine}
-            className="mt-3 w-full border-dashed border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 sm:w-auto"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add incident type
-          </Button>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addLine}
+              className="border-dashed border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add incident type
+            </Button>
+            <PendingButton
+              type="button"
+              pending={pending}
+              disabled={!dirty || hasBlankLine}
+              className={hrPrimaryBtnClass}
+              onClick={save}
+            >
+              <Save className="h-4 w-4" />
+              Save incident types
+            </PendingButton>
+            {dirty ? (
+              <p className="text-xs text-muted-foreground">
+                {hasBlankLine
+                  ? "Fill in every incident type name before saving"
+                  : "Changes stay local until you save"}
+              </p>
+            ) : null}
+          </div>
         </>
       )}
     </div>

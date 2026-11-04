@@ -3,6 +3,7 @@
  * All HR and other module API files import { api, API_URL } from here.
  */
 import axios from "axios";
+import { scheduleSessionExpiredRedirect } from "@/lib/sessionExpiry";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://volosync-backend.vercel.app";
 
@@ -21,6 +22,23 @@ api.interceptors.request.use((config) => {
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
+
+/**
+ * An expired token makes every list come back empty, which panels read as
+ * "nothing registered yet". Sign the user out instead of faking an empty
+ * workspace; a failed sign-in keeps its own message on the login page.
+ */
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = (error as { response?: { status?: number } })?.response?.status;
+    const url = (error as { config?: { url?: string } })?.config?.url ?? "";
+    if (status === 401 && !url.includes("/auth/login/")) {
+      scheduleSessionExpiredRedirect();
+    }
+    return Promise.reject(error);
+  },
+);
 
 /** Extracts a user-readable error message from a failed response. */
 export function notifyApiFailure(error: unknown, fallback = "Request failed"): void {

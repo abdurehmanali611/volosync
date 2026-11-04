@@ -15,7 +15,30 @@ const MUTED: [number, number, number] = [113, 113, 122];
 const LINE: [number, number, number] = [228, 228, 231];
 const ZEBRA: [number, number, number] = [250, 250, 251];
 
+const APEX_LOGO = "/assets/apex-logo-dark-bg.png";
+/** The Apex mark is 320x80, so width and height stay locked at 4:1. */
+const APEX_LOGO_MM: [number, number] = [34, 8.5];
+
 const stamp = () => new Date().toISOString().slice(0, 10);
+
+async function imageToDataUrl(src: string): Promise<string | null> {
+  try {
+    const url = /^(https?:|data:|blob:)/i.test(src)
+      ? src
+      : new URL(src, window.location.origin).href;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || "") || null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
 
 function pageChrome(doc: jsPDF) {
   const width = doc.internal.pageSize.width;
@@ -48,7 +71,101 @@ function pageChrome(doc: jsPDF) {
   }
 }
 
-export function exportPdf({
+/** Letterhead: business identity on the left, the Apex mark on the right. */
+function letterhead(
+  doc: jsPDF,
+  input: {
+    title: string;
+    subtitle?: string;
+    business?: ReceiptBusiness;
+    apexLogo?: string | null;
+    tenantLogo?: string | null;
+  },
+): number {
+  const width = doc.internal.pageSize.width;
+  const business = input.business;
+  const name = business?.name?.trim() || "";
+
+  let textX = 14;
+  if (input.tenantLogo) {
+    const props = doc.getImageProperties(input.tenantLogo);
+    const logoHeight = 11;
+    const logoWidth = Math.min(
+      30,
+      Math.round((props.width / props.height) * logoHeight * 10) / 10,
+    );
+    doc.addImage(
+      input.tenantLogo,
+      props.fileType || "PNG",
+      14,
+      7,
+      logoWidth,
+      logoHeight,
+    );
+    textX = 14 + logoWidth + 5;
+  }
+
+  const eyebrowWidth = Math.max(
+    40,
+    width - 14 - (input.apexLogo ? APEX_LOGO_MM[0] : 0) - 6 - textX,
+  );
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...EMERALD_DARK);
+  doc.text(`VoloSync · ${name || "business report"}`.toUpperCase(), textX, 12, {
+    maxWidth: eyebrowWidth,
+  });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(...INK);
+  doc.text(input.title, textX, 21, { maxWidth: width - 14 - textX });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...MUTED);
+  doc.text(input.subtitle ?? `Generated ${stamp()}`, textX, 27, {
+    maxWidth: width - 14 - textX,
+  });
+
+  const contact = [
+    business?.tin ? `TIN ${business.tin}` : "",
+    business?.phone || "",
+    business?.address || "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  let baseline = 27;
+  if (contact) {
+    doc.setFontSize(7.5);
+    doc.text(contact, textX, 32, { maxWidth: width - 14 - textX });
+    baseline = 32;
+  }
+
+  if (input.apexLogo) {
+    doc.addImage(
+      input.apexLogo,
+      "PNG",
+      width - 14 - APEX_LOGO_MM[0],
+      9,
+      APEX_LOGO_MM[0],
+      APEX_LOGO_MM[1],
+    );
+  } else {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...MUTED);
+    doc.text("Apex Solution", width - 14, 12, { align: "right" });
+  }
+
+  doc.setDrawColor(...EMERALD);
+  doc.setLineWidth(0.6);
+  doc.line(14, baseline + 4, width - 14, baseline + 4);
+  return baseline + 8;
+}
+
+export async function exportPdf({
   title,
   subtitle,
   headers,
@@ -65,39 +182,24 @@ export function exportPdf({
   totals?: Cell[];
   business?: ReceiptBusiness;
 }) {
+  const [apexLogo, tenantLogo] = await Promise.all([
+    imageToDataUrl(APEX_LOGO),
+    business?.logoUrl ? imageToDataUrl(business.logoUrl) : Promise.resolve(null),
+  ]);
   const doc = new jsPDF({
     orientation: headers.length > 6 ? "landscape" : "portrait",
   });
-  const width = doc.internal.pageSize.width;
 
-  const eyebrow = business?.name
-    ? `VoloSync · ${business.name}`
-    : "VoloSync · business report";
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  doc.setTextColor(...EMERALD_DARK);
-  doc.text(eyebrow.toUpperCase(), 14, 12);
-  if (business?.tin) {
-    doc.setFont("helvetica", "normal");
-    doc.text(`TIN ${business.tin}`, width - 14, 12, { align: "right" });
-  }
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.setTextColor(...INK);
-  doc.text(title, 14, 21);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(...MUTED);
-  doc.text(subtitle ?? `Generated ${stamp()}`, 14, 27);
-
-  doc.setDrawColor(...EMERALD);
-  doc.setLineWidth(0.6);
-  doc.line(14, 31, width - 14, 31);
+  const startY = letterhead(doc, {
+    title,
+    subtitle,
+    business,
+    apexLogo,
+    tenantLogo,
+  });
 
   autoTable(doc, {
-    startY: 35,
+    startY,
     margin: { left: 14, right: 14, bottom: 20 },
     head: [headers],
     body: rows.map((row) => row.map((cell) => String(cell ?? ""))),
@@ -138,7 +240,7 @@ export function exportExcel({
   file,
   sheet = "Report",
   totals,
-  note,
+  business,
 }: {
   title?: string;
   headers: string[];
@@ -146,8 +248,8 @@ export function exportExcel({
   file: string;
   sheet?: string;
   totals?: Cell[];
-  /** Extra context printed on the About sheet. */
-  note?: string;
+  /** Tenant identity, written to the About sheet. */
+  business?: ReceiptBusiness;
 }) {
   const data: Cell[][] = [];
   if (title) data.push([title]);
@@ -160,9 +262,14 @@ export function exportExcel({
     wch: Math.max(12, Math.min(34, header.length + 6)),
   }));
 
+  const contact = [business?.phone || "", business?.address || ""]
+    .filter(Boolean)
+    .join(" · ");
   const about = XLSX.utils.aoa_to_sheet([
     ["Report", title ?? sheet],
-    ["Business", note ?? "Wholesale business"],
+    ["Business", business?.name || "Wholesale business"],
+    ["TIN", business?.tin || "—"],
+    ["Contact", contact || "—"],
     ["Generated", stamp()],
     ["System", "VoloSync · wholesale inventory"],
     ["Powered by", "Apex Solution · www.apexsolutionhub.com"],
@@ -173,24 +280,4 @@ export function exportExcel({
   XLSX.utils.book_append_sheet(book, worksheet, sheet.slice(0, 31));
   XLSX.utils.book_append_sheet(book, about, "About");
   XLSX.writeFile(book, `${file}-${stamp()}.xlsx`);
-}
-
-export function exportAttendancePdf({
-  title,
-  subtitle,
-  headers,
-  rows,
-  file,
-  totals,
-  business,
-}: {
-  title: string;
-  subtitle?: string;
-  headers: string[];
-  rows: Cell[][];
-  file: string;
-  totals?: Cell[];
-  business?: ReceiptBusiness;
-}) {
-  exportPdf({ title, subtitle, headers, rows, file, totals, business });
 }

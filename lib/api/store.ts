@@ -5,6 +5,8 @@
 
 import { ApiError, getToken } from "@/lib/api";
 
+import { scheduleSessionExpiredRedirect } from "@/lib/sessionExpiry";
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://volosync-backend.vercel.app";
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -18,6 +20,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const body = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
+    if (response.status === 401 && !path.includes("/auth/login/")) {
+      scheduleSessionExpiredRedirect();
+    }
     const detail = body?.errors ?? body;
     const message =
       detail?.message ??
@@ -55,6 +60,8 @@ export type SummaryTabRow = {
   output_vat: string;
   vat: string;
   vat_rate: string;
+  supplier_name: string;
+  registration_date: string;
 };
 
 /** Totals always follow the filtered rows, so the panel reconciles per tab. */

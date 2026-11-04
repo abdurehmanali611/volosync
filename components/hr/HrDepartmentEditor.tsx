@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Building2, Loader2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Building2, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { PendingButton } from "@/components/ui/pending-button";
 import { notifyApiFailure } from "@/lib/actions";
 import {
   fetchHrDepartments,
@@ -53,13 +55,16 @@ function settingsFromLines(lines: Line[]): HrDepartmentSetting[] {
   return next;
 }
 
+function signature(lines: Line[]): string {
+  return JSON.stringify(settingsFromLines(lines));
+}
+
 export function HrDepartmentEditor() {
   const rowIdRef = useRef(0);
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const persistGen = useRef(0);
-  const linesRef = useRef<Line[]>([]);
   const [lines, setLines] = useState<Line[]>([]);
+  const [saved, setSaved] = useState("[]");
   const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,8 +74,8 @@ export function HrDepartmentEditor() {
         if (cancelled) return;
         const next = linesFromSettings(rows);
         rowIdRef.current = next.length;
-        linesRef.current = next;
         setLines(next);
+        setSaved(signature(next));
       } catch (e) {
         notifyApiFailure(e, "Could not load departments");
       } finally {
@@ -79,81 +84,43 @@ export function HrDepartmentEditor() {
     })();
     return () => {
       cancelled = true;
-      if (persistTimer.current) clearTimeout(persistTimer.current);
     };
   }, []);
 
-  const schedulePersist = (immediate = false) => {
-    if (persistTimer.current) clearTimeout(persistTimer.current);
-    const gen = ++persistGen.current;
-    const run = async () => {
-      const snapshot = linesRef.current;
-      try {
-        const saved = await replaceHrDepartmentsApi(
-          settingsFromLines(snapshot),
-        );
-        if (gen !== persistGen.current) return;
-        let savedIndex = 0;
-        const codeByKey = new Map<string, string>();
-        for (const line of snapshot) {
-          if (!line.label.trim()) continue;
-          const setting = saved[savedIndex++];
-          if (setting?.code) codeByKey.set(line.key, setting.code);
-        }
-        setLines((current) => {
-          const next = current.map((line) => {
-            const code = codeByKey.get(line.key);
-            return code != null && code !== line.code
-              ? { ...line, code }
-              : line;
-          });
-          linesRef.current = next;
-          return next;
-        });
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("hotcol-hr-departments"));
-        }
-      } catch (e) {
-        if (gen === persistGen.current) {
-          notifyApiFailure(e, "Could not save departments");
-        }
-      }
-    };
-    if (immediate) void run();
-    else persistTimer.current = setTimeout(() => void run(), 500);
-  };
-
-  const commitLines = (
-    updater: (current: Line[]) => Line[],
-    immediate = false,
-  ) => {
-    setLines((current) => {
-      const next = updater(current);
-      linesRef.current = next;
-      return next;
-    });
-    schedulePersist(immediate);
-  };
+  const draft = useMemo(() => settingsFromLines(lines), [lines]);
+  const dirty = signature(lines) !== saved;
+  const hasBlankLine = lines.some((line) => !line.label.trim());
 
   const addLine = () => {
     rowIdRef.current += 1;
-    commitLines(
-      (current) => [...current, emptyLine(`line-${rowIdRef.current}`)],
-      true,
-    );
+    setLines((current) => [...current, emptyLine(`line-${rowIdRef.current}`)]);
   };
 
   const updateLine = (index: number, patch: Partial<Line>) => {
-    commitLines((current) =>
+    setLines((current) =>
       current.map((line, i) => (i === index ? { ...line, ...patch } : line)),
     );
   };
 
   const removeLine = (index: number) => {
-    commitLines(
-      (current) => current.filter((_, i) => i !== index),
-      true,
-    );
+    setLines((current) => current.filter((_, i) => i !== index));
+  };
+
+  const save = async () => {
+    setPending(true);
+    try {
+      const rows = await replaceHrDepartmentsApi(draft);
+      const next = linesFromSettings(rows);
+      rowIdRef.current = next.length;
+      setLines(next);
+      setSaved(signature(next));
+      window.dispatchEvent(new Event("hotcol-hr-departments"));
+      toast.success("Departments saved");
+    } catch (e) {
+      notifyApiFailure(e, "Could not save departments");
+    } finally {
+      setPending(false);
+    }
   };
 
   if (loading) {
@@ -171,7 +138,7 @@ export function HrDepartmentEditor() {
           <Building2 className="h-8 w-8 text-violet-600/80 dark:text-violet-400/80" />
           <p className="max-w-sm text-sm text-muted-foreground">
             Register departments used when scheduling shifts. The list starts
-            empty — add only what this property needs.
+            empty — add only what this property needs, then save.
           </p>
           <Button type="button" className={hrPrimaryBtnClass} onClick={addLine}>
             <Plus className="mr-2 h-4 w-4" />
@@ -190,6 +157,11 @@ export function HrDepartmentEditor() {
               >
                 {lines.length}
               </Badge>
+              {dirty ? (
+                <Badge className="h-5 border-amber-500/30 bg-amber-500/15 px-1.5 text-[10px] text-amber-900 dark:text-amber-200">
+                  Unsaved
+                </Badge>
+              ) : null}
             </div>
           </div>
 
@@ -233,15 +205,34 @@ export function HrDepartmentEditor() {
             </div>
           </ScrollArea>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addLine}
-            className="mt-3 w-full border-dashed border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 sm:w-auto"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add department
-          </Button>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addLine}
+              className="border-dashed border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add department
+            </Button>
+            <PendingButton
+              type="button"
+              pending={pending}
+              disabled={!dirty || hasBlankLine}
+              className={hrPrimaryBtnClass}
+              onClick={save}
+            >
+              <Save className="h-4 w-4" />
+              Save departments
+            </PendingButton>
+            {dirty ? (
+              <p className="text-xs text-muted-foreground">
+                {hasBlankLine
+                  ? "Fill in every department name before saving"
+                  : "Changes stay local until you save"}
+              </p>
+            ) : null}
+          </div>
         </>
       )}
     </div>

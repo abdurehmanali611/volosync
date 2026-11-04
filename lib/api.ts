@@ -1,3 +1,5 @@
+import { resetSessionExpiryGuard, scheduleSessionExpiredRedirect } from "@/lib/sessionExpiry";
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://volosync-backend.vercel.app";
 
 export type Role = "STORE" | "FINANCE" | "MANAGER" | "HR" | "SALES" | "OWNER";
@@ -44,6 +46,8 @@ export type TenantInfo = {
   name: string;
   logo_url?: string;
   tin?: string;
+  phone?: string;
+  address?: string;
   vat_rate?: string;
 };
 
@@ -64,6 +68,7 @@ export function getUser(): SessionUser | null {
 }
 
 export function saveSession(token: string, user: SessionUser) {
+  resetSessionExpiryGuard();
   window.localStorage.setItem(TOKEN_KEY, token);
   window.localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
@@ -105,6 +110,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
+    if (response.status === 401 && !path.includes("/auth/login/")) {
+      scheduleSessionExpiredRedirect();
+    }
     const detail = body?.errors ?? body;
     const message =
       detail?.message ??
@@ -343,6 +351,8 @@ export type StockOut = {
     quantity: string;
     changing_amount: string;
     change_reason: string;
+    /** Lot's selling price when the stock left the store. */
+    unit_sales_at_assignment?: string;
   }[];
 };
 
@@ -357,8 +367,9 @@ export type Movement = {
   at: string;
 };
 
+/** The currency word trails the figure — "1,234.00 ETB", never in front of it. */
 export const money = (value: string | number, currency = "ETB") =>
-  `${currency} ${amount(value)}`;
+  `${amount(value)} ${currency}`;
 
 /** Amount without the currency word, for cells that show "1,234.00 ETB". */
 export const amount = (value: string | number) =>
@@ -476,17 +487,26 @@ export type OpenAssignmentItem = {
 export type Settlement = {
   id: number;
   assignment: number;
+  lot: number;
+  agent_id: number | null;
   agent_name: string;
   item_name: string;
+  category: string;
   voucher_number: string;
   sold_quantity: string;
   returned_quantity: string;
   payment_method: string;
   sales_amount: string;
   expected_amount: string;
+  variance: string;
   penalty: boolean;
+  penalty_amount: string;
+  penalty_reason: string;
+  unit_cost: string;
+  vat_rate: string;
   note: string;
   status: string;
+  entered_at: string;
   created_at: string;
 };
 
@@ -525,17 +545,37 @@ export const salesApi = {
     payment_method: string;
     sales_amount: string;
     penalty?: boolean;
+    penalty_amount?: string;
+    penalty_reason?: string;
     note?: string;
   }) =>
     request<{ data: Settlement }>("/api/sales/settlements/", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  decideSettlement: (id: number, decision: string, note = "", penalty?: boolean) =>
+  /**
+   * Finance's verdict. A penalty is only recorded as a pair — amount and
+   * reason — so both travel with the tick.
+   */
+  decideSettlement: (
+    id: number,
+    decision: string,
+    note = "",
+    penalty?: boolean,
+    penaltyAmount?: string,
+    penaltyReason?: string,
+  ) =>
     request<{ data: Settlement }>(`/api/sales/settlements/${id}/decision/`, {
       method: "POST",
       body: JSON.stringify(
-        penalty === undefined ? { decision, note } : { decision, note, penalty },
+        penalty === undefined
+          ? { decision, note }
+          : {
+              decision,
+              note,
+              penalty,
+              ...(penalty ? { penalty_amount: penaltyAmount, penalty_reason: penaltyReason } : {}),
+            },
       ),
     }),
   agents: () =>

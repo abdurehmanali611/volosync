@@ -15,6 +15,7 @@ import {
   History,
   Loader2,
   Plus,
+  Save,
   Settings2,
   Sparkles,
   Trash2,
@@ -625,46 +626,55 @@ export function HrPayrollPanel({
     setHistWageType("all");
   };
 
-  const saveConfig = async () => {
+  const saveLines = async () => {
     setPending(true);
     try {
-      await Promise.all([
-        replaceHrPayrollLineRulesApi(
-          lineDrafts
-            .filter((r) => r.label.trim())
-            .map((r) => ({
-              kind: r.kind,
-              label: r.label.trim(),
-              percentOfSalary: r.percentOfSalary,
-              amountETB: 0,
-              whenMode: r.whenMode,
-              fromYmd: r.whenMode === "day_range" ? r.fromYmd : "",
-              toYmd: r.whenMode === "day_range" ? r.toYmd : "",
-              customized: r.customized,
-              fromAmountETB: r.customized
-                ? Number(r.fromAmountETB) || 0
-                : 0,
-              toAmountETB:
-                r.customized && r.toAmountETB.trim() !== ""
-                  ? Number(r.toAmountETB)
-                  : null,
-              active: true,
-            })),
-        ),
-        replaceHrWagePayWindowsApi(
-          windowDrafts
-            .filter((w) => w.wageType)
-            .map((w) => ({
-              wageType: w.wageType,
-              fromDay: w.fromDay,
-              toDay: w.toDay,
-              active: true,
-            })),
-        ),
-      ]);
-      toast.success("Payroll settings saved");
+      await replaceHrPayrollLineRulesApi(
+        lineDrafts
+          .filter((r) => r.label.trim())
+          .map((r) => ({
+            kind: r.kind,
+            label: r.label.trim(),
+            percentOfSalary: r.percentOfSalary,
+            amountETB: 0,
+            whenMode: r.whenMode,
+            fromYmd: r.whenMode === "day_range" ? r.fromYmd : "",
+            toYmd: r.whenMode === "day_range" ? r.toYmd : "",
+            customized: r.customized,
+            fromAmountETB: r.customized
+              ? Number(r.fromAmountETB) || 0
+              : 0,
+            toAmountETB:
+              r.customized && r.toAmountETB.trim() !== ""
+                ? Number(r.toAmountETB)
+                : null,
+            active: true,
+          })),
+      );
+      toast.success("Common deductions & increases saved");
     } catch (e) {
-      notifyApiFailure(e, "Could not save payroll settings");
+      notifyApiFailure(e, "Could not save payroll rules");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const saveWindows = async () => {
+    setPending(true);
+    try {
+      await replaceHrWagePayWindowsApi(
+        windowDrafts
+          .filter((w) => w.wageType)
+          .map((w) => ({
+            wageType: w.wageType,
+            fromDay: w.fromDay,
+            toDay: w.toDay,
+            active: true,
+          })),
+      );
+      toast.success("Wage-type pay windows saved");
+    } catch (e) {
+      notifyApiFailure(e, "Could not save wage windows");
     } finally {
       setPending(false);
     }
@@ -1167,16 +1177,6 @@ export function HrPayrollPanel({
                 <Settings2 className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               }
               accent="bg-linear-to-r from-violet-500 via-violet-400 to-primary/80"
-              actions={
-                <PendingButton
-                  pending={pending}
-                  size="sm"
-                  className={hrPrimaryBtnClass}
-                  onClick={saveConfig}
-                >
-                  Save all settings
-                </PendingButton>
-              }
             >
               {configLoading ? (
                 <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
@@ -1340,25 +1340,35 @@ export function HrPayrollPanel({
                       ))}
                     </div>
                   </ScrollArea>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full border-dashed border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 sm:w-auto"
-                    onClick={() =>
-                      setWindowDrafts((prev) => [
-                        ...prev,
-                        {
-                          key: `win-new-${Date.now()}`,
-                          wageType: "weekly",
-                          fromDay: 5,
-                          toDay: 8,
-                        },
-                      ])
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add wage window
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-dashed border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10"
+                      onClick={() =>
+                        setWindowDrafts((prev) => [
+                          ...prev,
+                          {
+                            key: `win-new-${Date.now()}`,
+                            wageType: "weekly",
+                            fromDay: 5,
+                            toDay: 8,
+                          },
+                        ])
+                      }
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add wage window
+                    </Button>
+                    <PendingButton
+                      pending={pending}
+                      className={hrPrimaryBtnClass}
+                      onClick={saveWindows}
+                    >
+                      <Save className="mr-2 h-4 w-4" />
+                      Save wage windows
+                    </PendingButton>
+                  </div>
                 </div>
               )}
             </HrSectionCard>
@@ -1718,9 +1728,10 @@ export function HrPayrollPanel({
                     <PendingButton
                       pending={pending}
                       className={hrPrimaryBtnClass}
-                      onClick={saveConfig}
+                      onClick={saveLines}
                     >
-                      Save settings
+                      <Save className="mr-2 h-4 w-4" />
+                      Save deductions & increases
                     </PendingButton>
                   </div>
                 </div>

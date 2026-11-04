@@ -17,6 +17,7 @@ import {
   type Promotion,
   type Registration,
   type StockOut,
+  type TenantInfo,
 } from "@/lib/api";
 import {
   ASSET_CATEGORIES,
@@ -28,14 +29,20 @@ import {
   type SummaryTab,
 } from "@/lib/api/finance";
 import { useView } from "@/lib/use-view";
-import { exportExcel, exportPdf } from "@/lib/export";
 import {
   printReceipts,
   printSettlementReceipts,
+  type ReceiptBusiness,
   type ReceiptDoc,
-  type SettlementApprovalStamp,
   type SettlementReceiptDoc,
 } from "@/lib/print";
+import {
+  buildPromotionReceipt,
+  buildRegistrationReceipt,
+  buildSettlementReceipt,
+  buildStockOutReceipt,
+  tenantBusiness,
+} from "@/lib/receipts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +53,6 @@ import {
   ChevronDown,
   ChevronRight,
   AlertTriangle,
-  FileDown,
   Filter,
   Image as ImageIcon,
   Loader2,
@@ -55,7 +61,6 @@ import {
   Printer,
   Receipt,
   RotateCcw,
-  ShieldCheck,
   Sparkles,
   Trash2,
   Wallet,
@@ -71,6 +76,30 @@ import {
   Td,
 } from "@/components/volo/kit";
 import { PaymentTaxPanel, TableSearch } from "@/components/volo/payment-tax";
+import {
+  AgentPerformanceReport,
+  CategoryItemReport,
+  InventoryReportingCard,
+  PenaltyMark,
+  PenaltyReport,
+  ReportExportButtons,
+  ReportLensBar,
+  ReportingRangeBar,
+  SalesAgentsCard,
+  type ReportLens,
+} from "@/components/volo/reports";
+import {
+  dailySales,
+  dayOf,
+  inRange,
+  reportRange,
+  summariseByAgent,
+  summariseByCategory,
+  summariseByItem,
+  ymd,
+  type ReportPeriod,
+  type SaleLikeRow,
+} from "@/lib/reports";
 import { FinancePayrollSection } from "@/components/finance/finance-payroll";
 import { groupLotsByItem, matchesQuery } from "@/components/volo/lots";
 import { ComboSelect, DateField, PaymentMethodPicker } from "@/components/volo/controls";
@@ -137,6 +166,8 @@ type SaleLine = {
   sold_quantity: string;
   method: string;
   penalty: boolean;
+  penalty_amount: string;
+  penalty_reason: string;
 };
 
 function blankSaleLine(key: number): SaleLine {
@@ -147,7 +178,22 @@ function blankSaleLine(key: number): SaleLine {
     sold_quantity: "",
     method: "TELEBIRR",
     penalty: false,
+    penalty_amount: "",
+    penalty_reason: "",
   };
+}
+
+/** Finance requires both figures whenever a penalty is raised. */
+function penaltyLineError(line: SaleLine): string | null {
+  if (!line.penalty) return null;
+  const value = Number(line.penalty_amount.replace(",", ""));
+  if (!Number.isFinite(value) || value <= 0) {
+    return "A penalty needs an amount greater than zero.";
+  }
+  if (!line.penalty_reason.trim()) {
+    return "A penalty needs a reason.";
+  }
+  return null;
 }
 
 const SALE_LINE_ACCENTS = [
@@ -159,6 +205,7 @@ const SALE_LINE_ACCENTS = [
 export default function FinancePage() {
   const [view] = useView("sales");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [stockouts, setStockouts] = useState<StockOut[]>([]);
   const [lots, setLots] = useState<Lot[]>([]);
@@ -170,6 +217,10 @@ export default function FinancePage() {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [busy, setBusy] = useState(false);
   const [decidingKey, setDecidingKey] = useState<string | null>(null);
+  // "Approve with penalty" dialog — amount and reason are both mandatory.
+  const [penaltyTarget, setPenaltyTarget] = useState<SettlementRow | null>(null);
+  const [penaltyForm, setPenaltyForm] = useState({ amount: "", reason: "" });
+  const [penaltySaving, setPenaltySaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -219,6 +270,13 @@ export default function FinancePage() {
   const [recentMovementQuery, setRecentMovementQuery] = useState("");
   const [recentPromoQuery, setRecentPromoQuery] = useState("");
 
+  // Reporting window — the strip under the hero drives every card, chart and
+  // export on the reports page. Always built from the unfiltered ledger.
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("monthly");
+  const [reportAnchor, setReportAnchor] = useState(() => ymd(new Date()));
+  const [reportRows, setReportRows] = useState<SettlementRow[]>([]);
+  const [reportLens, setReportLens] = useState<ReportLens>("category");
+
   // assets
   const [assets, setAssets] = useState<FinanceAsset[]>([]);
   const [assetLoading, setAssetLoading] = useState(true);
@@ -241,9 +299,11 @@ export default function FinancePage() {
       tax,
       open,
       settlementRows,
+      ledgerRows,
       promotionRows,
       movementRows,
       agentRows,
+      tenant,
     ] = await Promise.all([
       api.dashboard(),
       api.registrations(),
@@ -252,11 +312,14 @@ export default function FinancePage() {
       financeApi.summary("all"),
       salesApi.openAssignments(),
       financeApi.settlements(settlementFiltersRef.current),
+      financeApi.settlements(),
       promoApi.list(),
       api.movements(),
       salesApi.agents().catch(() => ({ data: [] })),
+      api.tenantMe().catch(() => ({ data: null })),
     ]);
     setDashboard(dash.data);
+    setTenantInfo(tenant.data);
     setRegistrations(regs.data);
     setStockouts(sos.data);
     setLots(lotRows.data);
@@ -264,6 +327,7 @@ export default function FinancePage() {
     setOpenItems(open.data.items);
     setAssignments(open.data.assignments);
     setSettlements(settlementRows.data);
+    setReportRows(ledgerRows.data);
     setPromotions(promotionRows.data);
     setMovements(movementRows.data);
     setAgentList(agentRows.data);
@@ -441,6 +505,11 @@ export default function FinancePage() {
       toast.error("Each assignment can appear only once per batch.");
       return;
     }
+    const badPenalty = readySaleLines.find((line) => penaltyLineError(line) !== null);
+    if (badPenalty) {
+      toast.error(penaltyLineError(badPenalty) ?? "Penalty details are incomplete.");
+      return;
+    }
     setBusy(true);
     try {
       for (const line of readySaleLines) {
@@ -450,6 +519,10 @@ export default function FinancePage() {
           payment_method: line.method,
           sales_amount: lineAmount(line).toFixed(2),
           penalty: line.penalty,
+          penalty_amount: line.penalty
+            ? Number(line.penalty_amount.replace(",", "")).toFixed(2)
+            : undefined,
+          penalty_reason: line.penalty ? line.penalty_reason.trim() : undefined,
         });
       }
       toast.success(`${readySaleLines.length} sales line(s) sent for approval.`);
@@ -465,30 +538,62 @@ export default function FinancePage() {
   }
 
   /**
-   * Finance's verdict on one settlement. Approving with a penalty is only
-   * allowed when the agent brought stock back unsold, and every approval hands
-   * the document to the Manager, who releases the remainings back to the store.
+   * Finance's verdict on one settlement. A penalty is its own dialog because
+   * both the amount and the reason are required, and every approval hands the
+   * document to the Manager, who releases the remainings back to the store.
    */
-  async function settleDecision(id: number, verdict: "approve" | "penalty" | "decline") {
+  async function settleDecision(id: number, verdict: "approve" | "decline") {
     setDecidingKey(`settlement-${id}-${verdict}`);
     try {
       if (verdict === "decline") {
         await salesApi.decideSettlement(id, "REJECTED");
       } else {
-        await salesApi.decideSettlement(id, "APPROVED", "", verdict === "penalty");
+        await salesApi.decideSettlement(id, "APPROVED");
       }
       toast.success(
-        verdict === "approve"
-          ? "Verified — sent to the Manager."
-          : verdict === "penalty"
-            ? "Approved with penalty — sent to the Manager."
-            : "Settlement declined.",
+        verdict === "approve" ? "Verified — sent to the Manager." : "Settlement declined.",
       );
       await load();
     } catch (error) {
       toast.error(errorMessage(error, "Decision failed"));
     } finally {
       setDecidingKey(null);
+    }
+  }
+
+  function openPenaltyDialog(row: SettlementRow) {
+    setPenaltyTarget(row);
+    setPenaltyForm({ amount: "", reason: "" });
+  }
+
+  async function confirmPenalty() {
+    if (!penaltyTarget) return;
+    const value = Number(penaltyForm.amount.replace(",", ""));
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error("A penalty needs an amount greater than zero.");
+      return;
+    }
+    if (!penaltyForm.reason.trim()) {
+      toast.error("A penalty needs a reason.");
+      return;
+    }
+    setPenaltySaving(true);
+    try {
+      await salesApi.decideSettlement(
+        penaltyTarget.id,
+        "APPROVED",
+        "",
+        true,
+        value.toFixed(2),
+        penaltyForm.reason.trim(),
+      );
+      toast.success("Approved with penalty — sent to the Manager.");
+      setPenaltyTarget(null);
+      await load();
+    } catch (error) {
+      toast.error(errorMessage(error, "Decision failed"));
+    } finally {
+      setPenaltySaving(false);
     }
   }
 
@@ -583,161 +688,24 @@ export default function FinancePage() {
     }
   }
 
-  function promotionReceipt(doc: Promotion): ReceiptDoc {
-    return {
-      title: doc.mode === "BATCH" ? "Batch promotion receipt" : "Promotion receipt",
-      reference: doc.voucher_number,
-      date: doc.date,
-      status: doc.status,
-      business: {
-        name: dashboard?.tenant.name,
-        tin: dashboard?.tenant.tin,
-      },
-      parties: [
-        { label: "Manufacturer", value: doc.manufacturers.join(", ") },
-        { label: "Wholesaler", value: dashboard?.tenant.name ?? "" },
-        { label: "Raised by", value: doc.created_by_name },
-      ],
-      lines: doc.lines.map((line) => ({
-        item: line.item_name,
-        voucher: line.voucher_number,
-        quantity: qty(line.quantity),
-        unitPrice: money(line.printed_price),
-        total: money(line.line_total),
-        note: line.change_reason,
-      })),
-      totals: [{ label: "Grand total (selling price + change)", value: money(doc.total) }],
-      note: doc.note,
-      signatures: ["Manufacturer / authorised signatory", "Wholesale representative"],
-    };
+  function receiptBusiness(): ReceiptBusiness {
+    return tenantBusiness(tenantInfo, dashboard?.tenant);
   }
 
-  function approvalStampDoc(stamp: ApprovalStamp): SettlementApprovalStamp {
-    if (!stamp) return null;
-    return {
-      decision: stamp.decision,
-      decidedBy: stamp.decided_by,
-      decidedAt: fmtDateTime(stamp.decided_at),
-      note: stamp.note,
-    };
+  function promotionReceipt(doc: Promotion): ReceiptDoc {
+    return buildPromotionReceipt(doc, receiptBusiness());
   }
 
   function settlementReceipt(row: SettlementRow): SettlementReceiptDoc {
-    const sold = Number(row.sold_quantity);
-    // expected = (unit sales + changing amount) × sold, so this is the
-    // effective unit price the agent actually sold at.
-    const effectiveUnitPrice = sold > 0 ? Number(row.expected_amount) / sold : 0;
-    return {
-      title: "Sales settlement receipt",
-      reference: row.voucher_number,
-      date: fmtDateTime(row.entered_at || row.created_at),
-      status: row.status,
-      tenant: dashboard?.tenant.name ?? "",
-      business: {
-        name: dashboard?.tenant.name,
-        tin: dashboard?.tenant.tin,
-      },
-      agent: row.agent_name,
-      item: row.item_name,
-      voucher: row.voucher_number,
-      paymentMethod: methodLabel(row.payment_method),
-      enteredBy: row.entered_by_name,
-      assignedQuantity: qty(row.assigned_quantity),
-      soldQuantity: qty(row.sold_quantity),
-      returnedQuantity: qty(row.returned_quantity),
-      unitPrice: money(effectiveUnitPrice),
-      salesAmount: money(row.sales_amount),
-      expectedAmount: money(row.expected_amount),
-      variance: money(row.variance),
-      penalty: row.penalty,
-      note: row.note,
-      financeApproval: approvalStampDoc(row.finance_approval),
-      managerApproval: approvalStampDoc(row.manager_approval),
-    };
-  }
-
-  function receiptBusiness() {
-    return {
-      name: dashboard?.tenant.name || "Wholesale business",
-      tin: dashboard?.tenant.tin || null,
-    };
+    return buildSettlementReceipt(row, receiptBusiness());
   }
 
   function registrationReceipt(doc: Registration): ReceiptDoc {
-    const base = doc.lines.reduce(
-      (sum, line) => sum + Number(line.quantity || 0) * Number(line.unit_cost || 0),
-      0,
-    );
-    const inclusive = Number(doc.total_value);
-    const vat = Math.max(0, inclusive - base);
-    return {
-      title: "Item registration receipt",
-      reference: doc.voucher_number,
-      date: doc.lines[0]?.registration_date ?? today(),
-      status: doc.status,
-      business: receiptBusiness(),
-      parties: [
-        { label: "Supplier (manufacturer)", value: doc.supplier_name },
-        { label: "Supplier TIN", value: doc.supplier_tin },
-        { label: "Supplier phone", value: doc.supplier_phone },
-        { label: "Supplier address", value: doc.supplier_address },
-        { label: "Registered by", value: doc.created_by_name },
-      ],
-      lines: doc.lines.map((line) => ({
-        item: line.item_name,
-        voucher: line.category,
-        quantity: qty(line.quantity),
-        unitPrice: money(line.unit_cost),
-        total: money(Number(line.quantity) * Number(line.unit_cost)),
-        note: line.note,
-      })),
-      totals:
-        vat > 0.005
-          ? [
-              { label: "Subtotal", value: money(base) },
-              { label: "VAT", value: money(vat) },
-              { label: "Total including VAT", value: money(inclusive) },
-            ]
-          : [{ label: "Total", value: money(inclusive) }],
-      note: doc.note,
-      signatures: ["Supplier / manufacturer", "Store keeper"],
-    };
+    return buildRegistrationReceipt(doc, receiptBusiness());
   }
 
   function stockOutReceipt(doc: StockOut): ReceiptDoc {
-    const units = doc.assignments.reduce(
-      (sum, row) => sum + Number(row.quantity),
-      0,
-    );
-    return {
-      title: "Stock out receipt",
-      reference: doc.voucher_number,
-      date: doc.date,
-      status: doc.status,
-      business: receiptBusiness(),
-      columnLabels: ["Qty", "Sales agent", "Change / unit"],
-      parties: [
-        { label: "Mode", value: doc.mode },
-        { label: "Raised by", value: doc.created_by_name },
-        {
-          label: "Agents",
-          value: doc.assignments
-            .map((row) => row.agent_name || "Unassigned")
-            .join(", "),
-        },
-      ],
-      lines: doc.assignments.map((row) => ({
-        item: row.item_name,
-        voucher: row.voucher_number,
-        quantity: qty(row.quantity),
-        unitPrice: row.agent_name || "Unassigned",
-        total: money(row.changing_amount),
-        note: row.change_reason,
-      })),
-      totals: [{ label: "Total units handed out", value: qty(units) }],
-      note: doc.note,
-      signatures: ["Store keeper", "Sales agent"],
-    };
+    return buildStockOutReceipt(doc, receiptBusiness());
   }
 
   const taxRows = taxSummary?.rows ?? [];
@@ -926,7 +894,9 @@ export default function FinancePage() {
     "Sales amount",
     "Expected",
     "Variance",
-    "Penalty",
+    "Variance",
+    "Penalty amount",
+    "Penalty reason",
     "Status",
     "Entered by",
     "Entered at",
@@ -942,7 +912,8 @@ export default function FinancePage() {
     Number(row.sales_amount),
     Number(row.expected_amount),
     Number(row.variance),
-    row.penalty ? "Yes" : "No",
+    row.penalty ? Number(row.penalty_amount || 0) : 0,
+    row.penalty ? row.penalty_reason : "",
     row.status,
     row.entered_by_name,
     fmtDate(row.entered_at),
@@ -996,6 +967,40 @@ export default function FinancePage() {
     ),
   );
 
+  // ------------------------------------------------------------- reporting
+  const reportWindow = useMemo(
+    () => reportRange(reportPeriod, reportAnchor),
+    [reportPeriod, reportAnchor],
+  );
+  const ledger: SaleLikeRow[] = reportRows;
+  const categoryReport = useMemo(
+    () => summariseByCategory(ledger, reportWindow),
+    [ledger, reportWindow],
+  );
+  const itemReport = useMemo(
+    () => summariseByItem(ledger, reportWindow),
+    [ledger, reportWindow],
+  );
+  const agentReport = useMemo(
+    () => summariseByAgent(ledger, reportWindow, agentList),
+    [ledger, reportWindow, agentList],
+  );
+  const windowRows = useMemo(
+    () => reportRows.filter((row) => inRange(row.created_at, reportWindow)),
+    [reportRows, reportWindow],
+  );
+  const todaySales = useMemo(() => dailySales(reportRows), [reportRows]);
+  const raisedToday = useMemo(() => {
+    const day = ymd(new Date());
+    const rows = reportRows.filter((row) => dayOf(row.created_at) === day);
+    return {
+      count: rows.length,
+      amount: rows.reduce((sum, row) => sum + Number(row.sales_amount), 0),
+      awaiting: rows.filter((row) => row.status === "PENDING_FINANCE").length,
+    };
+  }, [reportRows]);
+  const reportingBusiness = receiptBusiness();
+
   return (
     <>
       <PageHeader
@@ -1005,26 +1010,20 @@ export default function FinancePage() {
         stats={
           <>
             <StatCard
-              label="Awaiting finance"
-              value={String(
-                awaitingFinance.registrations.length +
-                  awaitingFinance.stockouts.length +
-                  awaitingFinance.settlements.length,
-              )}
-              hint="Store documents & settlements"
-              tone="amber"
-              icon={<ShieldCheck className="size-4" />}
-            />
-            <StatCard
-              label="Settled sales"
-              value={money(
-                settlements
-                  .filter((row) => row.status === "APPROVED")
-                  .reduce((sum, row) => sum + Number(row.sales_amount), 0),
-              )}
-              hint={`${settlements.filter((row) => row.status === "APPROVED").length} approved lines`}
+              label="Approved today"
+              value={money(todaySales.revenue)}
+              hint={`${todaySales.lines} line${todaySales.lines === 1 ? "" : "s"} · ${qty(
+                todaySales.units,
+              )} units · ${money(todaySales.profit)} profit`}
               tone="violet"
               icon={<Banknote className="size-4" />}
+            />
+            <StatCard
+              label="Raised today"
+              value={money(raisedToday.amount)}
+              hint={`${raisedToday.count} submitted · ${raisedToday.awaiting} awaiting finance`}
+              tone="amber"
+              icon={<Receipt className="size-4" />}
             />
           </>
         }
@@ -1072,8 +1071,10 @@ export default function FinancePage() {
                             expected
                           </span>
                           {row.penalty && (
-                            <span className="inline-flex rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
-                              Penalty already on this sale
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
+                              <AlertTriangle className="size-3" />
+                              Penalty {money(row.penalty_amount)}
+                              {row.penalty_reason ? ` · ${row.penalty_reason}` : ""}
                             </span>
                           )}
                         </p>
@@ -1103,13 +1104,9 @@ export default function FinancePage() {
                               ? "Approve and record a penalty for the unsold remainings"
                               : "A penalty needs unsold remainings on this sale"
                           }
-                          onClick={() => settleDecision(row.id, "penalty")}
+                          onClick={() => openPenaltyDialog(row)}
                         >
-                          {decidingKey === `settlement-${row.id}-penalty` ? (
-                            <Loader2 className="size-3.5 animate-spin" />
-                          ) : (
-                            <AlertTriangle className="size-3.5" />
-                          )}
+                          <AlertTriangle className="size-3.5" />
                           Approve with penalty
                         </Button>
                         <Button
@@ -1305,6 +1302,44 @@ export default function FinancePage() {
                               </span>
                             </label>
                           </div>
+
+                          {line.penalty && (
+                            <div className="mt-3 grid gap-3 rounded-xl border border-rose-400/25 bg-rose-500/[0.06] p-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
+                              <Field label="Penalty amount">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={line.penalty_amount}
+                                  onChange={(event) =>
+                                    patchSaleLine(line.key, {
+                                      penalty_amount: event.target.value,
+                                    })
+                                  }
+                                  placeholder="0.00"
+                                  className="border-rose-400/30 bg-white/[0.04] text-rose-100"
+                                />
+                              </Field>
+                              <Field label="Reason · required">
+                                <Input
+                                  value={line.penalty_reason}
+                                  onChange={(event) =>
+                                    patchSaleLine(line.key, {
+                                      penalty_reason: event.target.value,
+                                    })
+                                  }
+                                  placeholder="Why the agent is penalised on this sale"
+                                  className="border-rose-400/30 bg-white/[0.04] text-rose-100"
+                                />
+                              </Field>
+                              {penaltyLineError(line) && (
+                                <p className="text-[11px] text-rose-300 sm:col-span-2">
+                                  <AlertTriangle className="mr-1 inline size-3" />
+                                  {penaltyLineError(line)}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1342,11 +1377,12 @@ export default function FinancePage() {
             title="Settlement report"
             description="Assigned − sold returns to the voucher at final approval; variance is negative-only."
             actions={
-              <ExportButtons
+              <ReportExportButtons
                 title="Sales settlements"
                 headers={settlementHeaders}
                 rows={settlementMatrix}
                 file="volosync-settlements"
+                business={reportingBusiness}
               />
             }
           >
@@ -1512,13 +1548,23 @@ export default function FinancePage() {
                         {money(row.variance)}
                       </Td>
                       <Td>
-                        {row.penalty ? (
-                          <span className="inline-flex rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
-                            Penalty
-                          </span>
-                        ) : (
-                          <span className="text-xs text-zinc-600">—</span>
-                        )}
+                        <PenaltyMark
+                          amountValue={Number(row.penalty_amount || 0)}
+                          penalties={
+                            row.penalty
+                              ? [
+                                  {
+                                    amount: Number(row.penalty_amount || 0),
+                                    reason: row.penalty_reason || "No reason recorded",
+                                    item: row.item_name,
+                                    voucher: row.voucher_number,
+                                    day: fmtDate(row.entered_at || row.created_at),
+                                  },
+                                ]
+                              : []
+                          }
+                          compact
+                        />
                       </Td>
                       <Td>
                         <StatusPill status={row.status} tone={statusTone(row.status)} />
@@ -1562,11 +1608,10 @@ export default function FinancePage() {
                                     : "Approve with penalty — no unsold remainings on this sale"
                                 }
                                 tone="amber"
-                                pending={decidingKey === `settlement-${row.id}-penalty`}
                                 disabled={
                                   decidingKey !== null || Number(row.returned_quantity) <= 0
                                 }
-                                onClick={() => settleDecision(row.id, "penalty")}
+                                onClick={() => openPenaltyDialog(row)}
                               />
                               <IconButton
                                 label="Decline"
@@ -2101,7 +2146,7 @@ export default function FinancePage() {
                 placeholder="Search voucher, item or category"
                 className="w-56"
               />
-              <ExportButtons
+              <ReportExportButtons
                 title="Inventory report"
                 headers={[
                   "Voucher",
@@ -2124,8 +2169,7 @@ export default function FinancePage() {
                   registrationDate(lot.registration_date),
                 ])}
                 file="volosync-inventory"
-                business={{ name: dashboard?.tenant.name, tin: dashboard?.tenant.tin }}
-                note={dashboard?.tenant.name}
+                business={reportingBusiness}
               />
             </div>
           }
@@ -2247,26 +2291,91 @@ export default function FinancePage() {
 
       {view === "reports" && (
         <div className="space-y-4">
+          <ReportingRangeBar
+            period={reportPeriod}
+            anchor={reportAnchor}
+            range={reportWindow}
+            onPeriod={setReportPeriod}
+            onAnchor={setReportAnchor}
+            description="Filters every card, chart and export on this page."
+          />
+
           <div className="grid gap-4 xl:grid-cols-2">
-            <Panel title="Finance summary" description="Settled sales, VAT and returns.">
+            <InventoryReportingCard
+              rows={summary?.rows ?? []}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
+            <SalesAgentsCard
+              items={itemReport}
+              agents={agentReport}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
+          </div>
+
+          <ReportLensBar
+            mode={reportLens}
+            onMode={setReportLens}
+            categories={categoryReport.length}
+            items={itemReport.length}
+            range={reportWindow}
+          />
+
+          <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+            <CategoryItemReport
+              mode={reportLens}
+              categories={categoryReport}
+              items={itemReport}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
+            <AgentPerformanceReport
+              agents={agentReport}
+              agentOptions={agentList.map((agent) => ({
+                value: String(agent.id),
+                label: agent.name,
+              }))}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Panel
+              tone="indigo"
+              title="Collection methods"
+              description="Approved settlement value per payment channel in this window."
+            >
               <div className="space-y-2 text-sm">
-                <Row
-                  label="Approved sales"
-                  value={money(
-                    settlements
-                      .filter((row) => row.status === "APPROVED")
-                      .reduce((sum, row) => sum + Number(row.sales_amount), 0),
-                  )}
-                />
+                {METHODS.map((option) => {
+                  const total = windowRows
+                    .filter(
+                      (row) =>
+                        row.payment_method === option.value && row.status === "APPROVED",
+                    )
+                    .reduce((sum, row) => sum + Number(row.sales_amount), 0);
+                  return <Row key={option.value} label={option.label} value={money(total)} />;
+                })}
                 <Row
                   label="Returned units"
                   value={qty(
-                    settlements.reduce((sum, row) => sum + Number(row.returned_quantity), 0),
+                    windowRows.reduce((sum, row) => sum + Number(row.returned_quantity), 0),
                   )}
                 />
                 <Row
-                  label="Penalties raised"
-                  value={String(settlements.filter((row) => row.penalty).length)}
+                  label={`Penalties · ${windowRows.filter((row) => row.penalty).length} raised`}
+                  value={money(
+                    windowRows.reduce((sum, row) => sum + Number(row.penalty_amount || 0), 0),
+                  )}
+                />
+                <Row
+                  label="Lines settled"
+                  value={String(windowRows.filter((row) => row.status === "APPROVED").length)}
                 />
                 <Row
                   label="Input VAT on stock"
@@ -2278,32 +2387,31 @@ export default function FinancePage() {
                 />
                 <Row label="Net VAT" value={money(summary?.totals.net_vat ?? 0)} />
               </div>
-              <div className="mt-4 space-y-2">
-                {METHODS.map((option) => {
-                  const total = settlements
-                    .filter(
-                      (row) =>
-                        row.payment_method === option.value && row.status === "APPROVED",
-                    )
-                    .reduce((sum, row) => sum + Number(row.sales_amount), 0);
-                  return <Row key={option.value} label={option.label} value={money(total)} />;
-                })}
-              </div>
             </Panel>
-            <Panel title="Promotions" description="Stock given away on the manufacturer's order.">
-              <div className="space-y-2 text-sm">
-                <Row label="Promotion documents" value={String(promotions.length)} />
-                <Row
-                  label="Approved"
-                  value={String(promotions.filter((doc) => doc.status === "APPROVED").length)}
-                />
-                <Row
-                  label="Value printed"
-                  value={money(promotions.reduce((sum, doc) => sum + Number(doc.total), 0))}
-                />
-              </div>
-            </Panel>
+            <PenaltyReport
+              groups={agentReport}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
           </div>
+
+          <Panel
+            title="Promotions"
+            description="Stock given away on the manufacturer's order."
+          >
+            <div className="grid gap-2 text-sm sm:grid-cols-3">
+              <Row label="Promotion documents" value={String(promotions.length)} />
+              <Row
+                label="Approved"
+                value={String(promotions.filter((doc) => doc.status === "APPROVED").length)}
+              />
+              <Row
+                label="Value printed"
+                value={money(promotions.reduce((sum, doc) => sum + Number(doc.total), 0))}
+              />
+            </div>
+          </Panel>
 
           <div className="space-y-4">
             <Panel
@@ -2580,11 +2688,12 @@ export default function FinancePage() {
                 placeholder="Search tag, asset, serial or assignee"
                 className="w-64"
               />
-              <ExportButtons
+              <ReportExportButtons
                 title="Asset register"
                 headers={assetHeaders}
                 rows={assetMatrix}
                 file="volosync-assets"
+                business={reportingBusiness}
               />
             </div>
           }
@@ -2852,6 +2961,81 @@ export default function FinancePage() {
       {view === "password" && (
         <FinanceChangePasswordPanel />
       )}
+
+      <AlertDialog
+        open={Boolean(penaltyTarget)}
+        onOpenChange={(open) => {
+          if (!open && !penaltySaving) setPenaltyTarget(null);
+        }}
+      >
+        <AlertDialogContent className="border-white/10 bg-zinc-950">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-4 text-amber-300" />
+              Approve with penalty
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {penaltyTarget
+                ? `${penaltyTarget.item_name} · ${penaltyTarget.voucher_number} · ${
+                    penaltyTarget.agent_name || "unassigned agent"
+                  }. Recorded against the agent's standing, so both figures are required.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <Field label="Penalty amount">
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={penaltyForm.amount}
+                onChange={(event) =>
+                  setPenaltyForm((current) => ({
+                    ...current,
+                    amount: event.target.value,
+                  }))
+                }
+                placeholder="0.00"
+                autoFocus
+                className="border-rose-400/30 bg-white/[0.04] text-rose-100"
+              />
+            </Field>
+            <Field label="Reason">
+              <Input
+                value={penaltyForm.reason}
+                onChange={(event) =>
+                  setPenaltyForm((current) => ({
+                    ...current,
+                    reason: event.target.value,
+                  }))
+                }
+                placeholder="Why the agent is penalised on this sale"
+                className="border-rose-400/30 bg-white/[0.04] text-rose-100"
+              />
+            </Field>
+            <p className="text-[11px] text-zinc-500">
+              Unsold remainings on this sale:{" "}
+              <span className="text-amber-300">
+                {qty(penaltyTarget?.returned_quantity ?? 0)}
+              </span>
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={penaltySaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={penaltySaving}
+              className="gap-2 bg-rose-600 text-white hover:bg-rose-500"
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmPenalty();
+              }}
+            >
+              {penaltySaving && <Loader2 className="size-3.5 animate-spin" />}
+              {penaltySaving ? "Recording…" : "Approve with penalty"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -3014,48 +3198,6 @@ function QueueRow({
     </div>
   );
 }
-
-function ExportButtons({
-  title,
-  headers,
-  rows,
-  file,
-  totals,
-  business,
-  note,
-}: {
-  title: string;
-  headers: string[];
-  rows: (string | number)[][];
-  file: string;
-  totals?: (string | number)[];
-  business?: { name?: string; tin?: string };
-  note?: string;
-}) {
-  return (
-    <div className="flex gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        className="border-white/15 bg-transparent"
-        onClick={() => exportPdf({ title, headers, rows, file, totals, business })}
-      >
-        <FileDown className="size-3.5" /> PDF
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        className="border-white/15 bg-transparent"
-        onClick={() => exportExcel({ title, headers, rows, file, totals, note })}
-      >
-        <FileDown className="size-3.5" /> Excel
-      </Button>
-    </div>
-  );
-}
-
-
-
 
 function FinanceChangePasswordPanel() {
   const [form, setForm] = useState({ old: "", next: "", confirm: "" });

@@ -18,6 +18,7 @@ import {
   type Settlement,
   type StockOut,
   type Summary,
+  type TenantInfo,
 } from "@/lib/api";
 import {
   managerApi,
@@ -30,20 +31,20 @@ import {
 } from "@/lib/api/manager";
 import { storeApi, type SummaryTab, type TabSummary } from "@/lib/api/store";
 import { useView } from "@/lib/use-view";
-import { exportExcel, exportPdf } from "@/lib/export";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import { printReceipts, type ReceiptDoc } from "@/lib/print";
+import { buildPromotionReceipt, tenantBusiness } from "@/lib/receipts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   Camera,
   Check,
   ChevronDown,
   ChevronRight,
   ChevronsUpDown,
-  FileDown,
   ImageIcon,
   KeyRound,
   Loader2,
@@ -103,6 +104,30 @@ import {
 } from "@/components/volo/kit";
 import { PhoneField } from "@/components/volo/phone-field";
 import { PaymentTaxPanel, TableSearch } from "@/components/volo/payment-tax";
+import {
+  AgentPerformanceReport,
+  CategoryItemReport,
+  InventoryReportingCard,
+  PenaltyMark,
+  PenaltyReport,
+  ReportExportButtons,
+  ReportLensBar,
+  ReportingRangeBar,
+  SalesAgentsCard,
+  type ReportLens,
+} from "@/components/volo/reports";
+import {
+  dailySales,
+  dayOf,
+  inRange,
+  reportRange,
+  summariseByAgent,
+  summariseByCategory,
+  summariseByItem,
+  ymd,
+  type ReportPeriod,
+  type SaleLikeRow,
+} from "@/lib/reports";
 import { groupLotsByItem, matchesQuery } from "@/components/volo/lots";
 import ManagerHrSection from "./hr";
 
@@ -188,6 +213,7 @@ const registrationDate = (value?: string | null) => {
 export default function ManagerPage() {
   const [view] = useView("approvals");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [stockouts, setStockouts] = useState<StockOut[]>([]);
   const [lots, setLots] = useState<Lot[]>([]);
@@ -227,6 +253,13 @@ export default function ManagerPage() {
   const [recentRegQuery, setRecentRegQuery] = useState("");
   const [recentMovementQuery, setRecentMovementQuery] = useState("");
   const [recentPromoQuery, setRecentPromoQuery] = useState("");
+
+  // Reporting window — the strip under the hero drives every card, chart and
+  // export on the reports page.
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("monthly");
+  const [reportAnchor, setReportAnchor] = useState(() => ymd(new Date()));
+  const [reportSummary, setReportSummary] = useState<TabSummary | null>(null);
+  const [reportLens, setReportLens] = useState<ReportLens>("category");
 
   // keeps the callback-style loaders free of render deps
   const periodRef = useRef<RankingPeriod>("alltime");
@@ -290,6 +323,8 @@ export default function ManagerPage() {
       agentRows,
       assetRows,
       rankingRows,
+      tabSummary,
+      tenant,
     ] = await Promise.all([
       api.dashboard(),
       api.registrations(),
@@ -302,8 +337,11 @@ export default function ManagerPage() {
       salesApi.agents(),
       managerApi.listAssets(assetFiltersRef.current),
       managerApi.ranking(periodRef.current).catch(() => ({ data: [] as RankRow[] })),
+      storeApi.summaryByTab("all"),
+      api.tenantMe().catch(() => ({ data: null })),
     ]);
     setDashboard(dash.data);
+    setTenantInfo(tenant.data);
     setRegistrations(regs.data);
     setStockouts(sos.data);
     setLots(lotRows.data);
@@ -315,6 +353,7 @@ export default function ManagerPage() {
     setSalesUsername(agentRows.sales_username ?? "");
     setAssets(assetRows.data);
     setRanking(rankingRows.data);
+    setReportSummary(tabSummary.data);
   }, []);
 
   useEffect(() => {
@@ -393,11 +432,6 @@ export default function ManagerPage() {
       promotions: promotions.filter((doc) => doc.status === "PENDING_MANAGER"),
     }),
     [registrations, stockouts, settlements, promotions],
-  );
-
-  const totalQueue = Object.values(queues).reduce(
-    (sum, list) => sum + list.length,
-    0,
   );
 
   async function decideRegistration(id: number, decision: "APPROVED" | "REJECTED") {
@@ -787,30 +821,7 @@ export default function ManagerPage() {
   }
 
   function promotionReceipt(doc: Promotion): ReceiptDoc {
-    return {
-      title: doc.mode === "BATCH" ? "Batch promotion receipt" : "Promotion receipt",
-      reference: doc.voucher_number,
-      date: doc.date,
-      status: doc.status,
-      business: {
-        name: dashboard?.tenant.name,
-        tin: dashboard?.tenant.tin,
-      },
-      parties: [
-        { label: "Manufacturer", value: doc.manufacturers.join(", ") },
-        { label: "Wholesaler", value: dashboard?.tenant.name ?? "" },
-      ],
-      lines: doc.lines.map((line) => ({
-        item: line.item_name,
-        voucher: line.voucher_number,
-        quantity: qty(line.quantity),
-        unitPrice: money(line.printed_price),
-        total: money(line.line_total),
-        note: line.change_reason,
-      })),
-      totals: [{ label: "Grand total", value: money(doc.total) }],
-      signatures: ["Manufacturer / authorised signatory", "Wholesale representative"],
-    };
+    return buildPromotionReceipt(doc, reportingBusiness);
   }
 
   const assetMatrix = assets.map((asset) => [
@@ -857,7 +868,8 @@ export default function ManagerPage() {
     "Revenue",
     "Units sold",
     "Returned",
-    "Penalties",
+    "Penalty amount",
+    "Penalty reasons",
     "Standing",
   ];
   const rankRows = ranking.map((row) => [
@@ -867,7 +879,10 @@ export default function ManagerPage() {
     Number(row.revenue),
     Number(row.units_sold),
     Number(row.returned_quantity),
-    row.penalty_count,
+    Number(row.penalty_amount),
+    row.penalty_reasons
+      .map((mark) => `${mark.reason} (${mark.amount} ETB · ${mark.item})`)
+      .join(" | "),
     row.has_penalty ? "Penalized (ranks below clean)" : "Clean",
   ]);
 
@@ -897,13 +912,45 @@ export default function ManagerPage() {
         ? current.filter((entry) => entry !== key)
         : [...current, key],
     );
-  const approvedSales = settlements
-    .filter((row) => row.status === "APPROVED")
-    .reduce((sum, row) => sum + Number(row.sales_amount), 0);
-  const pendingSettlements = settlements.filter(
-    (row) => row.status !== "APPROVED" && row.status !== "REJECTED",
-  ).length;
-  const penaltyCount = settlements.filter((row) => row.penalty).length;
+  // ------------------------------------------------------------- reporting
+  const reportWindow = useMemo(
+    () => reportRange(reportPeriod, reportAnchor),
+    [reportPeriod, reportAnchor],
+  );
+  const ledger: SaleLikeRow[] = settlements;
+  const categoryReport = useMemo(
+    () => summariseByCategory(ledger, reportWindow),
+    [ledger, reportWindow],
+  );
+  const itemReport = useMemo(
+    () => summariseByItem(ledger, reportWindow),
+    [ledger, reportWindow],
+  );
+  const agentReport = useMemo(
+    () =>
+      summariseByAgent(
+        ledger,
+        reportWindow,
+        agents.map((agent) => ({ id: agent.id, name: agent.name })),
+      ),
+    [ledger, reportWindow, agents],
+  );
+  const windowRows = useMemo(
+    () => settlements.filter((row) => inRange(row.created_at, reportWindow)),
+    [settlements, reportWindow],
+  );
+  const todaySales = useMemo(() => dailySales(settlements), [settlements]);
+  const stockOutToday = useMemo(() => {
+    const day = ymd(new Date());
+    const rows = movements.filter(
+      (row) => row.type === "STOCKOUT" && dayOf(row.at) === day,
+    );
+    return {
+      count: rows.length,
+      units: rows.reduce((sum, row) => sum + Math.abs(Number(row.quantity_delta)), 0),
+    };
+  }, [movements]);
+  const reportingBusiness = tenantBusiness(tenantInfo, dashboard?.tenant);
 
   const recentRegistrations = [...registrations]
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
@@ -974,17 +1021,21 @@ export default function ManagerPage() {
             stats={
               <>
                 <StatCard
-                  label="Waiting on you"
-                  value={String(totalQueue)}
-                  hint="Across every chain"
-                  tone="violet"
-                  icon={<ShieldCheck className="size-4" />}
+                  label="Approved today"
+                  value={money(todaySales.revenue)}
+                  hint={`${todaySales.lines} line${todaySales.lines === 1 ? "" : "s"} · ${qty(
+                    todaySales.units,
+                  )} units · ${money(todaySales.profit)} profit`}
+                  tone="emerald"
+                  icon={<Wallet className="size-4" />}
                 />
                 <StatCard
-                  label="Stock value"
-                  value={money(dashboard?.stock_value ?? 0)}
-                  hint={`${dashboard?.lots ?? 0} voucher lots`}
-                  tone="emerald"
+                  label="Stock out today"
+                  value={qty(stockOutToday.units)}
+                  hint={`${stockOutToday.count} movement${
+                    stockOutToday.count === 1 ? "" : "s"
+                  } handed to agents`}
+                  tone="violet"
                   icon={<Warehouse className="size-4" />}
                 />
               </>
@@ -1049,7 +1100,18 @@ export default function ManagerPage() {
               title: `${doc.item_name} · ${doc.agent_name || "unassigned"}`,
               detail: `sold ${qty(doc.sold_quantity)} · returns ${qty(
                 doc.returned_quantity,
-              )} · ${money(doc.sales_amount)}${doc.penalty ? " · penalty" : ""}`,
+              )} · ${money(doc.sales_amount)}`,
+              note: doc.penalty ? (
+                <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-400/30 bg-rose-500/10 px-2 py-0.5 font-semibold text-rose-300">
+                    <AlertTriangle className="size-3" />
+                    Penalty {money(doc.penalty_amount)}
+                  </span>
+                  <span className="max-w-[22rem] text-zinc-400">
+                    {doc.penalty_reason || "No reason recorded"}
+                  </span>
+                </p>
+              ) : undefined,
               approve: () => decideSettlement(doc.id, "APPROVED"),
               reject: () => decideSettlement(doc.id, "REJECTED"),
               pending:
@@ -1102,57 +1164,23 @@ export default function ManagerPage() {
                 placeholder="Search voucher, item or category"
                 className="w-56"
               />
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-white/15 bg-transparent"
-                onClick={() =>
-                  exportPdf({
-                    title: "Inventory report",
-                    subtitle: dashboard?.tenant.name ?? "",
-                    headers: ["Voucher", "Item", "Category", "Quantity", "Unit cost", "Unit sales", "Price + VAT", "Registration date"],
-                    rows: visibleInventoryLots.map((lot) => [
-                      lot.voucher_number,
-                      lot.item_name,
-                      lot.category,
-                      Number(lot.remaining_quantity),
-                      Number(lot.unit_cost),
-                      Number(lot.unit_sales),
-                      Number(lot.price_with_vat),
-                      registrationDate(lot.registration_date),
-                    ]),
-                    file: "volosync-inventory",
-                    business: { name: dashboard?.tenant.name, tin: dashboard?.tenant.tin },
-                  })
-                }
-              >
-                <FileDown className="size-3.5" /> PDF
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-white/15 bg-transparent"
-                onClick={() =>
-                  exportExcel({
-                    title: "Inventory report",
-                    headers: ["Voucher", "Item", "Category", "Quantity", "Unit cost", "Unit sales", "Price + VAT", "Registration date"],
-                    rows: visibleInventoryLots.map((lot) => [
-                      lot.voucher_number,
-                      lot.item_name,
-                      lot.category,
-                      Number(lot.remaining_quantity),
-                      Number(lot.unit_cost),
-                      Number(lot.unit_sales),
-                      Number(lot.price_with_vat),
-                      registrationDate(lot.registration_date),
-                    ]),
-                    file: "volosync-inventory",
-                    note: dashboard?.tenant.name,
-                  })
-                }
-              >
-                <FileDown className="size-3.5" /> Excel
-              </Button>
+              <ReportExportButtons
+                title="Inventory report"
+                subtitle={dashboard?.tenant.name ?? ""}
+                headers={["Voucher", "Item", "Category", "Quantity", "Unit cost", "Unit sales", "Price + VAT", "Registration date"]}
+                rows={visibleInventoryLots.map((lot) => [
+                  lot.voucher_number,
+                  lot.item_name,
+                  lot.category,
+                  Number(lot.remaining_quantity),
+                  Number(lot.unit_cost),
+                  Number(lot.unit_sales),
+                  Number(lot.price_with_vat),
+                  registrationDate(lot.registration_date),
+                ])}
+                file="volosync-inventory"
+                business={reportingBusiness}
+              />
             </div>
           }
         >
@@ -1556,7 +1584,7 @@ export default function ManagerPage() {
           rows={taxRows}
           totals={taxTotals}
           loading={taxLoading}
-          business={{ name: dashboard?.tenant.name, tin: dashboard?.tenant.tin }}
+          business={reportingBusiness}
           tenantName={dashboard?.tenant.name}
           emptyMessage={
             taxTab === "without_vat"
@@ -1736,11 +1764,12 @@ export default function ManagerPage() {
                     placeholder="Search agent or phone"
                     className="w-56"
                   />
-                  <ExportButtons
+                  <ReportExportButtons
                     title={`Agent ranking · ${RANKING_PERIOD_LABELS[rankingPeriod]}`}
                     headers={rankHeaders}
                     rows={rankRows}
                     file="volosync-agent-ranking"
+                    business={reportingBusiness}
                   />
                 </div>
               }
@@ -1775,7 +1804,7 @@ export default function ManagerPage() {
                           <ThSt right>Revenue</ThSt>
                           <ThSt right>Units sold</ThSt>
                           <ThSt right>Returned</ThSt>
-                          <ThSt right>Penalties</ThSt>
+                          <ThSt right>Penalty</ThSt>
                           <ThSt>Standing</ThSt>
                         </tr>
                       </thead>
@@ -1793,13 +1822,16 @@ export default function ManagerPage() {
                             <Td right>{qty(row.units_sold)}</Td>
                             <Td right>{qty(row.returned_quantity)}</Td>
                             <Td right>
-                              {row.penalty_count > 0 ? (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[11px] font-semibold text-rose-300">
-                                  {row.penalty_count}
-                                </span>
-                              ) : (
-                                <span className="text-zinc-500">0</span>
-                              )}
+                              <PenaltyMark
+                                amountValue={Number(row.penalty_amount)}
+                                penalties={row.penalty_reasons.map((mark) => ({
+                                  reason: mark.reason,
+                                  item: mark.item,
+                                  voucher: mark.voucher,
+                                  day: mark.at.slice(0, 10),
+                                  amount: Number(mark.amount),
+                                }))}
+                              />
                             </Td>
                             <Td>
                               {row.has_penalty ? (
@@ -2266,7 +2298,7 @@ export default function ManagerPage() {
             title="Asset register"
             description="Read-only here — Finance assigns and releases."
             actions={
-              <ExportButtons
+              <ReportExportButtons
                 title="Asset register"
                 headers={[
                   "Tag",
@@ -2282,6 +2314,7 @@ export default function ManagerPage() {
                 ]}
                 rows={assetMatrix}
                 file="volosync-assets"
+                business={reportingBusiness}
               />
             }
           >
@@ -2735,46 +2768,109 @@ export default function ManagerPage() {
 
       {view === "reports" && (
         <div className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-2">
-          <Panel
-            title="Inventory report"
-            description="Stock at cost, in store, stocked out — with the VAT split."
-          >
-            <div className="space-y-2 text-sm">
-              <Row label="Registered value" value={money(summaryTotals?.registered_value ?? 0)} />
-              <Row label="In store" value={money(summaryTotals?.in_store_value ?? 0)} />
-              <Row label="Stocked out" value={money(summaryTotals?.stocked_out_value ?? 0)} />
-              <Row label="Base value (ex VAT)" value={money(summaryTotals?.base_value ?? 0)} />
-              <Row label="Input VAT" value={money(summaryTotals?.vat ?? 0)} />
-              <Row label="Inclusive amount" value={money(summaryTotals?.inclusive_amount ?? 0)} />
-              <Row label="Output VAT" value={money(summaryTotals?.output_vat ?? 0)} />
-              <Row label="Net VAT (output − input)" value={money(summaryTotals?.net_vat ?? 0)} />
-            </div>
-          </Panel>
+          <ReportingRangeBar
+            period={reportPeriod}
+            anchor={reportAnchor}
+            range={reportWindow}
+            onPeriod={setReportPeriod}
+            onAnchor={setReportAnchor}
+            description="Filters every card, chart and export on this page."
+          />
 
-          <Panel
-            title="Sales & agents"
-            description="Revenue by agent and settlement health."
-          >
-            <div className="space-y-2 text-sm">
-              <Row label="Approved sales" value={money(approvedSales)} />
-              <Row label="Settlements pending" value={String(pendingSettlements)} />
-              <Row label="Penalties" value={String(penaltyCount)} />
-            </div>
-            <div className="mt-4 space-y-2">
-              {ranking.slice(0, 5).map((row) => (
-                <div key={row.agent_id} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-2 text-zinc-300">
-                    <Trophy className="size-3.5 text-amber-300" />
-                    <RankMedal rank={row.rank} />
-                    {row.name}
-                  </span>
-                  <span className="text-zinc-400">{money(row.revenue)}</span>
-                </div>
-              ))}
-              {!ranking.length && <EmptyRow>No approved settlements yet.</EmptyRow>}
-            </div>
-          </Panel>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <InventoryReportingCard
+              rows={reportSummary?.rows ?? []}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
+            <SalesAgentsCard
+              items={itemReport}
+              agents={agentReport}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
+          </div>
+
+          <ReportLensBar
+            mode={reportLens}
+            onMode={setReportLens}
+            categories={categoryReport.length}
+            items={itemReport.length}
+            range={reportWindow}
+          />
+
+          <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+            <CategoryItemReport
+              mode={reportLens}
+              categories={categoryReport}
+              items={itemReport}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
+            <AgentPerformanceReport
+              agents={agentReport}
+              agentOptions={agents.map((agent) => ({
+                value: String(agent.id),
+                label: agent.name,
+              }))}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <PenaltyReport
+              groups={agentReport}
+              range={reportWindow}
+              business={reportingBusiness}
+              tenantName={dashboard?.tenant.name}
+            />
+            <Panel
+              tone="indigo"
+              title="All-time stock & VAT position"
+              description="Every voucher lot, independent of the reporting window."
+            >
+              <div className="space-y-2 text-sm">
+                <Row label="Registered value" value={money(summaryTotals?.registered_value ?? 0)} />
+                <Row label="In store" value={money(summaryTotals?.in_store_value ?? 0)} />
+                <Row label="Stocked out" value={money(summaryTotals?.stocked_out_value ?? 0)} />
+                <Row label="Base value (ex VAT)" value={money(summaryTotals?.base_value ?? 0)} />
+                <Row label="Input VAT" value={money(summaryTotals?.vat ?? 0)} />
+                <Row label="Inclusive amount" value={money(summaryTotals?.inclusive_amount ?? 0)} />
+                <Row label="Output VAT" value={money(summaryTotals?.output_vat ?? 0)} />
+                <Row label="Net VAT (output − input)" value={money(summaryTotals?.net_vat ?? 0)} />
+              </div>
+              <div className="mt-4 space-y-2">
+                {ranking.slice(0, 5).map((row) => (
+                  <div key={row.agent_id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="flex min-w-0 items-center gap-2 text-zinc-300">
+                      <Trophy className="size-3.5 shrink-0 text-amber-300" />
+                      <RankMedal rank={row.rank} />
+                      <span className="truncate">{row.name}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <PenaltyMark
+                        amountValue={Number(row.penalty_amount)}
+                        penalties={row.penalty_reasons.map((mark) => ({
+                          reason: mark.reason,
+                          item: mark.item,
+                          voucher: mark.voucher,
+                          day: mark.at.slice(0, 10),
+                          amount: Number(mark.amount),
+                        }))}
+                        compact
+                      />
+                      <span className="tabular-nums text-zinc-400">{money(row.revenue)}</span>
+                    </span>
+                  </div>
+                ))}
+                {!ranking.length && <EmptyRow>No approved settlements yet.</EmptyRow>}
+              </div>
+            </Panel>
           </div>
 
           <div className="space-y-4">
@@ -3017,6 +3113,7 @@ function QueuePanel({
     reference: string;
     title: string;
     detail: string;
+    note?: React.ReactNode;
     approve: () => void;
     reject: () => void;
     pending?: "approve" | "reject" | null;
@@ -3035,6 +3132,7 @@ function QueuePanel({
               <p className="font-mono text-xs text-violet-300">{row.reference}</p>
               <p className="text-sm text-zinc-200">{row.title}</p>
               <p className="text-xs text-zinc-500">{row.detail}</p>
+              {row.note}
             </div>
             <span className="flex gap-1">
               <IconAction
@@ -3239,41 +3337,6 @@ function RankMedal({ rank }: { rank: number }) {
     <span className={`grid size-7 place-items-center rounded-full text-xs font-bold ${tone}`}>
       {rank}
     </span>
-  );
-}
-
-function ExportButtons({
-  title,
-  headers,
-  rows,
-  file,
-  totals,
-}: {
-  title: string;
-  headers: string[];
-  rows: (string | number)[][];
-  file: string;
-  totals?: (string | number)[];
-}) {
-  return (
-    <div className="flex gap-2">
-      <Button
-        size="sm"
-        variant="outline"
-        className="border-white/15 bg-transparent"
-        onClick={() => exportPdf({ title, headers, rows, file, totals })}
-      >
-        <FileDown className="size-3.5" /> PDF
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        className="border-white/15 bg-transparent"
-        onClick={() => exportExcel({ title, headers, rows, file, totals })}
-      >
-        <FileDown className="size-3.5" /> Excel
-      </Button>
-    </div>
   );
 }
 

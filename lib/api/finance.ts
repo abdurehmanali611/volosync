@@ -9,6 +9,8 @@
 
 import { ApiError, getToken } from "@/lib/api";
 
+import { scheduleSessionExpiredRedirect } from "@/lib/sessionExpiry";
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://volosync-backend.vercel.app";
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -22,6 +24,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const body = text ? JSON.parse(text) : null;
 
   if (!response.ok) {
+    if (response.status === 401 && !path.includes("/auth/login/")) {
+      scheduleSessionExpiredRedirect();
+    }
     const detail = body?.errors ?? body;
     const message =
       detail?.message ??
@@ -47,7 +52,9 @@ export type SettlementRow = {
   lot: number;
   voucher_number: string;
   item_name: string;
+  category: string;
   agent_name: string;
+  agent_id: number | null;
   assigned_quantity: string;
   sold_quantity: string;
   returned_quantity: string;
@@ -56,6 +63,11 @@ export type SettlementRow = {
   expected_amount: string;
   variance: string;
   penalty: boolean;
+  /** Finance's verdict: both figures exist only together with a penalty. */
+  penalty_amount: string;
+  penalty_reason: string;
+  unit_cost: string;
+  vat_rate: string;
   note: string;
   status: string;
   entered_by: number | null;
@@ -113,6 +125,8 @@ export type SummaryTaxRow = {
   output_vat: string;
   vat: string;
   vat_rate: string;
+  supplier_name: string;
+  registration_date: string;
 };
 
 export type SummaryTotals = {

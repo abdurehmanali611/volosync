@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileDown, Layers3, Search } from "lucide-react";
+import { FileDown, Filter, Layers3, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,10 +19,20 @@ import {
 } from "@/components/ui/popover";
 import { exportExcel, exportPdf } from "@/lib/export";
 import { amount, money, qty } from "@/lib/api";
-import { EmptyRow, Panel, Td } from "@/components/volo/kit";
+import { EmptyRow, Field, Panel, Td } from "@/components/volo/kit";
+import { ComboSelect, DateField } from "@/components/volo/controls";
 import { cn } from "@/lib/utils";
 
 export type PaymentTaxSlice = "all" | "with_vat" | "without_vat";
+
+/** The VAT picker above the table; narrows whatever slice the server gave us. */
+type VatFilter = "all" | "with" | "without";
+
+const VAT_FILTERS: { value: VatFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "with", label: "With VAT" },
+  { value: "without", label: "Without VAT" },
+];
 
 export const PAYMENT_TAX_SLICES: { value: PaymentTaxSlice; label: string }[] = [
   { value: "all", label: "All lines" },
@@ -49,6 +59,8 @@ export type PaymentTaxRow = {
   vat_amount: string;
   inclusive_amount: string;
   output_vat: string;
+  supplier_name?: string;
+  registration_date?: string;
 };
 
 export type PaymentTaxTotals = {
@@ -192,10 +204,45 @@ export function PaymentTaxPanel({
 }) {
   const [query, setQuery] = useState("");
   const [detailKey, setDetailKey] = useState<string | null>(null);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [supplier, setSupplier] = useState("all");
+  const [vatFilter, setVatFilter] = useState<VatFilter>("all");
+
+  const supplierOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const row of rows) {
+      const name = row.supplier_name?.trim();
+      if (name) names.add(name);
+    }
+    return Array.from(names)
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => ({ value: name, label: name }));
+  }, [rows]);
+
+  const filtersActive =
+    Boolean(from || to) || supplier !== "all" || vatFilter !== "all";
+
+  const filteredRows = useMemo(
+    () =>
+      rows.filter((row) => {
+        const day = row.registration_date ?? "";
+        if (from && day && day < from) return false;
+        if (to && day && day > to) return false;
+        if (supplier !== "all" && (row.supplier_name ?? "").trim() !== supplier) {
+          return false;
+        }
+        const inputVat = Number(row.vat_amount || 0);
+        if (vatFilter === "with" && inputVat <= 0) return false;
+        if (vatFilter === "without" && inputVat > 0) return false;
+        return true;
+      }),
+    [rows, from, to, supplier, vatFilter],
+  );
 
   const tabLabel =
     PAYMENT_TAX_SLICES.find((slice) => slice.value === tab)?.label ?? "All lines";
-  const groups = useMemo(() => groupTaxRows(rows), [rows]);
+  const groups = useMemo(() => groupTaxRows(filteredRows), [filteredRows]);
   const visibleGroups = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return groups;
@@ -211,7 +258,7 @@ export function PaymentTaxPanel({
   }, [groups, query]);
   const detail = groups.find((group) => group.key === detailKey) ?? null;
 
-  const qtyTotals = rows.reduce(
+  const qtyTotals = filteredRows.reduce(
     (sum, row) => ({
       registered: sum.registered + Number(row.registered_qty),
       inStore: sum.inStore + Number(row.in_store_qty),
@@ -221,7 +268,61 @@ export function PaymentTaxPanel({
     { registered: 0, inStore: 0, stockedOut: 0, paid: 0 },
   );
 
-  const exportRows = rows.map((row) => [
+  // Filtering makes the server totals wrong for what is on screen, so the
+  // numbers below — and every export — are re-added from the visible rows.
+  const valueTotals = filteredRows.reduce(
+    (sum, row) => ({
+      registeredValue: sum.registeredValue + Number(row.registered_value),
+      inStoreValue: sum.inStoreValue + Number(row.in_store_value),
+      stockedOutValue: sum.stockedOutValue + Number(row.stocked_out_value),
+      base: sum.base + Number(row.base_value),
+      inputVat: sum.inputVat + Number(row.vat_amount),
+      outputVat: sum.outputVat + Number(row.output_vat),
+      inclusive: sum.inclusive + Number(row.inclusive_amount),
+    }),
+    {
+      registeredValue: 0,
+      inStoreValue: 0,
+      stockedOutValue: 0,
+      base: 0,
+      inputVat: 0,
+      outputVat: 0,
+      inclusive: 0,
+    },
+  );
+
+  const displayTotals: PaymentTaxTotals | null = !totals
+    ? null
+    : filtersActive
+      ? {
+          registered_value: String(valueTotals.registeredValue),
+          in_store_value: String(valueTotals.inStoreValue),
+          stocked_out_value: String(valueTotals.stockedOutValue),
+          base_value: String(valueTotals.base),
+          vat: String(valueTotals.inputVat),
+          inclusive_amount: String(valueTotals.inclusive),
+          output_vat: String(valueTotals.outputVat),
+          total_input_vat: String(valueTotals.inputVat),
+          total_output_vat: String(valueTotals.outputVat),
+          net_vat: String(valueTotals.outputVat - valueTotals.inputVat),
+        }
+      : totals;
+
+  const filterNote = filtersActive
+    ? [
+        from || to ? `${from || "…"} → ${to || "…"}` : "",
+        supplier !== "all" ? supplier : "",
+        vatFilter === "with"
+          ? "with VAT"
+          : vatFilter === "without"
+            ? "without VAT"
+            : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  const exportRows = filteredRows.map((row) => [
     row.voucher_number,
     row.item_name,
     Number(row.registered_qty),
@@ -236,23 +337,21 @@ export function PaymentTaxPanel({
     Number(row.vat_amount),
     Number(row.inclusive_amount),
   ]);
-  const exportTotals = totals
-    ? ([
-        "Totals",
-        "",
-        qtyTotals.registered,
-        Number(totals.registered_value),
-        qtyTotals.inStore,
-        Number(totals.in_store_value),
-        qtyTotals.stockedOut,
-        Number(totals.stocked_out_value),
-        "",
-        qtyTotals.paid,
-        Number(totals.base_value),
-        Number(totals.total_input_vat),
-        Number(totals.inclusive_amount),
-      ] as (string | number)[])
-    : undefined;
+  const exportTotals = [
+    "Totals",
+    `${filteredRows.length} vouchers`,
+    qtyTotals.registered,
+    valueTotals.registeredValue,
+    qtyTotals.inStore,
+    valueTotals.inStoreValue,
+    qtyTotals.stockedOut,
+    valueTotals.stockedOutValue,
+    "",
+    qtyTotals.paid,
+    valueTotals.base,
+    valueTotals.inputVat,
+    valueTotals.inclusive,
+  ] as (string | number)[];
 
   return (
     <Panel
@@ -267,11 +366,16 @@ export function PaymentTaxPanel({
             size="sm"
             variant="outline"
             className="border-white/15 bg-transparent"
-            disabled={loading}
+            disabled={loading || !filteredRows.length}
             onClick={() =>
               exportPdf({
                 title: "Payment & tax",
-                subtitle: `${tenantName ?? ""} · ${tabLabel} · ${rows.length} vouchers`,
+                subtitle: [
+                  `${tenantName ?? ""} · ${tabLabel} · ${filteredRows.length} vouchers`,
+                  filterNote,
+                ]
+                  .filter(Boolean)
+                  .join(" · "),
                 headers: TAX_EXPORT_HEADERS,
                 rows: exportRows,
                 file: "volosync-payment-tax",
@@ -286,10 +390,10 @@ export function PaymentTaxPanel({
             size="sm"
             variant="outline"
             className="border-white/15 bg-transparent"
-            disabled={loading}
+            disabled={loading || !filteredRows.length}
             onClick={() =>
               exportExcel({
-                title: `Payment & tax · ${tabLabel}`,
+                title: `Payment & tax · ${tabLabel}${filterNote ? ` · ${filterNote}` : ""}`,
                 headers: TAX_EXPORT_HEADERS,
                 rows: exportRows,
                 totals: exportTotals,
@@ -328,13 +432,78 @@ export function PaymentTaxPanel({
         </div>
       )}
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-end gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
         <TableSearch
           value={query}
           onChange={setQuery}
           placeholder="Search item, category or voucher"
-          className="w-full sm:w-72"
+          className="w-full sm:w-64"
         />
+        <Field label="From">
+          <DateField
+            value={from}
+            onChange={setFrom}
+            placeholder="Any date"
+            clearable
+            className="w-36"
+          />
+        </Field>
+        <Field label="To">
+          <DateField
+            value={to}
+            onChange={setTo}
+            placeholder="Any date"
+            clearable
+            className="w-36"
+          />
+        </Field>
+        <Field label="Supplier">
+          <ComboSelect
+            value={supplier}
+            onChange={setSupplier}
+            options={[{ value: "all", label: "All suppliers" }, ...supplierOptions]}
+            placeholder="All suppliers"
+            className="w-44"
+          />
+        </Field>
+        <Field label="VAT">
+          <ComboSelect
+            value={vatFilter}
+            onChange={(value) => setVatFilter(value as VatFilter)}
+            options={VAT_FILTERS.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+            className="w-32"
+          />
+        </Field>
+        <div className="ml-auto flex items-center gap-2 pb-0.5">
+          <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+            <Filter className="size-3.5" />
+            <span className="font-semibold text-zinc-300">{filteredRows.length}</span> of{" "}
+            {rows.length} voucher{rows.length === 1 ? "" : "s"}
+            {filterNote ? <span className="text-zinc-600">· {filterNote}</span> : null}
+          </span>
+          {filtersActive && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 border-white/15 bg-transparent text-[11px] text-zinc-300 hover:bg-white/[0.06]"
+              onClick={() => {
+                setFrom("");
+                setTo("");
+                setSupplier("all");
+                setVatFilter("all");
+                setQuery("");
+              }}
+            >
+              <X className="size-3.5" /> Clear
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="text-xs text-zinc-500">
           {visibleGroups.length} of {groups.length} item
           {groups.length === 1 ? "" : "s"}
@@ -413,37 +582,39 @@ export function PaymentTaxPanel({
         <EmptyRow>
           {query.trim()
             ? `No items match “${query.trim()}” in this slice.`
-            : emptyMessage ?? "No vouchers in this slice."}
+            : filtersActive
+              ? `No voucher matches these filters${filterNote ? ` (${filterNote})` : ""}.`
+              : (emptyMessage ?? "No vouchers in this slice.")}
         </EmptyRow>
       )}
 
-      {totals && (
+      {displayTotals && (
         <div className="mt-4 flex flex-wrap gap-2">
-          <TaxTotalPill label="Base value" value={money(totals.base_value)} tone="base" />
+          <TaxTotalPill label="Base value" value={money(displayTotals.base_value)} tone="base" />
           <TaxTotalPill
             label="In store value"
-            value={money(totals.in_store_value)}
+            value={money(displayTotals.in_store_value)}
             tone="inStore"
           />
           <TaxTotalPill
             label="Stocked out value"
-            value={money(totals.stocked_out_value)}
+            value={money(displayTotals.stocked_out_value)}
             tone="stockedOut"
           />
           <TaxTotalPill
             label="Input VAT"
-            value={money(totals.total_input_vat)}
+            value={money(displayTotals.total_input_vat)}
             tone="input"
           />
           <TaxTotalPill
             label="Output VAT"
-            value={money(totals.total_output_vat)}
+            value={money(displayTotals.total_output_vat)}
             tone="output"
           />
-          <TaxTotalPill label="Net VAT" value={money(totals.net_vat)} tone="net" />
+          <TaxTotalPill label="Net VAT" value={money(displayTotals.net_vat)} tone="net" />
           <TaxTotalPill
             label="Inclusive amount"
-            value={money(totals.inclusive_amount)}
+            value={money(displayTotals.inclusive_amount)}
             tone="inclusive"
           />
         </div>
@@ -676,7 +847,7 @@ export function QtyValueCell({
         className={cn("h-[17px] rounded-full px-1.5 py-0 text-[10px] leading-none", tonePill[tone])}
       >
         {amount(value)}
-        <span className="text-[9px] font-semibold tracking-wider uppercase opacity-60">ETB</span>
+        <span className="ml-1 text-[9px] font-semibold tracking-wider uppercase opacity-60">ETB</span>
       </Badge>
     </div>
   );

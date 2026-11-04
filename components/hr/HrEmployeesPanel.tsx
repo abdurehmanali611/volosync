@@ -285,25 +285,26 @@ export function HrEmployeesPanel({
     {},
   );
 
+  const loadDepartments = useCallback(async () => {
+    try {
+      const rows = await fetchHrDepartments();
+      const active = rows.filter((d) => d.active);
+      setHrDepartments(active);
+      return active;
+    } catch (e) {
+      notifyApiFailure(e, "Could not load departments");
+      return [];
+    }
+  }, []);
+
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const rows = await fetchHrDepartments();
-        if (cancelled) return;
-        setHrDepartments(rows.filter((d) => d.active));
-      } catch (e) {
-        notifyApiFailure(e, "Could not load departments");
-      }
-    };
-    void load();
-    const onChange = () => void load();
+    void loadDepartments();
+    const onChange = () => void loadDepartments();
     window.addEventListener("hotcol-hr-departments", onChange);
     return () => {
-      cancelled = true;
       window.removeEventListener("hotcol-hr-departments", onChange);
     };
-  }, []);
+  }, [loadDepartments]);
 
   const defaultDepartment = hrDepartments[0]?.code ?? "";
 
@@ -510,9 +511,11 @@ export function HrEmployeesPanel({
     ];
   }, [employees]);
 
-  const openCreate = () => {
-    if (!hrDepartments.length) {
-      toast.error("Register departments in HR → Departments first");
+  const openCreate = async () => {
+    /** Departments save on demand, so an empty local list is re-read before it blocks. */
+    const list = hrDepartments.length ? hrDepartments : await loadDepartments();
+    if (!list.length) {
+      toast.error("Save departments in HR → Departments first");
       return;
     }
     setEditing(null);
@@ -520,7 +523,7 @@ export function HrEmployeesPanel({
       fullName: "",
       phone: "",
       email: "",
-      department: defaultDepartment,
+      department: list[0].code,
       jobTitle: "",
       orgPosition: "employee",
       teamId: null,
@@ -1199,15 +1202,15 @@ export function HrEmployeesPanel({
                                 placeholder={
                                   hrDepartments.length
                                 ? "Search department…"
-                                    : "Register departments first"
+                                    : "Save departments first"
                                 }
                             emptyText="No departments found."
                               />
                           </FormControl>
                         {!hrDepartments.length ? (
                           <p className="text-[11px] text-muted-foreground">
-                            Add departments under HR → Departments, then pick
-                            one here.
+                            Register and save departments under HR →
+                            Departments, then pick one here.
                           </p>
                         ) : null}
                         <FormMessage />
