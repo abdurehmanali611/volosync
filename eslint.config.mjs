@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local scratch tooling that is not part of the app bundle.
+    ".tmp/**",
   ]),
 ]);
 

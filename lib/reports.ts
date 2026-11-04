@@ -258,7 +258,10 @@ export function summariseByAgent(
   let previousRank = 0;
   list.forEach((row, index) => {
     const key: [number, number, number] = [row.penaltyAmount, row.revenue, row.units];
-    if (!previous || key.some((value, position) => value !== previous[position])) {
+    // A const copy: the captured `previous` is a `let`, which TypeScript cannot
+    // narrow inside the callback below.
+    const prior = previous;
+    if (!prior || key.some((value, position) => value !== prior[position])) {
       previousRank = index + 1;
       previous = key;
     }

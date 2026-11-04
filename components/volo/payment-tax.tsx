@@ -18,6 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { exportExcel, exportPdf } from "@/lib/export";
+import type { ReceiptBusiness } from "@/lib/print";
 import { amount, money, qty } from "@/lib/api";
 import { EmptyRow, Field, Panel, Td } from "@/components/volo/kit";
 import { ComboSelect, DateField } from "@/components/volo/controls";
@@ -197,7 +198,7 @@ export function PaymentTaxPanel({
   rows: PaymentTaxRow[];
   totals?: PaymentTaxTotals | null;
   loading?: boolean;
-  business?: { name?: string; tin?: string };
+  business?: ReceiptBusiness;
   tenantName?: string;
   emptyMessage?: string;
   description?: string;

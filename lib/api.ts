@@ -95,7 +95,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   const response = await fetch(`${BASE}${path}`, { ...init, headers });
   const text = await response.text();
-  let body: any = null;
+  let body: unknown = null;
   if (text) {
     try {
       body = JSON.parse(text);
@@ -113,12 +113,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (response.status === 401 && !path.includes("/auth/login/")) {
       scheduleSessionExpiredRedirect();
     }
-    const detail = body?.errors ?? body;
-    const message =
-      detail?.message ??
-      (typeof detail === "string" ? detail : null) ??
-      "Something went wrong.";
-    throw new ApiError(String(message), detail);
+    const detail: unknown =
+      body && typeof body === "object" && "errors" in body
+        ? (body as { errors: unknown }).errors
+        : body;
+    const stated =
+      typeof detail === "string"
+        ? detail
+        : (detail as { message?: unknown } | null | undefined)?.message;
+    throw new ApiError(String(stated ?? "Something went wrong."), detail);
   }
   return body as T;
 }

@@ -55,19 +55,19 @@ function containsView(child: NavChild, view: string | null): boolean {
 }
 
 function NavSubTree({
-  children,
+  items,
   currentView,
   openGroups,
   onOpenChange,
 }: {
-  children: NavChild[];
+  items: NavChild[];
   currentView: string | null;
   openGroups: Record<string, boolean>;
   onOpenChange: (href: string, open: boolean) => void;
 }) {
   return (
     <>
-      {children.map((child) => {
+      {items.map((child) => {
         if (child.children) {
           const active = containsView(child, currentView);
           const open = openGroups[child.href] ?? active;
@@ -97,7 +97,7 @@ function NavSubTree({
                 <CollapsibleContent>
                   <SidebarMenuSub className="mx-2 my-1 gap-0.5 border-white/10 px-2 py-0.5">
                     <NavSubTree
-                      children={child.children}
+                      items={child.children}
                       currentView={currentView}
                       openGroups={openGroups}
                       onOpenChange={onOpenChange}
@@ -291,7 +291,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                               {leaf.children.length ? (
                                 <SidebarMenuSub className="mx-2 my-1 gap-0.5 border-white/10 px-2 py-0.5">
                                   <NavSubTree
-                                    children={leaf.children}
+                                    items={leaf.children}
                                     currentView={currentView}
                                     openGroups={openGroups}
                                     onOpenChange={(href, open) =>

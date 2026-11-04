@@ -249,7 +249,7 @@ function stampBlock(label: string, stamp: ReceiptStampDecision | undefined) {
 }
 
 function stampsHtml(
-  stamps: { label: string; stamp: ReceiptStampDecision }[],
+  stamps: { label: string; stamp: ReceiptStampDecision | undefined }[],
 ): string {
   return `<h2 class="section-label">Approval trail</h2>
   <div class="stamps">${stamps

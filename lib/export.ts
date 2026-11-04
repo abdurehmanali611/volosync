@@ -241,6 +241,7 @@ export function exportExcel({
   sheet = "Report",
   totals,
   business,
+  note,
 }: {
   title?: string;
   headers: string[];
@@ -250,9 +251,12 @@ export function exportExcel({
   totals?: Cell[];
   /** Tenant identity, written to the About sheet. */
   business?: ReceiptBusiness;
+  /** Subtitle line, e.g. the wholesaler the slice was taken for. */
+  note?: string;
 }) {
   const data: Cell[][] = [];
   if (title) data.push([title]);
+  if (note) data.push([note]);
   data.push(headers);
   rows.forEach((row) => data.push(row));
   if (totals) data.push(totals);
