@@ -290,6 +290,9 @@ export type Lot = {
 export type Summary = {
   rows: (Lot & {
     registered_value: string;
+    registered_qty: string;
+    in_store_qty: string;
+    stocked_out_qty: string;
     in_store_value: string;
     stocked_out_value: string;
     vat: string;
@@ -501,6 +504,7 @@ export type Settlement = {
   payment_method: string;
   sales_amount: string;
   expected_amount: string;
+  collected_amount: string;
   variance: string;
   penalty: boolean;
   penalty_amount: string;

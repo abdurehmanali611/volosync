@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileDown, Filter, Layers3, Search, X } from "lucide-react";
+import {
+  CalendarDays,
+  FileDown,
+  Filter,
+  Layers3,
+  Percent,
+  Search,
+  Truck,
+  X,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +69,8 @@ export type PaymentTaxRow = {
   vat_amount: string;
   inclusive_amount: string;
   output_vat: string;
+  vat_rate?: string;
+  price_with_vat?: string;
   supplier_name?: string;
   registration_date?: string;
 };
@@ -166,6 +177,26 @@ export function groupTaxRows(rows: PaymentTaxRow[]): TaxItemGroup[] {
   );
 }
 
+/** "12 Mar 2026" — the day is what operators scan, not the ISO string. */
+function dateLabel(value: string): string {
+  const parsed = Date.parse(value.length === 10 ? `${value}T00:00:00` : value);
+  if (Number.isNaN(parsed)) return value;
+  return new Date(parsed).toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/** The VAT rates actually charged across this item's vouchers. */
+function vatRateLabel(rows: PaymentTaxRow[]): string {
+  const rates = Array.from(
+    new Set(rows.map((row) => `${Number(row.vat_rate ?? 0)}%`)),
+  );
+  if (!rates.length) return "No VAT rate";
+  return rates.length === 1 ? rates[0] : rates.join(" / ");
+}
+
 const TAX_EXPORT_HEADERS = [
   "Voucher",
   "Item",
@@ -222,8 +253,10 @@ export function PaymentTaxPanel({
   }, [rows]);
 
   const filtersActive =
-    Boolean(from || to) || supplier !== "all" || vatFilter !== "all";
+    Boolean(from || to || query.trim()) || supplier !== "all" || vatFilter !== "all";
 
+  // The search box is a filter like any other, so the summary numbers and both
+  // exports always describe exactly what is on screen.
   const filteredRows = useMemo(
     () =>
       rows.filter((row) => {
@@ -236,27 +269,29 @@ export function PaymentTaxPanel({
         const inputVat = Number(row.vat_amount || 0);
         if (vatFilter === "with" && inputVat <= 0) return false;
         if (vatFilter === "without" && inputVat > 0) return false;
+        const needle = query.trim().toLowerCase();
+        if (needle) {
+          const haystack = [
+            row.voucher_number,
+            row.item_name,
+            row.category,
+            row.supplier_name,
+            row.unit,
+            day,
+          ]
+            .join(" ")
+            .toLowerCase();
+          if (!haystack.includes(needle)) return false;
+        }
         return true;
       }),
-    [rows, from, to, supplier, vatFilter],
+    [rows, from, to, supplier, vatFilter, query],
   );
 
   const tabLabel =
     PAYMENT_TAX_SLICES.find((slice) => slice.value === tab)?.label ?? "All lines";
   const groups = useMemo(() => groupTaxRows(filteredRows), [filteredRows]);
-  const visibleGroups = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return groups;
-    return groups.filter(
-      (group) =>
-        [group.itemName, group.category, group.units.join(" ")].some((value) =>
-          value.toLowerCase().includes(needle),
-        ) ||
-        group.rows.some((row) =>
-          row.voucher_number.toLowerCase().includes(needle),
-        ),
-    );
-  }, [groups, query]);
+  const allItemCount = useMemo(() => groupTaxRows(rows).length, [rows]);
   const detail = groups.find((group) => group.key === detailKey) ?? null;
 
   const qtyTotals = filteredRows.reduce(
@@ -311,6 +346,7 @@ export function PaymentTaxPanel({
 
   const filterNote = filtersActive
     ? [
+        query.trim() ? `“${query.trim()}”` : "",
         from || to ? `${from || "…"} → ${to || "…"}` : "",
         supplier !== "all" ? supplier : "",
         vatFilter === "with"
@@ -323,7 +359,7 @@ export function PaymentTaxPanel({
         .join(" · ")
     : "";
 
-  const exportRows = filteredRows.map((row) => [
+  const rowCells = (row: PaymentTaxRow): (string | number)[] => [
     row.voucher_number,
     row.item_name,
     Number(row.registered_qty),
@@ -337,7 +373,8 @@ export function PaymentTaxPanel({
     Number(row.base_value),
     Number(row.vat_amount),
     Number(row.inclusive_amount),
-  ]);
+  ];
+  const exportRows = filteredRows.map(rowCells);
   const exportTotals = [
     "Totals",
     `${filteredRows.length} vouchers`,
@@ -353,6 +390,48 @@ export function PaymentTaxPanel({
     valueTotals.inputVat,
     valueTotals.inclusive,
   ] as (string | number)[];
+
+  // One table row bundles every voucher that registered the same item, so the
+  // per-row PDF prints exactly those vouchers and nothing else.
+  function exportGroupPdf(group: TaxItemGroup) {
+    const count = group.rows.length;
+    const paid = group.rows.reduce((sum, row) => sum + Number(row.paid_amount), 0);
+    exportPdf({
+      title: `Payment & tax · ${group.itemName}`,
+      subtitle: [
+        `${tenantName ?? ""} · ${tabLabel} · ${group.category}`.replace(
+          /^ · /,
+          "",
+        ),
+        `${count} voucher${count === 1 ? "" : "s"}`,
+        filterNote,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      headers: TAX_EXPORT_HEADERS,
+      rows: group.rows.map(rowCells),
+      file: `volosync-tax-${(group.itemName || "item")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")}`,
+      totals: [
+        "Totals",
+        group.itemName,
+        group.registeredQty,
+        group.registeredValue,
+        group.inStoreQty,
+        group.inStoreValue,
+        group.stockedOutQty,
+        group.stockedOutValue,
+        "",
+        paid,
+        group.baseValue,
+        group.vatAmount,
+        group.inclusiveAmount,
+      ],
+      business,
+    });
+  }
 
   return (
     <Panel
@@ -433,13 +512,7 @@ export function PaymentTaxPanel({
         </div>
       )}
 
-      <div className="mb-3 flex flex-wrap items-end gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
-        <TableSearch
-          value={query}
-          onChange={setQuery}
-          placeholder="Search item, category or voucher"
-          className="w-full sm:w-64"
-        />
+      <div className="mb-2 flex flex-wrap items-end justify-end gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
         <Field label="From">
           <DateField
             value={from}
@@ -478,7 +551,7 @@ export function PaymentTaxPanel({
             className="w-32"
           />
         </Field>
-        <div className="ml-auto flex items-center gap-2 pb-0.5">
+        <div className="flex items-center gap-2 pb-0.5">
           <span className="flex items-center gap-1.5 text-xs text-zinc-500">
             <Filter className="size-3.5" />
             <span className="font-semibold text-zinc-300">{filteredRows.length}</span> of{" "}
@@ -504,59 +577,56 @@ export function PaymentTaxPanel({
         </div>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <TableSearch
+          value={query}
+          onChange={setQuery}
+          placeholder="Search item, category or voucher"
+          className="w-64 sm:w-72"
+        />
         <span className="text-xs text-zinc-500">
-          {visibleGroups.length} of {groups.length} item
-          {groups.length === 1 ? "" : "s"}
+          {groups.length} of {allItemCount} item
+          {allItemCount === 1 ? "" : "s"}
+          {filterNote && <span className="text-zinc-600"> · {filterNote}</span>}
         </span>
       </div>
 
       <div className="max-h-[32rem] overflow-auto rounded-md">
-        <table className="w-full min-w-[880px]">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr>
               <StickyTh>Item</StickyTh>
-              <StickyTh>Category</StickyTh>
-              <StickyTh right>Reg. qty</StickyTh>
-              <StickyTh right>In store</StickyTh>
-              <StickyTh right>Stocked out</StickyTh>
-              <StickyTh right>Base</StickyTh>
+              <StickyTh right>Registered</StickyTh>
               <StickyTh right>VAT</StickyTh>
               <StickyTh right>Inclusive</StickyTh>
-              <StickyTh right>Detail</StickyTh>
+              <StickyTh right>Actions</StickyTh>
             </tr>
           </thead>
           <tbody>
             {loading && !groups.length ? (
-              <SkeletonRows cols={9} rows={6} />
+              <SkeletonRows cols={5} rows={6} />
             ) : (
-              visibleGroups.map((group) => (
+              groups.map((group) => (
                 <tr key={group.key} className="transition-colors hover:bg-white/[0.03]">
                   <Td>
                     <TaxItemDetailTrigger
                       group={group}
                       onOpenDetail={() => setDetailKey(group.key)}
                     />
-                  </Td>
-                  <Td className="text-zinc-400">{group.category}</Td>
-                  <Td right className="text-zinc-300">
-                    {qty(group.registeredQty)}
-                  </Td>
-                  <Td right>
-                    <QtyValueCell
-                      tone="inStore"
-                      quantity={group.inStoreQty}
-                      value={group.inStoreValue}
-                    />
+                    <p className="mt-0.5 max-w-[18rem] truncate text-[11px] text-violet-300/70">
+                      {group.category}
+                      {group.units.length > 0 && (
+                        <span className="text-zinc-600"> · {group.units.join(" / ")}</span>
+                      )}
+                    </p>
                   </Td>
                   <Td right>
                     <QtyValueCell
-                      tone="stockedOut"
-                      quantity={group.stockedOutQty}
-                      value={group.stockedOutValue}
+                      tone="registered"
+                      quantity={group.registeredQty}
+                      value={group.baseValue}
                     />
                   </Td>
-                  <Td right>{money(group.baseValue)}</Td>
                   <Td right className="text-amber-300">
                     {money(group.vatAmount)}
                   </Td>
@@ -564,14 +634,25 @@ export function PaymentTaxPanel({
                     {money(group.inclusiveAmount)}
                   </Td>
                   <Td right>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-white/12 bg-transparent text-zinc-300 hover:bg-white/[0.06]"
-                      onClick={() => setDetailKey(group.key)}
-                    >
-                      <Layers3 className="size-3.5" /> Detail
-                    </Button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        title={`Export ${group.itemName} to PDF`}
+                        className="size-8 border-white/12 bg-transparent p-0 text-cyan-300 hover:bg-white/[0.06]"
+                        onClick={() => exportGroupPdf(group)}
+                      >
+                        <FileDown className="size-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-white/12 bg-transparent text-zinc-300 hover:bg-white/[0.06]"
+                        onClick={() => setDetailKey(group.key)}
+                      >
+                        <Layers3 className="size-3.5" /> Detail
+                      </Button>
+                    </div>
                   </Td>
                 </tr>
               ))
@@ -579,7 +660,7 @@ export function PaymentTaxPanel({
           </tbody>
         </table>
       </div>
-      {!loading && !visibleGroups.length && (
+      {!loading && !groups.length && (
         <EmptyRow>
           {query.trim()
             ? `No items match “${query.trim()}” in this slice.`
@@ -631,137 +712,220 @@ export function PaymentTaxPanel({
           side="right"
           className="w-full! gap-0 overflow-y-auto border-white/10 bg-zinc-950 p-0 sm:max-w-3xl!"
         >
-          {detail && (
-            <>
-              <SheetHeader className="border-b border-white/10 p-5">
-                <p className="text-[10px] font-semibold tracking-[0.22em] text-zinc-500 uppercase">
-                  {detail.category} · {tabLabel}
-                </p>
-                <SheetTitle className="text-lg text-white">
-                  {detail.itemName}
-                </SheetTitle>
-                <SheetDescription>
-                  {detail.rows.length} voucher line
-                  {detail.rows.length === 1 ? "" : "s"}
-                  {detail.units.length ? ` · ${detail.units.join(" · ")}` : ""}
-                </SheetDescription>
-              </SheetHeader>
+          {detail &&
+            (() => {
+                  const dates = detail.rows
+                    .map((row) => row.registration_date ?? "")
+                    .filter(Boolean)
+                    .sort();
+                  const suppliers = Array.from(
+                    new Set(
+                      detail.rows.map((row) => row.supplier_name?.trim()).filter(Boolean),
+                    ),
+                  ).sort((a, b) => a.localeCompare(b));
+                  const paid = detail.rows.reduce(
+                    (sum, row) => sum + Number(row.paid_amount),
+                    0,
+                  );
+                  const netVat = detail.outputVat - detail.vatAmount;
+                  return (
+                    <>
+                      <SheetHeader className="border-b border-white/10 p-5">
+                        <p className="text-[10px] font-semibold tracking-[0.22em] text-violet-300/80 uppercase">
+                          {detail.category} · {tabLabel}
+                        </p>
+                        <SheetTitle className="text-lg text-white">
+                          {detail.itemName}
+                        </SheetTitle>
+                        <SheetDescription>
+                          {detail.rows.length} voucher line
+                          {detail.rows.length === 1 ? "" : "s"}
+                          {detail.units.length
+                            ? ` · ${detail.units.join(" · ")}`
+                            : ""}
+                        </SheetDescription>
+                      </SheetHeader>
 
-              <div className="space-y-4 p-5">
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <TaxDetailStat
-                    label="In store"
-                    value={money(detail.inStoreValue)}
-                    hint={`${qty(detail.inStoreQty)} units`}
-                    tone="inStore"
-                  />
-                  <TaxDetailStat
-                    label="Stocked out"
-                    value={money(detail.stockedOutValue)}
-                    hint={`${qty(detail.stockedOutQty)} units`}
-                    tone="stockedOut"
-                  />
-                  <TaxDetailStat
-                    label="Inclusive"
-                    value={money(detail.inclusiveAmount)}
-                    hint={`VAT ${money(detail.vatAmount)}`}
-                    tone="inclusive"
-                  />
-                </div>
-
-                <div className="overflow-auto rounded-xl border border-white/10">
-                  <table className="w-full min-w-[620px]">
-                    <thead>
-                      <tr>
-                        <StickyTh>Voucher</StickyTh>
-                        <StickyTh right>Reg. qty</StickyTh>
-                        <StickyTh right>In store</StickyTh>
-                        <StickyTh right>Stocked out</StickyTh>
-                        <StickyTh right>Base</StickyTh>
-                        <StickyTh right>VAT</StickyTh>
-                        <StickyTh right>Inclusive</StickyTh>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.rows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className="transition-colors hover:bg-white/[0.02]"
-                        >
-                          <Td className="font-mono text-xs text-emerald-300">
-                            {row.voucher_number}
-                          </Td>
-                          <Td right className="text-zinc-300">
-                            {qty(row.registered_qty)}
-                          </Td>
-                          <Td right>
-                            <QtyValueCell
-                              tone="inStore"
-                              quantity={row.in_store_qty}
-                              value={row.in_store_value}
-                            />
-                          </Td>
-                          <Td right>
-                            <QtyValueCell
-                              tone="stockedOut"
-                              quantity={row.stocked_out_qty}
-                              value={row.stocked_out_value}
-                            />
-                          </Td>
-                          <Td right>{money(row.base_value)}</Td>
-                          <Td right className="text-amber-300">
-                            {money(row.vat_amount)}
-                          </Td>
-                          <Td right className="text-emerald-300">
-                            {money(row.inclusive_amount)}
-                          </Td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t border-white/10 bg-white/[0.03]">
-                        <Td className="text-[11px] font-semibold text-zinc-400 uppercase">
-                          Item totals
-                        </Td>
-                        <Td right className="font-semibold text-white">
-                          {qty(detail.registeredQty)}
-                        </Td>
-                        <Td right>
-                          <QtyValueCell
+                      <div className="space-y-4 p-5">
+                        <div className="grid gap-2 sm:grid-cols-4">
+                          <TaxDetailStat
+                            label="Registered"
+                            value={money(detail.registeredValue)}
+                            hint={`${qty(detail.registeredQty)} units`}
+                            tone="base"
+                          />
+                          <TaxDetailStat
+                            label="In store"
+                            value={money(detail.inStoreValue)}
+                            hint={`${qty(detail.inStoreQty)} units`}
                             tone="inStore"
-                            quantity={detail.inStoreQty}
-                            value={detail.inStoreValue}
                           />
-                        </Td>
-                        <Td right>
-                          <QtyValueCell
+                          <TaxDetailStat
+                            label="Stocked out"
+                            value={money(detail.stockedOutValue)}
+                            hint={`${qty(detail.stockedOutQty)} units`}
                             tone="stockedOut"
-                            quantity={detail.stockedOutQty}
-                            value={detail.stockedOutValue}
                           />
-                        </Td>
-                        <Td right className="font-semibold text-white">
-                          {money(detail.baseValue)}
-                        </Td>
-                        <Td right className="font-semibold text-amber-300">
-                          {money(detail.vatAmount)}
-                        </Td>
-                        <Td right className="font-semibold text-emerald-300">
-                          {money(detail.inclusiveAmount)}
-                        </Td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                          <TaxDetailStat
+                            label="Inclusive"
+                            value={money(detail.inclusiveAmount)}
+                            hint={`Paid ${money(paid)}`}
+                            tone="inclusive"
+                          />
+                        </div>
 
-                <p className="text-[11px] text-zinc-500">
-                  Registered = in store + stocked out. Input VAT is paid on the
-                  registered purchase; output VAT is charged on the stocked-out
-                  portion.
-                </p>
-              </div>
-            </>
-          )}
+                        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-semibold tracking-[0.18em] text-zinc-500 uppercase">
+                              Provenance
+                            </span>
+                            {dates.length > 0 && (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-400/10 px-2.5 py-0.5 text-[11px] text-sky-200">
+                                <CalendarDays className="size-3" />
+                                {dates.length === 1
+                                  ? dateLabel(dates[0])
+                                  : `${dateLabel(dates[0])} → ${dateLabel(dates[dates.length - 1])}`}
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-0.5 text-[11px] text-amber-200">
+                              <Percent className="size-3" />
+                              {vatRateLabel(detail.rows)}
+                            </span>
+                          </div>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                            <span className="text-[11px] text-zinc-500">Supplier</span>
+                            {suppliers.length ? (
+                              suppliers.map((name) => (
+                                <span
+                                  key={name}
+                                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-0.5 text-[11px] text-emerald-200"
+                                >
+                                  <Truck className="size-3" />
+                                  {name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[11px] text-zinc-600">
+                                Not recorded
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="overflow-auto rounded-xl border border-white/10">
+                          <table className="w-full min-w-[860px]">
+                            <thead>
+                              <tr>
+                                <StickyTh>Voucher</StickyTh>
+                                <StickyTh>Supplier</StickyTh>
+                                <StickyTh right>Unit cost</StickyTh>
+                                <StickyTh right>Registered</StickyTh>
+                                <StickyTh right>VAT in / out</StickyTh>
+                                <StickyTh right>Paid</StickyTh>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {detail.rows.map((row) => (
+                                <tr
+                                  key={row.id}
+                                  className="transition-colors hover:bg-white/[0.02]"
+                                >
+                                  <Td>
+                                    <span className="font-mono text-xs text-emerald-300">
+                                      {row.voucher_number}
+                                    </span>
+                                    <p className="mt-0.5 text-[11px] text-zinc-500">
+                                      {row.registration_date
+                                        ? dateLabel(row.registration_date)
+                                        : "No registration date"}
+                                    </p>
+                                  </Td>
+                                  <Td className="max-w-[14rem] truncate text-zinc-300">
+                                    {row.supplier_name?.trim() || (
+                                      <span className="text-zinc-600">—</span>
+                                    )}
+                                  </Td>
+                                  <Td right className="text-zinc-300">
+                                    {money(row.unit_cost)}
+                                  </Td>
+                                  <Td right>
+                                    <QtyValueCell
+                                      tone="registered"
+                                      quantity={row.registered_qty}
+                                      value={row.base_value}
+                                    />
+                                  </Td>
+                                  <Td right>
+                                    <span className="block text-[13px] leading-none font-semibold tabular-nums text-amber-300">
+                                      {money(row.vat_amount)}
+                                    </span>
+                                    <span className="mt-1.5 block text-[13px] leading-none font-semibold tabular-nums text-rose-300">
+                                      {money(row.output_vat)}
+                                    </span>
+                                  </Td>
+                                  <Td right className="font-semibold text-teal-200">
+                                    {money(row.paid_amount)}
+                                  </Td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="border-t border-white/10 bg-white/[0.03]">
+                                <Td className="text-[11px] font-semibold text-zinc-400 uppercase">
+                                  Item totals
+                                </Td>
+                                <Td />
+                                <Td />
+                                <Td right>
+                                  <QtyValueCell
+                                    tone="registered"
+                                    quantity={detail.registeredQty}
+                                    value={detail.baseValue}
+                                  />
+                                </Td>
+                                <Td right>
+                                  <span className="block text-[13px] leading-none font-semibold tabular-nums text-amber-300">
+                                    {money(detail.vatAmount)}
+                                  </span>
+                                  <span className="mt-1.5 block text-[13px] leading-none font-semibold tabular-nums text-rose-300">
+                                    {money(detail.outputVat)}
+                                  </span>
+                                </Td>
+                                <Td right className="font-semibold text-teal-200">
+                                  {money(paid)}
+                                </Td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <TaxTotalPill
+                            label="Input VAT"
+                            value={money(detail.vatAmount)}
+                            tone="input"
+                          />
+                          <TaxTotalPill
+                            label="Output VAT"
+                            value={money(detail.outputVat)}
+                            tone="output"
+                          />
+                          <TaxTotalPill
+                            label="Net VAT"
+                            value={money(netVat)}
+                            tone={netVat >= 0 ? "net" : "stockedOut"}
+                          />
+                        </div>
+
+                        <p className="text-[11px] text-zinc-500">
+                          Registered = in store + stocked out. Input VAT is paid on the
+                          registered purchase; output VAT is charged on the stocked-out
+                          portion at the selling price.
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
         </SheetContent>
       </Sheet>
     </Panel>
@@ -778,7 +942,7 @@ function StickyTh({
   return (
     <th
       className={cn(
-        "sticky top-0 z-10 border-b border-white/10 bg-zinc-900/95 px-3 py-2 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase backdrop-blur",
+        "sticky top-0 z-10 border-b border-white/10 bg-zinc-900/95 px-3 py-2 text-[11px] font-semibold tracking-wider whitespace-nowrap text-zinc-500 uppercase backdrop-blur",
         right ? "text-right" : "text-left",
       )}
     >
@@ -816,11 +980,13 @@ const taxTone = {
 type TaxTone = keyof typeof taxTone;
 
 const toneColor = {
+  registered: "text-emerald-200",
   inStore: "text-sky-200",
   stockedOut: "text-violet-200",
 } as const;
 
 const tonePill = {
+  registered: "bg-emerald-500/12 text-emerald-200/90",
   inStore: "bg-sky-500/12 text-sky-200/90",
   stockedOut: "bg-violet-500/12 text-violet-200/90",
 } as const;
@@ -836,7 +1002,7 @@ export function QtyValueCell({
 }: {
   quantity: string | number;
   value: string | number;
-  tone: "inStore" | "stockedOut";
+  tone: keyof typeof tonePill;
 }) {
   return (
     <div className="flex flex-col items-end gap-1">

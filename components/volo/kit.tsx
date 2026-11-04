@@ -80,11 +80,18 @@ export function StatCard({
   icon?: React.ReactNode;
 }) {
   const style = TONES[tone] ?? TONES.emerald;
+  // Long figures keep their currency instead of being cut short by an ellipsis.
+  const valueClass =
+    value.length > 16
+      ? "text-[1.05rem]"
+      : value.length > 12
+        ? "text-[1.3rem]"
+        : "text-[1.55rem]";
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d17]/70 p-3.5 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/4 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-[#10101c]/80">
+    <div className="group relative flex h-full min-h-[8.75rem] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d17]/70 p-4 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/4 backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-[#10101c]/80">
       <div
         className={cn(
-          "pointer-events-none absolute -top-12 -right-10 size-32 rounded-full bg-linear-to-br to-transparent opacity-70 blur-2xl transition-opacity duration-300 group-hover:opacity-100",
+          "pointer-events-none absolute -top-14 -right-12 size-40 rounded-full bg-linear-to-br to-transparent opacity-70 blur-2xl transition-opacity duration-300 group-hover:opacity-100",
           style.wash,
         )}
       />
@@ -94,15 +101,19 @@ export function StatCard({
           <p className="text-[10px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">
             {label}
           </p>
-          <p className="mt-1.5 font-heading text-[1.35rem] leading-none font-semibold tracking-tight text-white">
+          <p
+            className={cn(
+              "mt-2.5 font-heading leading-none font-semibold tracking-tight whitespace-nowrap text-white",
+              valueClass,
+            )}
+          >
             {value}
           </p>
-          {hint && <p className="mt-1 truncate text-xs text-zinc-500">{hint}</p>}
         </div>
         {icon && (
           <span
             className={cn(
-              "grid size-8 shrink-0 place-items-center rounded-xl border shadow-inner shadow-black/20",
+              "grid size-9 shrink-0 place-items-center rounded-xl border shadow-inner shadow-black/20 transition-transform duration-200 group-hover:scale-105",
               style.icon,
             )}
           >
@@ -110,6 +121,18 @@ export function StatCard({
           </span>
         )}
       </div>
+      {hint && (
+        <p className="relative mt-3 flex items-center gap-1.5 border-t border-white/[0.07] pt-2.5 text-[11px] leading-snug text-zinc-500">
+          <span
+            aria-hidden
+            className={cn(
+              "size-1.5 shrink-0 rounded-full bg-linear-to-br opacity-90",
+              style.bar,
+            )}
+          />
+          <span className="min-w-0 truncate">{hint}</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -202,6 +225,7 @@ export function Panel({
   actions,
   className,
   tone,
+  fill,
 }: {
   title: string;
   description?: string;
@@ -209,12 +233,15 @@ export function Panel({
   actions?: React.ReactNode;
   className?: string;
   tone?: PanelTone;
+  /** Let the body stretch and its children grow, so a short card fills its row. */
+  fill?: boolean;
 }) {
   const accent = tone ? PANEL_TONES[tone] : null;
   return (
     <section
       className={cn(
         "role-panel-glow relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0d16]/75 shadow-[0_24px_70px_-45px_rgba(0,0,0,0.95)] ring-1 ring-white/3 backdrop-blur-xl transition-colors hover:border-white/15",
+        fill && "flex flex-col",
         className,
       )}
     >
@@ -229,7 +256,7 @@ export function Panel({
       ) : null}
       <div
         className={cn(
-          "flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-linear-to-r px-4 py-3",
+          "flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-linear-to-r px-4 py-3",
           accent ? accent.header : "from-white/4.5 via-white/1.5 to-transparent",
         )}
       >
@@ -249,7 +276,7 @@ export function Panel({
         </div>
         {actions}
       </div>
-      <div className="p-4">{children}</div>
+      <div className={cn("p-4", fill && "flex flex-1 flex-col")}>{children}</div>
     </section>
   );
 }
@@ -277,7 +304,7 @@ export function Th({ children, right }: { children: React.ReactNode; right?: boo
   return (
     <th
       className={cn(
-        "border-b border-white/10 px-3 py-2 text-[10px] font-semibold tracking-[0.14em] text-zinc-500 uppercase",
+        "sticky top-0 z-10 border-b border-white/10 bg-[#0f0f18]/95 px-3 py-2 text-[10px] font-semibold tracking-[0.14em] whitespace-nowrap text-zinc-500 uppercase backdrop-blur",
         right ? "text-right" : "text-left",
       )}
     >
@@ -301,7 +328,7 @@ export function Td({
     <td
       colSpan={colSpan}
       className={cn(
-        "border-b border-white/5 px-3 py-2.5 text-sm text-zinc-300",
+        "border-b border-white/5 px-3 py-2.5 text-sm whitespace-nowrap text-zinc-300",
         right && "text-right tabular-nums",
         className,
       )}

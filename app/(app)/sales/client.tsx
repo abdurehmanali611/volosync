@@ -148,8 +148,9 @@ export default function SalesPage() {
     const picked = lineChosen(line);
     return picked ? Number(picked.unit_price) * Number(line.sold_quantity || 0) : 0;
   };
+  // Zero is a legitimate answer: the agent carried stock and sold none of it.
   const readyLines = saleLines.filter(
-    (line) => line.assignment && Number(line.sold_quantity) > 0,
+    (line) => line.assignment && line.sold_quantity.trim() !== "",
   );
   const stagedTotal = readyLines.reduce((sum, line) => sum + lineAmount(line), 0);
 
@@ -159,12 +160,15 @@ export default function SalesPage() {
       return;
     }
     const invalid = saleLines.find((line) => {
-      if (!line.assignment && !line.sold_quantity) return false;
+      if (!line.assignment && !line.sold_quantity.trim()) return false;
       const picked = lineChosen(line);
+      const sold = Number(line.sold_quantity);
       return (
         !picked ||
-        !Number(line.sold_quantity) ||
-        Number(line.sold_quantity) > Number(picked.assigned_quantity)
+        line.sold_quantity.trim() === "" ||
+        !Number.isFinite(sold) ||
+        sold < 0 ||
+        sold > Number(picked.assigned_quantity)
       );
     });
     if (invalid) {

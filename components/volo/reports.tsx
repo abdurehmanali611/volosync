@@ -4,14 +4,19 @@ import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
   Boxes,
   FileDown,
   Layers3,
+  Megaphone,
   Percent,
   Receipt,
   ShieldAlert,
   TrendingUp,
+  Trophy,
   Users,
+  Wallet,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,18 +33,27 @@ import {
 } from "@/components/ui/popover";
 import { ComboSelect, DateField } from "@/components/volo/controls";
 import { TableSearch } from "@/components/volo/payment-tax";
-import { EmptyRow, Field, Panel, Td, Th } from "@/components/volo/kit";
+import { EmptyRow, Field, Panel, StatCard, Td, Th } from "@/components/volo/kit";
 import { amount, money, qty } from "@/lib/api";
 import { exportExcel, exportPdf } from "@/lib/export";
 import type { ReceiptBusiness } from "@/lib/print";
 import {
   REPORT_PERIODS,
+  approvedInRange,
+  collectedOf,
+  expectedOf,
   periodLabel,
+  shortfallOf,
+  summariseInventoryInRange,
+  summarisePromotions,
   totalise,
   type AgentGroup,
   type DateRange,
+  type InventoryLikeRow,
+  type PromotionLikeRow,
   type ReportPeriod,
   type SaleGroup,
+  type SaleLikeRow,
 } from "@/lib/reports";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +68,7 @@ const MONEY_TONE = {
 } as const;
 
 const moneyConfig = {
-  revenue: { label: "Sales", color: MONEY_TONE.revenue },
+  revenue: { label: "Expected gross", color: MONEY_TONE.revenue },
   profit: { label: "Profit", color: MONEY_TONE.profit },
 } satisfies ChartConfig;
 
@@ -118,6 +132,155 @@ export function ReportingRangeBar({
             className="w-40"
           />
         </Field>
+      </div>
+    </section>
+  );
+}
+
+// ------------------------------------------------------------------ KPI strip
+
+type KpiTone = "emerald" | "amber" | "violet" | "rose" | "sky" | "slate";
+
+const rangeCaption = (range: DateRange) =>
+  range.from === range.to ? range.from : `${range.from} → ${range.to}`;
+
+/**
+ * The headline numbers for the current window, in one snapping rail. Exactly
+ * three tiles are framed at a time, so the strip reads as a carousel rather
+ * than a grid that has run out of room.
+ */
+export function ReportKpiStrip({
+  groups,
+  agents,
+  inventory,
+  promotions,
+  range,
+}: {
+  groups: SaleGroup[];
+  agents: AgentGroup[];
+  inventory: InventoryLikeRow[];
+  promotions: PromotionLikeRow[];
+  range: DateRange;
+}) {
+  const totals = useMemo(() => totalise(groups), [groups]);
+  const stock = useMemo(() => summariseInventoryInRange(inventory, range), [inventory, range]);
+  const promo = useMemo(() => summarisePromotions(promotions, range), [promotions, range]);
+  const collectedShare = totals.revenue > 0 ? (totals.collected / totals.revenue) * 100 : 0;
+  const margin = totals.revenue > 0 ? (totals.profit / totals.revenue) * 100 : 0;
+  const leader = agents.find((agent) => agent.revenue > 0 || agent.units > 0);
+
+  const tiles: {
+    label: string;
+    value: string;
+    hint: string;
+    tone: KpiTone;
+    icon: React.ReactNode;
+  }[] = [
+    {
+      label: "Sold units",
+      value: qty(totals.units),
+      hint: `${totals.lines} settled line${totals.lines === 1 ? "" : "s"}`,
+      tone: "amber",
+      icon: <Boxes className="size-4" />,
+    },
+    {
+      label: "Expected gross",
+      value: money(totals.revenue),
+      hint: "Selling price × sold units",
+      tone: "emerald",
+      icon: <TrendingUp className="size-4" />,
+    },
+    {
+      label: "Collected gross",
+      value: money(totals.collected),
+      hint: `${collectedShare.toFixed(1)}% of expected`,
+      tone: "sky",
+      icon: <Wallet className="size-4" />,
+    },
+    {
+      label: "Profit",
+      value: money(totals.profit),
+      hint: `${margin.toFixed(1)}% margin on sales`,
+      tone: "violet",
+      icon: <ArrowUpRight className="size-4" />,
+    },
+    {
+      label: "VAT in revenue",
+      value: money(totals.vat),
+      hint: "Already inside the selling price",
+      tone: "sky",
+      icon: <Percent className="size-4" />,
+    },
+    {
+      label: "In-store value",
+      value: money(stock.inStoreValue),
+      hint: `${stock.lots} lot${stock.lots === 1 ? "" : "s"} still on the shelf`,
+      tone: "emerald",
+      icon: <Layers3 className="size-4" />,
+    },
+    {
+      label: "Returned units",
+      value: qty(totals.returned),
+      hint: "Brought back, not sold",
+      tone: "rose",
+      icon: <ArrowDownRight className="size-4" />,
+    },
+    {
+      label: "Promotions",
+      value: qty(promo.units),
+      hint: `${promo.docs} doc${promo.docs === 1 ? "" : "s"} · ${money(promo.amount)}`,
+      tone: "amber",
+      icon: <Megaphone className="size-4" />,
+    },
+    {
+      label: "Penalties",
+      value: money(totals.penaltyAmount),
+      hint: totals.penalties
+        ? `${totals.penalties} raised · ${money(totals.penaltyAmount)} short`
+        : "Every agent brought the full amount",
+      tone: "rose",
+      icon: <ShieldAlert className="size-4" />,
+    },
+    {
+      label: "Best sales agent",
+      value: leader ? leader.agentName || leader.label : "—",
+      hint: leader
+        ? `${money(leader.collected)} collected · ${qty(leader.units)} units`
+        : "No settled sales in this window",
+      tone: "violet",
+      icon: <Trophy className="size-4" />,
+    },
+  ];
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-[#0d0d16]/70 p-3 backdrop-blur-xl">
+      <div className="mb-2.5 flex items-center justify-between gap-3 px-0.5">
+        <p className="text-[10px] font-semibold tracking-[0.16em] text-zinc-400 uppercase">
+          At a glance
+        </p>
+        <p className="flex items-center gap-2 text-[10px] text-zinc-500">
+          <span className="hidden tabular-nums sm:inline">{rangeCaption(range)}</span>
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <ArrowRight className="size-3" />
+            scroll
+          </span>
+        </p>
+      </div>
+      <div className="scroll-fade-x scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-1">
+        {tiles.map((tile) => (
+          <div
+            key={tile.label}
+            className="w-[calc((100%-1.5rem)/3)] min-w-[12.5rem] shrink-0 snap-start"
+          >
+            <StatCard
+              label={tile.label}
+              value={tile.value}
+              hint={tile.hint}
+              tone={tile.tone}
+              icon={tile.icon}
+            />
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -279,7 +442,11 @@ function SummaryRow({
       )}
     >
       <span className="min-w-0 truncate text-zinc-400">{label}</span>
-      <span className={cn("shrink-0 font-semibold tabular-nums", toneClass)}>{value}</span>
+      <span
+        className={cn("shrink-0 font-semibold tabular-nums whitespace-nowrap", toneClass)}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -397,9 +564,19 @@ export function InventoryReportingCard({
     totals.outputVat,
   ];
 
+  // A search box should change something the eye can see, not only the totals.
+  const biggest = useMemo(
+    () =>
+      [...scoped]
+        .sort((a, b) => Number(b.in_store_value) - Number(a.in_store_value))
+        .slice(0, 5),
+    [scoped],
+  );
+
   const sameDay = range.from === range.to;
   return (
     <Panel
+      fill
       tone="emerald"
       title="Inventory reporting"
       description={
@@ -420,18 +597,18 @@ export function InventoryReportingCard({
         />
       }
     >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <TableSearch
           value={query}
           onChange={setQuery}
           placeholder="Search item, voucher or supplier"
-          className="w-full sm:w-64"
+          className="w-56 sm:w-64"
         />
         <span className="text-xs text-zinc-500">
           {scoped.length} voucher lot{scoped.length === 1 ? "" : "s"} in this window
         </span>
       </div>
-      <div className="grid gap-1.5 sm:grid-cols-2">
+      <div className="grid shrink-0 gap-1.5 sm:grid-cols-2">
         <SummaryRow label="Registered value" value={money(totals.registeredValue)} />
         <SummaryRow label="In store value" value={money(totals.inStoreValue)} tone="sky" />
         <SummaryRow
@@ -452,6 +629,38 @@ export function InventoryReportingCard({
           value={money(totals.inclusive)}
           strong
         />
+      </div>
+
+      <div className="mt-4 flex-1 space-y-2">
+        <p className="text-[10px] font-semibold tracking-[0.16em] text-zinc-500 uppercase">
+          Largest in-store holdings
+        </p>
+        {biggest.length ? (
+          biggest.map((row, index) => (
+            <div
+              key={`${row.voucher_number}-${row.item_name}-${index}`}
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-2.5 py-1.5 text-sm transition hover:border-white/15 hover:bg-white/[0.04]"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="grid size-6 shrink-0 place-items-center rounded-lg border border-emerald-400/20 bg-emerald-400/[0.08] text-[10px] font-semibold text-emerald-200">
+                  {qty(row.in_store_qty)}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-zinc-200">{row.item_name}</span>
+                  <span className="block truncate font-mono text-[10px] text-cyan-300/70">
+                    {row.voucher_number}
+                    {row.supplier_name ? ` · ${row.supplier_name}` : ""}
+                  </span>
+                </span>
+              </span>
+              <span className="shrink-0 font-semibold tabular-nums text-zinc-100">
+                {money(row.in_store_value)}
+              </span>
+            </div>
+          ))
+        ) : (
+          <EmptyRow>No voucher lots registered in this window.</EmptyRow>
+        )}
       </div>
     </Panel>
   );
@@ -481,6 +690,7 @@ export function SalesAgentsCard({
 
   return (
     <Panel
+      fill
       tone="sky"
       title="Sales & agents"
       description={`Approved settlements from ${range.from === range.to ? range.from : `${range.from} → ${range.to}`}.`}
@@ -490,7 +700,8 @@ export function SalesAgentsCard({
           subtitle={`${tenantName ?? "Wholesale business"} · ${range.from} → ${range.to}`}
           headers={["Metric", "Value"]}
           rows={[
-            ["Approved sales", totals.revenue],
+            ["Expected gross", totals.revenue],
+            ["Collected gross", Number(totals.collected.toFixed(2))],
             ["Units sold", totals.units],
             ["Settled lines", totals.lines],
             ["Gross profit", totals.profit],
@@ -505,11 +716,12 @@ export function SalesAgentsCard({
         />
       }
     >
-      <div className="grid gap-1.5 sm:grid-cols-2">
-        <SummaryRow label="Approved sales" value={money(totals.revenue)} tone="emerald" />
+      <div className="grid shrink-0 gap-1.5 sm:grid-cols-2">
+        <SummaryRow label="Expected gross" value={money(totals.revenue)} tone="emerald" />
+        <SummaryRow label="Collected gross" value={money(totals.collected)} tone="sky" />
         <SummaryRow label="Units sold" value={qty(totals.units)} />
         <SummaryRow label="Settled lines" value={String(totals.lines)} />
-        <SummaryRow label="Gross profit" value={money(totals.profit)} tone="sky" />
+        <SummaryRow label="Gross profit" value={money(totals.profit)} tone="violet" />
         <SummaryRow label="Margin" value={`${margin.toFixed(1)} %`} />
         <SummaryRow label="VAT inside sales" value={money(totals.vat)} tone="amber" />
         <SummaryRow
@@ -519,7 +731,7 @@ export function SalesAgentsCard({
           strong
         />
       </div>
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 flex-1 space-y-2">
         <p className="text-[10px] font-semibold tracking-[0.16em] text-zinc-500 uppercase">
           Leading agents
         </p>
@@ -527,7 +739,7 @@ export function SalesAgentsCard({
           top.map((agent) => (
             <div
               key={agent.key}
-              className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-2.5 py-1.5"
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-2.5 py-1.5 transition hover:border-white/15 hover:bg-white/[0.04]"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <span className="grid size-5 shrink-0 place-items-center rounded-md bg-white/[0.06] text-[10px] font-semibold text-zinc-300">
@@ -539,8 +751,18 @@ export function SalesAgentsCard({
                 {agent.penaltyAmount ? (
                   <PenaltyMark amountValue={agent.penaltyAmount} penalties={agent.penalties} compact />
                 ) : null}
-                <span className="text-sm font-semibold tabular-nums text-emerald-300">
-                  {money(agent.revenue)}
+                <span className="text-right">
+                  <span className="block text-sm font-semibold tabular-nums text-emerald-300">
+                    {money(agent.revenue)}
+                  </span>
+                  <span
+                    className={cn(
+                      "block text-[10px] tabular-nums",
+                      agent.revenue - agent.collected > 0.005 ? "text-rose-300" : "text-zinc-500",
+                    )}
+                  >
+                    {money(agent.collected)} in
+                  </span>
                 </span>
               </span>
             </div>
@@ -561,7 +783,9 @@ const GROUP_HEADERS = [
   "Lines",
   "Units sold",
   "Returned",
-  "Sales",
+  "Expected gross",
+  "Collected gross",
+  "Penalty",
   "Cost",
   "Profit",
   "VAT in sales",
@@ -576,6 +800,8 @@ function groupMatrix(groups: SaleGroup[]) {
     Number(group.units.toFixed(3)),
     Number(group.returned.toFixed(3)),
     Number(group.revenue.toFixed(2)),
+    Number(group.collected.toFixed(2)),
+    Number(group.penaltyAmount.toFixed(2)),
     Number(group.cost.toFixed(2)),
     Number(group.profit.toFixed(2)),
     Number(group.vat.toFixed(2)),
@@ -700,9 +926,10 @@ export function CategoryItemReport({
 
   return (
     <Panel
+      fill
       tone="violet"
       title={mode === "category" ? "Category performance" : "Item performance"}
-      description="What each category and item sold, the profit it generated and the VAT inside that revenue."
+      description="What each category and item sold, what was collected against it, the profit and the VAT inside that revenue."
       actions={
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <ReportExportButtons
@@ -715,8 +942,10 @@ export function CategoryItemReport({
               `${source.length} ${mode === "category" ? "categories" : "items"}`,
               totals.lines,
               Number(totals.units.toFixed(3)),
-              "",
+              Number(totals.returned.toFixed(3)),
               Number(totals.revenue.toFixed(2)),
+              Number(totals.collected.toFixed(2)),
+              Number(totals.penaltyAmount.toFixed(2)),
               Number(totals.cost.toFixed(2)),
               Number(totals.profit.toFixed(2)),
               Number(totals.vat.toFixed(2)),
@@ -774,14 +1003,14 @@ export function CategoryItemReport({
               </ChartContainer>
             </div>
 
-            <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
-              <div className="mb-2 flex items-center gap-2">
+            <div className="flex flex-col rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+              <div className="mb-2 flex shrink-0 items-center gap-2">
                 <Boxes className="size-3.5 text-amber-300" />
                 <p className="text-[10px] font-semibold tracking-[0.16em] text-zinc-500 uppercase">
                   Units sold
                 </p>
               </div>
-              <div className="space-y-2">
+              <div className="flex flex-1 flex-col justify-center gap-2.5">
                 {leading.map((group, index) => (
                   <div key={group.key} className="space-y-1">
                     <div className="flex items-center justify-between gap-2 text-[11px]">
@@ -805,24 +1034,30 @@ export function CategoryItemReport({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="mt-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             <MiniStat
               icon={<Receipt className="size-3.5" />}
-              label="Sales"
+              label="Expected gross"
               value={money(totals.revenue)}
               tone="emerald"
+            />
+            <MiniStat
+              icon={<Wallet className="size-3.5" />}
+              label="Collected gross"
+              value={money(totals.collected)}
+              tone="sky"
             />
             <MiniStat
               icon={<TrendingUp className="size-3.5" />}
               label="Profit"
               value={money(totals.profit)}
-              tone="sky"
+              tone="violet"
             />
             <MiniStat
-              icon={<Percent className="size-3.5" />}
-              label="Margin"
-              value={`${(totals.revenue ? (totals.profit / totals.revenue) * 100 : 0).toFixed(1)} %`}
-              tone="violet"
+              icon={<ShieldAlert className="size-3.5" />}
+              label="Penalty"
+              value={money(totals.penaltyAmount)}
+              tone="rose"
             />
             <MiniStat
               icon={<ArrowDownRight className="size-3.5" />}
@@ -838,15 +1073,16 @@ export function CategoryItemReport({
             />
           </div>
 
-          <div className="mt-4 max-h-[22rem] overflow-auto rounded-xl border border-white/10">
-            <table className="w-full min-w-[820px]">
+          <div className="mt-4 max-h-[26rem] min-h-[12rem] flex-1 overflow-auto rounded-xl border border-white/10">
+            <table className="w-full min-w-[880px]">
               <thead>
                 <tr>
                   <Th>{mode === "category" ? "Category" : "Item"}</Th>
                   <Th>{mode === "category" ? "Items" : "Category"}</Th>
                   <Th right>Lines</Th>
                   <Th right>Units sold</Th>
-                  <Th right>Sales</Th>
+                  <Th right>Expected</Th>
+                  <Th right>Collected</Th>
                   <Th right>Profit</Th>
                   <Th right>VAT</Th>
                   <Th right>Margin</Th>
@@ -864,10 +1100,20 @@ export function CategoryItemReport({
                     <Td right className="text-emerald-300">
                       {money(group.revenue)}
                     </Td>
-                    <Td right className="text-sky-300">
-                      {money(group.profit)}
+                    <Td
+                      right
+                      className={
+                        group.revenue - group.collected > 0.005
+                          ? "text-rose-300"
+                          : "text-sky-300"
+                      }
+                    >
+                      {money(group.collected)}
                     </Td>
                     <Td right className="text-violet-300">
+                      {money(group.profit)}
+                    </Td>
+                    <Td right className="text-amber-300">
                       {money(group.vat)}
                     </Td>
                     <Td right className="text-zinc-300">
@@ -892,9 +1138,12 @@ export function CategoryItemReport({
                     {money(totals.revenue)}
                   </Td>
                   <Td right className="font-semibold text-sky-300">
-                    {money(totals.profit)}
+                    {money(totals.collected)}
                   </Td>
                   <Td right className="font-semibold text-violet-300">
+                    {money(totals.profit)}
+                  </Td>
+                  <Td right className="font-semibold text-amber-300">
                     {money(totals.vat)}
                   </Td>
                   <Td right className="font-semibold text-white">
@@ -921,22 +1170,43 @@ function MiniStat({
   icon: React.ReactNode;
   label: string;
   value: string;
-  tone: "emerald" | "sky" | "violet" | "amber" | "zinc";
+  tone: "emerald" | "sky" | "violet" | "amber" | "rose" | "zinc";
 }) {
   const toneClass = {
     emerald: "border-emerald-400/25 bg-emerald-400/[0.07] text-emerald-200",
     sky: "border-sky-400/25 bg-sky-400/[0.07] text-sky-200",
     violet: "border-violet-400/25 bg-violet-400/[0.07] text-violet-200",
     amber: "border-amber-400/25 bg-amber-400/[0.07] text-amber-200",
+    rose: "border-rose-400/25 bg-rose-400/[0.07] text-rose-200",
     zinc: "border-white/10 bg-white/[0.03] text-zinc-200",
   }[tone];
+  // Labels stay on one line and long figures shrink instead of wrapping, so
+  // every tile in the strip keeps the same height.
+  const valueClass =
+    value.length > 16 ? "text-[13px]" : value.length > 12 ? "text-[14px]" : "text-[15px]";
   return (
-    <div className={cn("rounded-xl border px-3 py-2", toneClass)}>
-      <p className="flex items-center gap-1.5 text-[9.5px] font-semibold tracking-[0.16em] uppercase opacity-75">
-        {icon}
-        {label}
+    <div
+      className={cn(
+        "flex flex-col gap-2 overflow-hidden rounded-xl border px-2.5 py-2.5 transition duration-200 hover:brightness-125",
+        toneClass,
+      )}
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-white/[0.07]">
+          {icon}
+        </span>
+        <p className="text-[8.5px] leading-none font-semibold tracking-[0.08em] whitespace-nowrap uppercase opacity-75">
+          {label}
+        </p>
+      </div>
+      <p
+        className={cn(
+          "leading-none font-semibold tabular-nums whitespace-nowrap",
+          valueClass,
+        )}
+      >
+        {value}
       </p>
-      <p className="mt-1 truncate text-sm font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
@@ -984,7 +1254,8 @@ export function AgentPerformanceReport({
     "Agent",
     "Settled lines",
     "Units sold",
-    "Sales",
+    "Expected gross",
+    "Collected gross",
     "Profit",
     "VAT in sales",
     "Penalty amount",
@@ -996,6 +1267,7 @@ export function AgentPerformanceReport({
     agent.lines,
     Number(agent.units.toFixed(3)),
     Number(agent.revenue.toFixed(2)),
+    Number(agent.collected.toFixed(2)),
     Number(agent.profit.toFixed(2)),
     Number(agent.vat.toFixed(2)),
     Number(agent.penaltyAmount.toFixed(2)),
@@ -1007,6 +1279,7 @@ export function AgentPerformanceReport({
     totals.lines,
     Number(totals.units.toFixed(3)),
     Number(totals.revenue.toFixed(2)),
+    Number(totals.collected.toFixed(2)),
     Number(totals.profit.toFixed(2)),
     Number(totals.vat.toFixed(2)),
     Number(totals.penaltyAmount.toFixed(2)),
@@ -1015,6 +1288,7 @@ export function AgentPerformanceReport({
 
   return (
     <Panel
+      fill
       tone="amber"
       title="Agent performance"
       description="Ranking follows the penalty amount first, then revenue — the reasons sit behind each mark."
@@ -1031,70 +1305,81 @@ export function AgentPerformanceReport({
         />
       }
     >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <TableSearch
           value={query}
           onChange={setQuery}
           placeholder="Search agent or penalty reason"
-          className="w-full sm:w-64"
+          className="w-56 sm:w-64"
         />
-        <div className="w-full sm:w-52">
-          <ComboSelect
-            value={agentId}
-            onChange={setAgentId}
-            options={[{ value: "all", label: "All sales agents" }, ...agentOptions]}
-            placeholder="All sales agents"
-          />
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <span className="text-xs text-zinc-500">
+            {visible.length} of {agents.length} agent{agents.length === 1 ? "" : "s"}
+          </span>
+          <div className="w-52">
+            <ComboSelect
+              value={agentId}
+              onChange={setAgentId}
+              options={[{ value: "all", label: "All sales agents" }, ...agentOptions]}
+              placeholder="All sales agents"
+            />
+          </div>
         </div>
-        <span className="ml-auto text-xs text-zinc-500">
-          {visible.length} of {agents.length} agent{agents.length === 1 ? "" : "s"}
-        </span>
       </div>
 
-      <div className="max-h-[26rem] overflow-auto rounded-xl border border-white/10">
-        <table className="w-full min-w-[940px]">
+      <div className="max-h-[26rem] min-h-[12rem] flex-1 overflow-auto rounded-xl border border-white/10">
+        <table className="w-full min-w-[760px]">
           <thead>
             <tr>
               <Th>Rank</Th>
               <Th>Agent</Th>
-              <Th right>Sales</Th>
-              <Th right>Units sold</Th>
-              <Th right>Revenue</Th>
-              <Th right>Profit</Th>
-              <Th right>VAT</Th>
+              <Th right>Lines</Th>
+              <Th right>Units</Th>
+              <Th right>Expected</Th>
+              <Th right>Collected</Th>
               <Th right>Penalty</Th>
             </tr>
           </thead>
           <tbody>
-            {visible.map((agent) => (
-              <tr key={agent.key} className="transition hover:bg-white/[0.03]">
-                <Td>
-                  <RankBadge rank={Number(agent.sublabel) || 0} />
-                </Td>
-                <Td className="text-zinc-100">
-                  <span className="flex items-center gap-2">
-                    <Users className="size-3.5 shrink-0 text-zinc-500" />
-                    <span className="truncate">{agent.label}</span>
-                  </span>
-                </Td>
-                <Td right>{agent.lines}</Td>
-                <Td right className="text-amber-200">
-                  {qty(agent.units)}
-                </Td>
-                <Td right className="text-emerald-300">
-                  {money(agent.revenue)}
-                </Td>
-                <Td right className="text-sky-300">
-                  {money(agent.profit)}
-                </Td>
-                <Td right className="text-violet-300">
-                  {money(agent.vat)}
-                </Td>
-                <Td right>
-                  <PenaltyMark amountValue={agent.penaltyAmount} penalties={agent.penalties} />
-                </Td>
-              </tr>
-            ))}
+            {visible.map((agent) => {
+              const short = agent.revenue - agent.collected > 0.005;
+              return (
+                <tr key={agent.key} className="transition hover:bg-white/[0.03]">
+                  <Td>
+                    <RankBadge rank={Number(agent.sublabel) || 0} />
+                  </Td>
+                  <Td className="text-zinc-100">
+                    <span className="flex items-center gap-2">
+                      <Users className="size-3.5 shrink-0 text-zinc-500" />
+                      <span className="min-w-0">
+                        <span className="block truncate">{agent.label}</span>
+                        <span className="block truncate text-[11px] text-zinc-500">
+                          {money(agent.profit)} profit · {money(agent.vat)} VAT
+                        </span>
+                      </span>
+                    </span>
+                  </Td>
+                  <Td right className="text-zinc-400">
+                    {agent.lines}
+                  </Td>
+                  <Td right className="text-amber-200">
+                    {qty(agent.units)}
+                  </Td>
+                  <Td right className="text-emerald-300">
+                    {money(agent.revenue)}
+                  </Td>
+                  <Td
+                    right
+                    className={short ? "text-rose-300" : "text-sky-300"}
+                  >
+                    {money(agent.collected)}
+                  </Td>
+                  <Td right>
+                    <PenaltyMark amountValue={agent.penaltyAmount} penalties={agent.penalties} />
+                  </Td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="border-t border-white/10 bg-white/[0.03]">
@@ -1110,10 +1395,7 @@ export function AgentPerformanceReport({
                 {money(totals.revenue)}
               </Td>
               <Td right className="font-semibold text-sky-300">
-                {money(totals.profit)}
-              </Td>
-              <Td right className="font-semibold text-violet-300">
-                {money(totals.vat)}
+                {money(totals.collected)}
               </Td>
               <Td right className="font-semibold text-rose-300">
                 {money(totals.penaltyAmount)}
@@ -1181,6 +1463,7 @@ export function PenaltyReport({
 
   return (
     <Panel
+      fill
       tone="rose"
       title="Penalty register"
       description="Each verdict Finance raised, its amount and the reason behind it."
@@ -1202,78 +1485,80 @@ export function PenaltyReport({
         </div>
       }
     >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <TableSearch
-          value={query}
-          onChange={setQuery}
-          placeholder="Search agent, item, voucher or reason"
-          className="w-full sm:w-72"
-        />
-        <span className="text-xs text-zinc-500">
-          {visible.length} of {marks.length} penalty record{marks.length === 1 ? "" : "s"}
-        </span>
-      </div>
-
-      {visible.length ? (
-        <div className="max-h-[22rem] overflow-auto rounded-xl border border-white/10">
-          <table className="w-full min-w-[780px]">
-            <thead>
-              <tr>
-                <Th>Day</Th>
-                <Th>Agent</Th>
-                <Th>Item</Th>
-                <Th>Voucher</Th>
-                <Th right>Amount</Th>
-                <Th>Reason</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {visible.map((mark) => (
-                <tr
-                  key={`${mark.id}-${mark.voucher}`}
-                  className="transition hover:bg-rose-500/[0.05]"
-                >
-                  <Td className="text-zinc-400">{mark.day}</Td>
-                  <Td className="text-zinc-100">{mark.agent}</Td>
-                  <Td>{mark.item}</Td>
-                  <Td className="font-mono text-xs text-cyan-300">{mark.voucher}</Td>
-                  <Td right>
-                    <Badge
-                      variant="secondary"
-                      className="border border-rose-400/30 bg-rose-500/15 text-[11px] text-rose-200"
-                    >
-                      {amount(mark.amount)} ETB
-                    </Badge>
-                  </Td>
-                  <Td className="max-w-[26rem] text-[12px] leading-snug text-zinc-300">
-                    {mark.reason}
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-white/10 bg-white/[0.03]">
-                <Td className="text-[11px] font-semibold text-zinc-400 uppercase">
-                  Totals
-                </Td>
-                <Td className="text-zinc-600">—</Td>
-                <Td className="text-zinc-600">—</Td>
-                <Td className="text-zinc-600">—</Td>
-                <Td right className="font-semibold text-rose-300">
-                  {money(total)}
-                </Td>
-                <Td className="text-zinc-500">{visible.length} penalties</Td>
-              </tr>
-            </tfoot>
-          </table>
+      <div className="flex flex-1 flex-col">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <TableSearch
+            value={query}
+            onChange={setQuery}
+            placeholder="Search agent, item, voucher or reason"
+            className="w-60 sm:w-72"
+          />
+          <span className="text-xs text-zinc-500">
+            {visible.length} of {marks.length} penalty record{marks.length === 1 ? "" : "s"}
+          </span>
         </div>
-      ) : (
-        <EmptyRow>
-          {query.trim()
-            ? `No penalties match “${query.trim()}”.`
-            : "No penalties raised in this window."}
-        </EmptyRow>
-      )}
+
+        {visible.length ? (
+          <div className="max-h-[28rem] min-h-[10rem] flex-1 overflow-auto rounded-xl border border-white/10">
+            <table className="w-full min-w-[780px]">
+              <thead>
+                <tr>
+                  <Th>Day</Th>
+                  <Th>Agent</Th>
+                  <Th>Item</Th>
+                  <Th>Voucher</Th>
+                  <Th right>Amount</Th>
+                  <Th>Reason</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((mark) => (
+                  <tr
+                    key={`${mark.id}-${mark.voucher}`}
+                    className="transition hover:bg-rose-500/[0.05]"
+                  >
+                    <Td className="text-zinc-400">{mark.day}</Td>
+                    <Td className="text-zinc-100">{mark.agent}</Td>
+                    <Td>{mark.item}</Td>
+                    <Td className="font-mono text-xs text-cyan-300">{mark.voucher}</Td>
+                    <Td right>
+                      <Badge
+                        variant="secondary"
+                        className="border border-rose-400/30 bg-rose-500/15 text-[11px] text-rose-200"
+                      >
+                        {money(mark.amount)}
+                      </Badge>
+                    </Td>
+                    <Td className="max-w-[26rem] text-[12px] leading-snug whitespace-normal text-zinc-300">
+                      {mark.reason}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-white/10 bg-white/[0.03]">
+                  <Td className="text-[11px] font-semibold text-zinc-400 uppercase">
+                    Totals
+                  </Td>
+                  <Td className="text-zinc-600">—</Td>
+                  <Td className="text-zinc-600">—</Td>
+                  <Td className="text-zinc-600">—</Td>
+                  <Td right className="font-semibold text-rose-300">
+                    {money(total)}
+                  </Td>
+                  <Td className="text-zinc-500">{visible.length} penalties</Td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ) : (
+          <EmptyRow>
+            {query.trim()
+              ? `No penalties match “${query.trim()}”.`
+              : "No penalties raised in this window."}
+          </EmptyRow>
+        )}
+      </div>
     </Panel>
   );
 }
@@ -1295,5 +1580,337 @@ function RankBadge({ rank }: { rank: number }) {
     >
       {rank}
     </span>
+  );
+}
+
+// ------------------------------------------------------ collection & stock
+//
+// These three panels render identically in Finance and Manager: the same
+// props in, the same picture out, so neither workspace can drift ahead.
+
+const METHOD_ICON: Record<string, React.ReactNode> = {
+  TELEBIRR: <Receipt className="size-3.5" />,
+  BANK: <Wallet className="size-3.5" />,
+  RECEIPT: <Layers3 className="size-3.5" />,
+};
+
+/**
+ * Payment channels, the money the agents actually handed over and the stock
+ * given away on promotion — all measured on the reporting window.
+ */
+export function CollectionMethodsReport({
+  rows,
+  range,
+  methods,
+  vat,
+  promotions,
+}: {
+  rows: SaleLikeRow[];
+  range: DateRange;
+  methods: { value: string; label: string }[];
+  vat: { input: number; output: number; net: number };
+  promotions: PromotionLikeRow[];
+}) {
+  const approved = useMemo(() => approvedInRange(rows, range), [rows, range]);
+  const promo = useMemo(() => summarisePromotions(promotions, range), [promotions, range]);
+
+  const { expected, penalty, collected } = approved.reduce(
+    (sum, row) => ({
+      expected: sum.expected + expectedOf(row),
+      penalty: sum.penalty + shortfallOf(row),
+      collected: sum.collected + collectedOf(row),
+    }),
+    { expected: 0, penalty: 0, collected: 0 },
+  );
+  const returned = approved.reduce((sum, row) => sum + Number(row.returned_quantity || 0), 0);
+  const penaltyCount = approved.filter((row) => row.penalty).length;
+  const share = expected > 0 ? (collected / expected) * 100 : 0;
+
+  const channels = methods.map((method) => {
+    const held = approved.filter((row) => row.payment_method === method.value);
+    const gross = held.reduce((sum, row) => sum + expectedOf(row), 0);
+    const grossCollected = held.reduce((sum, row) => sum + collectedOf(row), 0);
+    return {
+      code: method.value,
+      label: method.label,
+      value: gross,
+      collected: grossCollected,
+      penalty: gross - grossCollected,
+      pct: expected > 0 ? (gross / expected) * 100 : 0,
+    };
+  });
+
+  return (
+    <Panel
+      fill
+      tone="indigo"
+      title="Collection methods"
+      description="Approved settlement value per payment channel in this window."
+      actions={
+        <Badge
+          variant="outline"
+          className="border-indigo-400/30 bg-indigo-400/10 text-indigo-200"
+        >
+          {share.toFixed(1)}% collected
+        </Badge>
+      }
+    >
+      <div className="grid gap-2.5 sm:grid-cols-3">
+        <MiniStat
+          icon={<TrendingUp className="size-3" />}
+          label="Expected gross"
+          value={money(expected)}
+          tone="emerald"
+        />
+        <MiniStat
+          icon={<Wallet className="size-3" />}
+          label="Collected gross"
+          value={money(collected)}
+          tone="sky"
+        />
+        <MiniStat
+          icon={<ShieldAlert className="size-3" />}
+          label="Penalty shortfall"
+          value={money(penalty)}
+          tone="amber"
+        />
+      </div>
+
+      <div className="mt-4 space-y-2.5">
+        {channels.map((channel) => (
+          <div key={channel.code} className="space-y-1">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex min-w-0 items-center gap-2 text-zinc-300">
+                <span className="grid size-6 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.04] text-indigo-200">
+                  {METHOD_ICON[channel.code] ?? <Receipt className="size-3.5" />}
+                </span>
+                <span className="truncate">{channel.label}</span>
+                {channel.penalty > 0 && (
+                  <span className="shrink-0 rounded-full border border-rose-400/25 bg-rose-400/10 px-1.5 py-0.5 text-[10px] text-rose-300">
+                    −{money(channel.penalty)}
+                  </span>
+                )}
+              </span>
+              <span className="shrink-0 text-right">
+                <span className="block font-semibold tabular-nums text-emerald-200">
+                  {money(channel.value)}
+                </span>
+                <span className="block text-[10px] tabular-nums text-zinc-500">
+                  {money(channel.collected)} in
+                </span>
+              </span>
+            </div>
+            <div className="h-1 overflow-hidden rounded-full bg-white/5">
+              <div
+                className="h-full rounded-full bg-linear-to-r from-indigo-400 via-sky-300 to-emerald-300 transition-all duration-500"
+                style={{ width: `${Math.max(channel.pct, channel.value > 0 ? 2 : 0)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-auto space-y-2 pt-4 text-sm">
+        <SummaryRow
+          label="Promotion units given away"
+          value={qty(promo.units)}
+          tone="amber"
+        />
+        <SummaryRow
+          label="Promotion value printed"
+          value={money(promo.amount)}
+          tone="amber"
+        />
+        <SummaryRow label="Returned units" value={qty(returned)} tone="rose" />
+        <SummaryRow
+          label={`Penalties · ${penaltyCount} raised`}
+          value={money(penalty)}
+          tone="rose"
+        />
+        <SummaryRow label="Lines settled" value={String(approved.length)} />
+        <SummaryRow label="Input VAT on stock" value={money(vat.input)} tone="sky" />
+        <SummaryRow label="Output VAT on sold stock" value={money(vat.output)} tone="sky" />
+        <SummaryRow label="Net VAT" value={money(vat.net)} tone="violet" strong />
+      </div>
+    </Panel>
+  );
+}
+
+/** Stock given away on the manufacturer's order, inside the same window. */
+export function PromotionReport({
+  promotions,
+  range,
+}: {
+  promotions: PromotionLikeRow[];
+  range: DateRange;
+}) {
+  const stats = useMemo(() => summarisePromotions(promotions, range), [promotions, range]);
+  const heaviest = stats.top.slice(0, 5);
+  return (
+    <Panel
+      fill
+      tone="amber"
+      title="Promotions"
+      description="Stock given away on the manufacturer's order."
+      actions={
+        <Badge variant="outline" className="border-amber-400/30 bg-amber-400/10 text-amber-200">
+          {stats.docs} in window
+        </Badge>
+      }
+    >
+      <div className="flex flex-1 flex-col">
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          <MiniStat
+            icon={<Megaphone className="size-3" />}
+            label="Promotion units"
+            value={qty(stats.units)}
+            tone="amber"
+          />
+          <MiniStat
+            icon={<Receipt className="size-3" />}
+            label="Value printed"
+            value={money(stats.amount)}
+            tone="violet"
+          />
+          <MiniStat
+            icon={<Layers3 className="size-3" />}
+            label="Documents"
+            value={`${stats.approved} of ${stats.docs}`}
+            tone="sky"
+          />
+          <MiniStat
+            icon={<Boxes className="size-3" />}
+            label="Items touched"
+            value={String(stats.items)}
+            tone="emerald"
+          />
+        </div>
+
+        <div className="mt-4 flex-1 space-y-2">
+          <p className="text-[10px] font-semibold tracking-[0.16em] text-zinc-500 uppercase">
+            Heaviest giveaways
+          </p>
+          {heaviest.length ? (
+            heaviest.map((item) => (
+              <div key={item.name} className="space-y-1">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex min-w-0 items-center gap-2 text-zinc-300">
+                    <span className="grid size-6 shrink-0 place-items-center rounded-lg border border-amber-400/20 bg-amber-400/[0.08] text-[10px] font-semibold text-amber-200">
+                      {qty(item.units)}
+                    </span>
+                    <span className="truncate">{item.name}</span>
+                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums text-zinc-100">
+                    {money(item.amount)}
+                  </span>
+                </div>
+                <div className="h-1 overflow-hidden rounded-full bg-white/5">
+                  <div
+                    className="h-full rounded-full bg-linear-to-r from-amber-400 via-orange-300 to-rose-300 transition-all duration-500"
+                    style={{ width: `${Math.max(item.pct, item.units > 0 ? 2 : 0)}%` }}
+                  />
+                </div>
+              </div>
+            ))
+          ) : (
+            <EmptyRow>Nothing given away in this window.</EmptyRow>
+          )}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+/** Every voucher lot, independent of the window, with the all-time leaders. */
+export function StockPositionReport({
+  totals,
+  agents,
+}: {
+  totals: {
+    registered_value: number;
+    in_store_value: number;
+    stocked_out_value: number;
+    base_value: number;
+    vat: number;
+    inclusive_amount: number;
+    output_vat: number;
+    net_vat: number;
+  };
+  agents: AgentGroup[];
+}) {
+  const leaders = useMemo(
+    () => [...agents].sort((a, b) => b.revenue - a.revenue).slice(0, 5),
+    [agents],
+  );
+  return (
+    <Panel
+      fill
+      tone="indigo"
+      title="All-time stock & VAT position"
+      description="Every voucher lot, independent of the reporting window."
+    >
+      <div className="flex flex-1 flex-col">
+        <div className="space-y-2 text-sm">
+          <SummaryRow label="Registered value" value={money(totals.registered_value)} />
+          <SummaryRow label="In store" value={money(totals.in_store_value)} tone="emerald" />
+          <SummaryRow
+            label="Stocked out"
+            value={money(totals.stocked_out_value)}
+            tone="amber"
+          />
+          <SummaryRow label="Base value (ex VAT)" value={money(totals.base_value)} />
+          <SummaryRow label="Input VAT" value={money(totals.vat)} tone="sky" />
+          <SummaryRow label="Inclusive amount" value={money(totals.inclusive_amount)} />
+          <SummaryRow label="Output VAT" value={money(totals.output_vat)} tone="sky" />
+          <SummaryRow
+            label="Net VAT (output − input)"
+            value={money(totals.net_vat)}
+            tone="violet"
+            strong
+          />
+        </div>
+
+        <div className="mt-4 flex-1 space-y-2">
+          <p className="text-[10px] font-semibold tracking-[0.16em] text-zinc-500 uppercase">
+            All-time leaders
+          </p>
+          {leaders.map((agent, index) => (
+            <div
+              key={agent.key}
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-2.5 py-1.5 text-sm transition hover:border-white/15 hover:bg-white/[0.04]"
+            >
+              <span className="flex min-w-0 items-center gap-2 text-zinc-300">
+                <Trophy className="size-3.5 shrink-0 text-amber-300" />
+                <RankBadge rank={index + 1} />
+                <span className="truncate">{agent.agentName || agent.label}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
+                <PenaltyMark
+                  amountValue={agent.penaltyAmount}
+                  penalties={agent.penalties}
+                  compact
+                />
+                <span className="text-right">
+                  <span className="block tabular-nums text-zinc-200">
+                    {money(agent.revenue)}
+                  </span>
+                  <span
+                    className={cn(
+                      "block text-[10px] tabular-nums",
+                      agent.revenue - agent.collected > 0.005
+                        ? "text-rose-300"
+                        : "text-zinc-500",
+                    )}
+                  >
+                    {money(agent.collected)} in
+                  </span>
+                </span>
+              </span>
+            </div>
+          ))}
+          {!leaders.length && <EmptyRow>No approved settlements yet.</EmptyRow>}
+        </div>
+      </div>
+    </Panel>
   );
 }

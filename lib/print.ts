@@ -476,9 +476,9 @@ export type SettlementReceiptDoc = {
   returnedQuantity: string;
   /** unit sales + changing amount, already formatted. */
   unitPrice: string;
-  salesAmount: string;
   expectedAmount: string;
-  variance: string;
+  /** Expected gross less the penalty: the cash the agent actually handed over. */
+  collectedAmount: string;
   /** Derived from the lot's unit cost and the VAT rate; printed when known. */
   costOfGoods?: string;
   grossProfit?: string;
@@ -521,10 +521,9 @@ export function buildSettlementReceiptSheet(doc: SettlementReceiptDoc) {
     totals: [],
   };
 
-  const totals = [
-    { label: "Sales amount collected", value: doc.salesAmount },
-    { label: "Expected amount", value: doc.expectedAmount },
-  ];
+  const totals = [{ label: "Expected gross", value: doc.expectedAmount }];
+  if (doc.penalty)
+    totals.push({ label: "Penalty · not brought in", value: doc.penalty.amount });
   if (doc.costOfGoods) totals.push({ label: "Cost of goods sold", value: doc.costOfGoods });
   if (doc.grossProfit) totals.push({ label: "Gross profit", value: doc.grossProfit });
   if (doc.vatAmount) totals.push({ label: "VAT within sales", value: doc.vatAmount });
@@ -534,7 +533,7 @@ export function buildSettlementReceiptSheet(doc: SettlementReceiptDoc) {
       (total) =>
         `<div class="total"><span>${esc(total.label)}</span><strong>${esc(total.value)}</strong></div>`,
     ),
-    `<div class="total grand"><span>Variance</span><strong>${esc(doc.variance)}</strong></div>`,
+    `<div class="total grand"><span>Collected gross</span><strong>${esc(doc.collectedAmount)}</strong></div>`,
   ].join("");
 
   return `<section class="sheet">
@@ -561,7 +560,7 @@ export function buildSettlementReceiptSheet(doc: SettlementReceiptDoc) {
         </tr>
       </tbody>
     </table>
-    <p class="table-caption">Unsold stock returns to the voucher on approval. Variance = sales amount collected − expected amount.</p>
+    <p class="table-caption">Unsold stock returns to the voucher on approval. Collected gross = expected gross − penalty.</p>
     <div class="bottom">
       ${doc.note ? `<div class="note"><strong>Note</strong><p>${esc(doc.note)}</p></div>` : ""}
       <div class="fin">

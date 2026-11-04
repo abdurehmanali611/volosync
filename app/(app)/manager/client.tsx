@@ -55,7 +55,6 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
-  Trophy,
   Users,
   Wallet,
   Warehouse,
@@ -107,19 +106,23 @@ import { PaymentTaxPanel, TableSearch } from "@/components/volo/payment-tax";
 import {
   AgentPerformanceReport,
   CategoryItemReport,
+  CollectionMethodsReport,
   InventoryReportingCard,
   PenaltyMark,
   PenaltyReport,
+  PromotionReport,
   ReportExportButtons,
+  ReportKpiStrip,
   ReportLensBar,
   ReportingRangeBar,
   SalesAgentsCard,
+  StockPositionReport,
   type ReportLens,
 } from "@/components/volo/reports";
 import {
+  PAYMENT_METHODS,
   dailySales,
   dayOf,
-  inRange,
   reportRange,
   summariseByAgent,
   summariseByCategory,
@@ -234,6 +237,8 @@ export default function ManagerPage() {
   const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
   const [deletingLotId, setDeletingLotId] = useState<number | null>(null);
+  const [lotDeleteTarget, setLotDeleteTarget] = useState<Lot | null>(null);
+  const [lotDeleting, setLotDeleting] = useState(false);
   const [decidingKey, setDecidingKey] = useState<string | null>(null);
 
   // Payment & tax (server-side tab slice)
@@ -714,25 +719,22 @@ export default function ManagerPage() {
     }
   }
 
-  async function deleteLot(lot: Lot) {
-    if (
-      !window.confirm(
-        `Delete ${lot.item_name} (${lot.voucher_number})? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+  async function confirmDeleteLot() {
+    if (!lotDeleteTarget) return;
+    setLotDeleting(true);
     setBusy(true);
-    setDeletingLotId(lot.id);
+    setDeletingLotId(lotDeleteTarget.id);
     try {
-      await managerApi.deleteLot(lot.id);
+      await managerApi.deleteLot(lotDeleteTarget.id);
       toast.success("Lot deleted from inventory.");
-      if (editing?.id === lot.id) setEditing(null);
+      if (editing?.id === lotDeleteTarget.id) setEditing(null);
+      setLotDeleteTarget(null);
       await load();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete this lot");
     } finally {
       setBusy(false);
+      setLotDeleting(false);
       setDeletingLotId(null);
     }
   }
@@ -865,7 +867,8 @@ export default function ManagerPage() {
     "Rank",
     "Agent",
     "Phone",
-    "Revenue",
+    "Expected gross",
+    "Collected gross",
     "Units sold",
     "Returned",
     "Penalty amount",
@@ -877,6 +880,7 @@ export default function ManagerPage() {
     row.name,
     phoneFor(row),
     Number(row.revenue),
+    Math.max(Number(row.revenue) - Number(row.penalty_amount || 0), 0),
     Number(row.units_sold),
     Number(row.returned_quantity),
     Number(row.penalty_amount),
@@ -935,10 +939,6 @@ export default function ManagerPage() {
       ),
     [ledger, reportWindow, agents],
   );
-  const windowRows = useMemo(
-    () => settlements.filter((row) => inRange(row.created_at, reportWindow)),
-    [settlements, reportWindow],
-  );
   const todaySales = useMemo(() => dailySales(settlements), [settlements]);
   const stockOutToday = useMemo(() => {
     const day = ymd(new Date());
@@ -952,16 +952,51 @@ export default function ManagerPage() {
   }, [movements]);
   const reportingBusiness = tenantBusiness(tenantInfo, dashboard?.tenant);
 
-  const recentRegistrations = [...registrations]
-    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
-    .slice(0, 10);
-  const recentMovements = [...movements]
-    .filter((row) => row.type === "STOCKOUT")
-    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
-    .slice(0, 10);
-  const recentPromotions = [...promotions]
-    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
-    .slice(0, 10);
+  // Search happens across the whole history, then the list narrows to ten — a
+  // query that only matches an older voucher still finds it.
+  const recentRegistrations = useMemo(
+    () =>
+      [...registrations]
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+        .filter((row) =>
+          matchesQuery(
+            recentRegQuery,
+            row.voucher_number,
+            row.supplier_name,
+            row.status,
+            row.lines.map((line) => line.item_name).join(" "),
+          ),
+        )
+        .slice(0, 10),
+    [registrations, recentRegQuery],
+  );
+  const recentMovements = useMemo(
+    () =>
+      [...movements]
+        .filter((row) => row.type === "STOCKOUT")
+        .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+        .filter((row) =>
+          matchesQuery(recentMovementQuery, row.item_name, row.voucher_number, row.role, row.note),
+        )
+        .slice(0, 10),
+    [movements, recentMovementQuery],
+  );
+  const recentPromotions = useMemo(
+    () =>
+      [...promotions]
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+        .filter((row) =>
+          matchesQuery(
+            recentPromoQuery,
+            row.voucher_number,
+            row.status,
+            row.manufacturers.join(" "),
+            row.lines.map((line) => line.item_name).join(" "),
+          ),
+        )
+        .slice(0, 10),
+    [promotions, recentPromoQuery],
+  );
 
   const visibleRanking = ranking.filter((row) =>
     matchesQuery(rankingQuery, row.name, phoneFor(row)),
@@ -972,6 +1007,7 @@ export default function ManagerPage() {
       asset.asset_tag,
       asset.name,
       asset.category,
+      assetCategoryLabel(asset.category),
       asset.serial_number,
       asset.assignee_name,
       asset.status,
@@ -1156,34 +1192,32 @@ export default function ManagerPage() {
         <Panel
           title="Inventory"
           description="Collapse per item to see each batch. You are the only role with the edit icon — details, prices and the Quantity field."
-          actions={
-            <div className="ml-auto flex flex-wrap items-center gap-2">
-              <TableSearch
-                value={inventoryQuery}
-                onChange={setInventoryQuery}
-                placeholder="Search voucher, item or category"
-                className="w-56"
-              />
-              <ReportExportButtons
-                title="Inventory report"
-                subtitle={dashboard?.tenant.name ?? ""}
-                headers={["Voucher", "Item", "Category", "Quantity", "Unit cost", "Unit sales", "Price + VAT", "Registration date"]}
-                rows={visibleInventoryLots.map((lot) => [
-                  lot.voucher_number,
-                  lot.item_name,
-                  lot.category,
-                  Number(lot.remaining_quantity),
-                  Number(lot.unit_cost),
-                  Number(lot.unit_sales),
-                  Number(lot.price_with_vat),
-                  registrationDate(lot.registration_date),
-                ])}
-                file="volosync-inventory"
-                business={reportingBusiness}
-              />
-            </div>
-          }
         >
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <TableSearch
+              value={inventoryQuery}
+              onChange={setInventoryQuery}
+              placeholder="Search voucher, item or category"
+              className="w-64 sm:w-72"
+            />
+            <ReportExportButtons
+              title="Inventory report"
+              subtitle={dashboard?.tenant.name ?? ""}
+              headers={["Voucher", "Item", "Category", "Quantity", "Unit cost", "Unit sales", "Price + VAT", "Registration date"]}
+              rows={visibleInventoryLots.map((lot) => [
+                lot.voucher_number,
+                lot.item_name,
+                lot.category,
+                Number(lot.remaining_quantity),
+                Number(lot.unit_cost),
+                Number(lot.unit_sales),
+                Number(lot.price_with_vat),
+                registrationDate(lot.registration_date),
+              ])}
+              file="volosync-inventory"
+              business={reportingBusiness}
+            />
+          </div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="text-xs text-zinc-500">
               {visibleInventoryLots.length} of {lots.length} batches · {inventoryGroups.length} item
@@ -1253,7 +1287,7 @@ export default function ManagerPage() {
                                 <Pencil className="size-3.5" />
                               </button>
                               <button
-                                onClick={() => deleteLot(lot)}
+                                onClick={() => setLotDeleteTarget(lot)}
                                 disabled={busy}
                                 aria-label={`Delete ${lot.item_name}`}
                                 className="rounded-md border border-rose-400/20 p-1.5 text-rose-300 transition hover:border-rose-400/40 hover:bg-rose-500/10 disabled:opacity-50"
@@ -1339,7 +1373,7 @@ export default function ManagerPage() {
                                     <Pencil className="size-3.5" />
                                   </button>
                                   <button
-                                    onClick={() => deleteLot(lot)}
+                                    onClick={() => setLotDeleteTarget(lot)}
                                     disabled={busy}
                                     aria-label={`Delete ${lot.item_name}`}
                                     className="rounded-md border border-rose-400/20 p-1.5 text-rose-300 transition hover:border-rose-400/40 hover:bg-rose-500/10 disabled:opacity-50"
@@ -1369,27 +1403,27 @@ export default function ManagerPage() {
             </EmptyRow>
           )}
 
+          <Dialog
+            open={Boolean(editing)}
+            onOpenChange={(open) => {
+              if (!open && !busy) setEditing(null);
+            }}
+          >
+            <DialogContent className="max-h-[90vh] overflow-y-auto border border-violet-400/25 bg-[#0b0b13] text-white ring-white/10 sm:max-w-3xl">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-white">
+                  <Pencil className="size-4 text-violet-300" />
+                  Editing {editForm.item_name || editing?.item_name || "lot"}
+                </DialogTitle>
+                <DialogDescription className="text-zinc-400">
+                  {editing?.voucher_number} · the batch you are about to change.
+                </DialogDescription>
+              </DialogHeader>
 
-
-          {editing && (
-            <div className="mt-4 rounded-xl border border-violet-400/30 bg-violet-400/[0.06] p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-violet-200">
-                  Editing {editForm.item_name || editing.item_name} · {editing.voucher_number}
-                </p>
-                <button
-                  onClick={() => setEditing(null)}
-                  aria-label="Close editor"
-                  className="text-zinc-400 hover:text-white"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <Field label="Voucher number (read-only)">
                   <Input
-                    value={editing.voucher_number}
+                    value={editing?.voucher_number ?? ""}
                     readOnly
                     className="font-mono text-xs text-violet-300 opacity-70"
                   />
@@ -1486,7 +1520,7 @@ export default function ManagerPage() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-4 rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-zinc-400">
+              <div className="flex flex-wrap gap-4 rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-zinc-400">
                 <span>
                   Price with VAT{" "}
                   <strong className="text-emerald-300">{money(previewPriceWithVat)}</strong>
@@ -1500,7 +1534,7 @@ export default function ManagerPage() {
                 </span>
               </div>
 
-              <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.02]">
+              <div className="rounded-lg border border-white/10 bg-white/[0.02]">
                 <button
                   type="button"
                   onClick={() => setSupplierOpen((open) => !open)}
@@ -1549,22 +1583,23 @@ export default function ManagerPage() {
                 )}
               </div>
 
-              <p className="mt-2 text-[11px] text-zinc-500">
+              <p className="text-[11px] text-zinc-500">
                 Quantity replaces the remaining balance exactly. Unit sales re-derives price with VAT
                 and unit cost re-derives the paid amount from the registered quantity — no approval
                 chain, no ledger entry.
               </p>
 
-              <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              <DialogFooter className="mb-0 gap-2 border-white/10 bg-transparent p-0">
                 <Button
                   size="sm"
                   variant="outline"
                   className="border-white/15 bg-transparent"
                   onClick={() => setEditing(null)}
+                  disabled={busy}
                 >
                   Cancel
                 </Button>
-                <Button size="sm" onClick={saveLot} disabled={busy}>
+                <Button size="sm" onClick={saveLot} disabled={busy} className="gap-2">
                   {busy ? (
                     <Loader2 className="size-3.5 animate-spin" />
                   ) : (
@@ -1572,9 +1607,52 @@ export default function ManagerPage() {
                   )}
                   {busy ? "Saving…" : "Save"}
                 </Button>
-              </div>
-            </div>
-          )}
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <AlertDialog
+            open={lotDeleteTarget !== null}
+            onOpenChange={(open) => {
+              if (!open && !lotDeleting) setLotDeleteTarget(null);
+            }}
+          >
+            <AlertDialogContent className="border border-white/10 bg-[#0b0b13] text-white ring-white/10">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-white">Delete this lot?</AlertDialogTitle>
+                <AlertDialogDescription className="text-zinc-400">
+                  {lotDeleteTarget && (
+                    <>
+                      <span className="font-medium text-zinc-200">
+                        {lotDeleteTarget.item_name}
+                      </span>{" "}
+                      ({lotDeleteTarget.voucher_number}) leaves the inventory for good. This
+                      cannot be undone.
+                    </>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="border-white/10 bg-transparent">
+                <AlertDialogCancel
+                  disabled={lotDeleting}
+                  className="border-white/10 bg-white/[0.03] text-zinc-300 hover:text-white"
+                >
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={lotDeleting}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void confirmDeleteLot();
+                  }}
+                  className="gap-2 bg-rose-500/90 text-white hover:bg-rose-500"
+                >
+                  {lotDeleting && <Loader2 className="size-3.5 animate-spin" />}
+                  Delete lot
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </Panel>
       )}
 
@@ -1801,7 +1879,7 @@ export default function ManagerPage() {
                           <ThSt>Rank</ThSt>
                           <ThSt>Agent</ThSt>
                           <ThSt>Phone</ThSt>
-                          <ThSt right>Revenue</ThSt>
+                          <ThSt right>Expected / collected</ThSt>
                           <ThSt right>Units sold</ThSt>
                           <ThSt right>Returned</ThSt>
                           <ThSt right>Penalty</ThSt>
@@ -1818,7 +1896,31 @@ export default function ManagerPage() {
                             <Td className="font-mono text-xs text-zinc-400">
                               {phoneFor(row) || "—"}
                             </Td>
-                            <Td right>{money(row.revenue)}</Td>
+                            <Td right>
+                              {(() => {
+                                const expected = Number(row.revenue);
+                                const collected = Math.max(
+                                  expected - Number(row.penalty_amount || 0),
+                                  0,
+                                );
+                                return (
+                                  <span className="block">
+                                    <span className="block font-semibold text-emerald-300">
+                                      {money(expected)}
+                                    </span>
+                                    <span
+                                      className={
+                                        collected < expected
+                                          ? "block text-[11px] text-rose-300"
+                                          : "block text-[11px] text-sky-300/70"
+                                      }
+                                    >
+                                      {money(collected)} in
+                                    </span>
+                                  </span>
+                                );
+                              })()}
+                            </Td>
                             <Td right>{qty(row.units_sold)}</Td>
                             <Td right>{qty(row.returned_quantity)}</Td>
                             <Td right>
@@ -2318,13 +2420,7 @@ export default function ManagerPage() {
               />
             }
           >
-            <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-              <TableSearch
-                value={assetQuery}
-                onChange={setAssetQuery}
-                placeholder="Search tag, name or assignee"
-                className="mr-auto w-60"
-              />
+            <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
               <CategoryCombobox
                 value={assetFilters.category}
                 onChange={(category) => applyAssetFilters({ category })}
@@ -2360,6 +2456,19 @@ export default function ManagerPage() {
                   Clear filters
                 </button>
               )}
+            </div>
+
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <TableSearch
+                value={assetQuery}
+                onChange={setAssetQuery}
+                placeholder="Search tag, name or assignee"
+                className="w-64 sm:w-72"
+              />
+              <span className="text-xs text-zinc-500">
+                <span className="font-semibold text-zinc-300">{visibleAssets.length}</span> of{" "}
+                {assets.length} asset{assets.length === 1 ? "" : "s"}
+              </span>
             </div>
 
             {booting && !assets.length ? (
@@ -2777,6 +2886,14 @@ export default function ManagerPage() {
             description="Filters every card, chart and export on this page."
           />
 
+          <ReportKpiStrip
+            groups={itemReport}
+            agents={agentReport}
+            inventory={reportSummary?.rows ?? []}
+            promotions={promotions}
+            range={reportWindow}
+          />
+
           <div className="grid gap-4 xl:grid-cols-2">
             <InventoryReportingCard
               rows={reportSummary?.rows ?? []}
@@ -2823,54 +2940,40 @@ export default function ManagerPage() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
+            <CollectionMethodsReport
+              rows={ledger}
+              range={reportWindow}
+              methods={PAYMENT_METHODS}
+              vat={{
+                input: Number(summaryTotals?.total_input_vat ?? summaryTotals?.vat ?? 0),
+                output: Number(summaryTotals?.total_output_vat ?? summaryTotals?.output_vat ?? 0),
+                net: Number(summaryTotals?.net_vat ?? 0),
+              }}
+              promotions={promotions}
+            />
             <PenaltyReport
               groups={agentReport}
               range={reportWindow}
               business={reportingBusiness}
               tenantName={dashboard?.tenant.name}
             />
-            <Panel
-              tone="indigo"
-              title="All-time stock & VAT position"
-              description="Every voucher lot, independent of the reporting window."
-            >
-              <div className="space-y-2 text-sm">
-                <Row label="Registered value" value={money(summaryTotals?.registered_value ?? 0)} />
-                <Row label="In store" value={money(summaryTotals?.in_store_value ?? 0)} />
-                <Row label="Stocked out" value={money(summaryTotals?.stocked_out_value ?? 0)} />
-                <Row label="Base value (ex VAT)" value={money(summaryTotals?.base_value ?? 0)} />
-                <Row label="Input VAT" value={money(summaryTotals?.vat ?? 0)} />
-                <Row label="Inclusive amount" value={money(summaryTotals?.inclusive_amount ?? 0)} />
-                <Row label="Output VAT" value={money(summaryTotals?.output_vat ?? 0)} />
-                <Row label="Net VAT (output − input)" value={money(summaryTotals?.net_vat ?? 0)} />
-              </div>
-              <div className="mt-4 space-y-2">
-                {ranking.slice(0, 5).map((row) => (
-                  <div key={row.agent_id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="flex min-w-0 items-center gap-2 text-zinc-300">
-                      <Trophy className="size-3.5 shrink-0 text-amber-300" />
-                      <RankMedal rank={row.rank} />
-                      <span className="truncate">{row.name}</span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      <PenaltyMark
-                        amountValue={Number(row.penalty_amount)}
-                        penalties={row.penalty_reasons.map((mark) => ({
-                          reason: mark.reason,
-                          item: mark.item,
-                          voucher: mark.voucher,
-                          day: mark.at.slice(0, 10),
-                          amount: Number(mark.amount),
-                        }))}
-                        compact
-                      />
-                      <span className="tabular-nums text-zinc-400">{money(row.revenue)}</span>
-                    </span>
-                  </div>
-                ))}
-                {!ranking.length && <EmptyRow>No approved settlements yet.</EmptyRow>}
-              </div>
-            </Panel>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <PromotionReport promotions={promotions} range={reportWindow} />
+            <StockPositionReport
+              totals={{
+                registered_value: Number(summaryTotals?.registered_value ?? 0),
+                in_store_value: Number(summaryTotals?.in_store_value ?? 0),
+                stocked_out_value: Number(summaryTotals?.stocked_out_value ?? 0),
+                base_value: Number(summaryTotals?.base_value ?? 0),
+                vat: Number(summaryTotals?.total_input_vat ?? summaryTotals?.vat ?? 0),
+                inclusive_amount: Number(summaryTotals?.inclusive_amount ?? 0),
+                output_vat: Number(summaryTotals?.total_output_vat ?? summaryTotals?.output_vat ?? 0),
+                net_vat: Number(summaryTotals?.net_vat ?? 0),
+              }}
+              agents={agentReport}
+            />
           </div>
 
           <div className="space-y-4">
@@ -3058,15 +3161,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-      <span className="text-zinc-400">{label}</span>
-      <span className="font-medium text-zinc-100">{value}</span>
-    </div>
-  );
-}
-
 function IconAction({
   tone,
   onClick,
@@ -3186,6 +3280,9 @@ const ASSET_CATEGORIES: [string, string][] = [
   ["OTHER", "Other"],
 ];
 
+const assetCategoryLabel = (code: string) =>
+  ASSET_CATEGORIES.find(([value]) => value === code)?.[1] ?? code;
+
 // Canonical backend codes (assets.models.Asset.CONDITIONS).
 const ASSET_CONDITIONS: [string, string][] = [
   ["NEW", "New"],
@@ -3302,7 +3399,7 @@ function CategoryCombobox({
 function ThSt({ children, right }: { children: React.ReactNode; right?: boolean }) {
   return (
     <th
-      className={`sticky top-0 z-10 border-b border-white/10 bg-zinc-900 px-3 py-2 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase ${
+      className={`sticky top-0 z-10 border-b border-white/10 bg-zinc-900 px-3 py-2 text-[11px] font-semibold tracking-wider whitespace-nowrap text-zinc-500 uppercase ${
         right ? "text-right" : "text-left"
       }`}
     >

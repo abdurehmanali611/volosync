@@ -112,6 +112,7 @@ import {
   Trash2,
   Truck,
   Users,
+  X,
 } from "lucide-react";
 import {
   EmptyRow,
@@ -122,6 +123,7 @@ import {
   Td,
   Th,
 } from "@/components/volo/kit";
+import { DateField } from "@/components/volo/controls";
 import { PhoneField } from "@/components/volo/phone-field";
 import { QtyValueCell } from "@/components/volo/payment-tax";
 
@@ -405,6 +407,12 @@ export default function StorePage() {
   const [receiptRegQuery, setReceiptRegQuery] = useState("");
   const [receiptStockQuery, setReceiptStockQuery] = useState("");
   const [taxQuery, setTaxQuery] = useState("");
+
+  // Payment & tax keeps the same four controls as finance and manager.
+  const [taxFrom, setTaxFrom] = useState("");
+  const [taxTo, setTaxTo] = useState("");
+  const [taxSupplier, setTaxSupplier] = useState("all");
+  const [taxVat, setTaxVat] = useState<"all" | "with" | "without">("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -879,8 +887,83 @@ export default function StorePage() {
     return buildStockOutReceipt(doc, receiptBusiness());
   }
 
-  const taxRows = useMemo<SummaryTabRow[]>(() => tax?.rows ?? [], [tax]);
-  const taxTotals = tax?.totals;
+  const rawTaxRows = useMemo<SummaryTabRow[]>(() => tax?.rows ?? [], [tax]);
+  const taxSupplierOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const row of rawTaxRows) {
+      const name = row.supplier_name?.trim();
+      if (name) names.add(name);
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [rawTaxRows]);
+  const taxFiltersActive =
+    Boolean(taxFrom || taxTo) || taxSupplier !== "all" || taxVat !== "all";
+  const taxRows = useMemo(
+    () =>
+      rawTaxRows.filter((row) => {
+        const day = row.registration_date ?? "";
+        if (taxFrom && day && day < taxFrom) return false;
+        if (taxTo && day && day > taxTo) return false;
+        if (taxSupplier !== "all" && (row.supplier_name ?? "").trim() !== taxSupplier) {
+          return false;
+        }
+        const inputVat = Number(row.vat_amount || 0);
+        if (taxVat === "with" && inputVat <= 0) return false;
+        if (taxVat === "without" && inputVat > 0) return false;
+        return true;
+      }),
+    [rawTaxRows, taxFrom, taxTo, taxSupplier, taxVat],
+  );
+  const taxFilterNote = taxFiltersActive
+    ? [
+        taxFrom && `from ${taxFrom}`,
+        taxTo && `to ${taxTo}`,
+        taxSupplier !== "all" && taxSupplier,
+        taxVat === "with" && "with VAT",
+        taxVat === "without" && "without VAT",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  // The server totals describe the whole slice, so a filtered view re-adds them
+  // from the rows actually on screen.
+  const taxValueTotals = taxRows.reduce(
+    (sum, row) => ({
+      registeredValue: sum.registeredValue + Number(row.registered_value),
+      inStoreValue: sum.inStoreValue + Number(row.in_store_value),
+      stockedOutValue: sum.stockedOutValue + Number(row.stocked_out_value),
+      base: sum.base + Number(row.base_value),
+      inputVat: sum.inputVat + Number(row.vat_amount),
+      outputVat: sum.outputVat + Number(row.output_vat),
+      inclusive: sum.inclusive + Number(row.inclusive_amount),
+    }),
+    {
+      registeredValue: 0,
+      inStoreValue: 0,
+      stockedOutValue: 0,
+      base: 0,
+      inputVat: 0,
+      outputVat: 0,
+      inclusive: 0,
+    },
+  );
+  const taxTotals = !tax?.totals
+    ? undefined
+    : !taxFiltersActive
+      ? tax.totals
+      : {
+          registered_value: String(taxValueTotals.registeredValue),
+          in_store_value: String(taxValueTotals.inStoreValue),
+          stocked_out_value: String(taxValueTotals.stockedOutValue),
+          base_value: String(taxValueTotals.base),
+          vat: String(taxValueTotals.inputVat),
+          inclusive_amount: String(taxValueTotals.inclusive),
+          output_vat: String(taxValueTotals.outputVat),
+          total_input_vat: String(taxValueTotals.inputVat),
+          total_output_vat: String(taxValueTotals.outputVat),
+          net_vat: String(taxValueTotals.outputVat - taxValueTotals.inputVat),
+        };
   const sumRows = (pick: (row: SummaryTabRow) => string) =>
     taxRows.reduce((total, row) => total + Number(pick(row) || 0), 0);
   const taxQtyTotals = {
@@ -891,6 +974,7 @@ export default function StorePage() {
   };
 
   const taxGroups = useMemo(() => groupTaxRows(taxRows), [taxRows]);
+  const taxAllItemCount = useMemo(() => groupTaxRows(rawTaxRows).length, [rawTaxRows]);
   const visibleTaxGroups = useMemo(
     () =>
       !taxQuery.trim()
@@ -953,6 +1037,54 @@ export default function StorePage() {
         Number(taxTotals.inclusive_amount),
       ] as (string | number)[])
     : undefined;
+
+  // One table row bundles every voucher that registered the same item, so the
+  // per-row PDF prints exactly those vouchers and nothing else.
+  function exportItemPdf(group: TaxItemGroup) {
+    const rowCells = (row: SummaryTabRow) => [
+      row.voucher_number,
+      row.item_name,
+      Number(row.registered_qty),
+      Number(row.registered_value),
+      Number(row.in_store_qty),
+      Number(row.in_store_value),
+      Number(row.stocked_out_qty),
+      Number(row.stocked_out_value),
+      Number(row.unit_cost),
+      Number(row.paid_amount),
+      Number(row.base_value),
+      Number(row.vat_amount),
+      Number(row.inclusive_amount),
+    ];
+    exportPdf({
+      title: `Payment & tax · ${group.itemName}`,
+      subtitle: `${dashboard?.tenant.name ?? "Store"} · ${taxTabLabel} · ${group.category} · ${
+        group.rows.length
+      } voucher${group.rows.length === 1 ? "" : "s"}`,
+      headers: taxHeaders,
+      rows: group.rows.map(rowCells),
+      totals: [
+        "Totals",
+        group.itemName,
+        group.registeredQty,
+        group.registeredValue,
+        group.inStoreQty,
+        group.inStoreValue,
+        group.stockedOutQty,
+        group.stockedOutValue,
+        "",
+        group.rows.reduce((sum, row) => sum + Number(row.paid_amount), 0),
+        group.baseValue,
+        group.vatAmount,
+        group.inclusiveAmount,
+      ],
+      file: `volosync-tax-${(group.itemName || "item")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")}`,
+      business: receiptBusiness(),
+    });
+  }
 
   return (
     <>
@@ -1679,34 +1811,36 @@ export default function StorePage() {
           title="Inventory"
           description="Stock in hand per item. Check batches to stock out together, or use a batch's menu for a single stock out."
         >
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <TableSearch
-                value={inventoryQuery}
-                onChange={setInventoryQuery}
-                placeholder="Search item, category or voucher"
-                className="w-full sm:w-64"
-              />
-              <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-300">
-                <Checkbox
-                  checked={
-                    allLotsChecked ? true : someLotsChecked ? "indeterminate" : false
-                  }
-                  onCheckedChange={(value) =>
-                    setCheckedLots(
-                      value === true ? visibleInventoryLots.map((lot) => lot.id) : [],
-                    )
-                  }
-                  aria-label="Select all batches"
-                />
-                Select all
-              </label>
-            </div>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <TableSearch
+              value={inventoryQuery}
+              onChange={setInventoryQuery}
+              placeholder="Search item, category or voucher"
+              className="w-64 sm:w-72"
+            />
             <span className="text-xs text-zinc-500">
-              {selectedLotDocs.length} selected · {visibleLotGroups.length} item
-              {visibleLotGroups.length === 1 ? "" : "s"} shown
+              {visibleLotGroups.length} item{visibleLotGroups.length === 1 ? "" : "s"} shown
             </span>
+          </div>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-300">
+              <Checkbox
+                checked={
+                  allLotsChecked ? true : someLotsChecked ? "indeterminate" : false
+                }
+                onCheckedChange={(value) =>
+                  setCheckedLots(
+                    value === true ? visibleInventoryLots.map((lot) => lot.id) : [],
+                  )
+                }
+                aria-label="Select all batches"
+              />
+              Select all
+            </label>
             <div className="flex items-center gap-2">
+              <span className="mr-1 text-xs text-zinc-500">
+                {selectedLotDocs.length} selected
+              </span>
               <Button
                 size="sm"
                 disabled={!selectedLotDocs.length}
@@ -1839,27 +1973,25 @@ export default function StorePage() {
         <Panel
           title="Suppliers"
           description="Inventory in hand, listed per batch. Filter to one supplier to see what they brought in."
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <TableSearch
-                value={supplierQuery}
-                onChange={setSupplierQuery}
-                placeholder="Search item, voucher or supplier"
-                className="w-52"
-              />
-              <div className="w-52">
-                <StoreCombobox
-                  value={supplierFilter || "All suppliers"}
-                  onChange={(value) =>
-                    setSupplierFilter(value === "All suppliers" ? "" : value)
-                  }
-                  options={["All suppliers", ...supplierOptions]}
-                  placeholder="All suppliers"
-                />
-              </div>
-            </div>
-          }
         >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <TableSearch
+              value={supplierQuery}
+              onChange={setSupplierQuery}
+              placeholder="Search item, voucher or supplier"
+              className="w-56 sm:w-64"
+            />
+            <div className="w-56">
+              <StoreCombobox
+                value={supplierFilter || "All suppliers"}
+                onChange={(value) =>
+                  setSupplierFilter(value === "All suppliers" ? "" : value)
+                }
+                options={["All suppliers", ...supplierOptions]}
+                placeholder="All suppliers"
+              />
+            </div>
+          </div>
           <LotTable lots={visibleSupplierLots} loading={loading} />
           {!loading && !visibleSupplierLots.length && (
             <EmptyRow>
@@ -2613,36 +2745,96 @@ export default function StorePage() {
             </div>
           }
         >
-          <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="mb-2 flex flex-wrap items-end justify-end gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
+            <Field label="From">
+              <DateField
+                value={taxFrom}
+                onChange={setTaxFrom}
+                placeholder="Any date"
+                clearable
+                className="w-36"
+              />
+            </Field>
+            <Field label="To">
+              <DateField
+                value={taxTo}
+                onChange={setTaxTo}
+                placeholder="Any date"
+                clearable
+                className="w-36"
+              />
+            </Field>
+            <Field label="Supplier">
+              <div className="w-44">
+                <ComboSelect
+                  value={taxSupplier}
+                  onChange={setTaxSupplier}
+                  options={[
+                    { value: "all", label: "All suppliers" },
+                    ...taxSupplierOptions.map((name) => ({ value: name, label: name })),
+                  ]}
+                  placeholder="All suppliers"
+                />
+              </div>
+            </Field>
+            <Field label="VAT">
+              <div className="w-32">
+                <ComboSelect
+                  value={taxVat}
+                  onChange={(value) => setTaxVat(value as "all" | "with" | "without")}
+                  options={[
+                    { value: "all", label: "Any VAT" },
+                    { value: "with", label: "With VAT" },
+                    { value: "without", label: "Without VAT" },
+                  ]}
+                />
+              </div>
+            </Field>
+            {taxFiltersActive && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 border-white/15 bg-transparent text-[11px] text-zinc-300 hover:bg-white/[0.06]"
+                onClick={() => {
+                  setTaxFrom("");
+                  setTaxTo("");
+                  setTaxSupplier("all");
+                  setTaxVat("all");
+                  setTaxQuery("");
+                }}
+              >
+                <X className="size-3.5" /> Clear
+              </Button>
+            )}
+          </div>
+
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <TableSearch
               value={taxQuery}
               onChange={setTaxQuery}
               placeholder="Search item, category or voucher"
-              className="w-full sm:w-72"
+              className="w-64 sm:w-72"
             />
             <span className="text-xs text-zinc-500">
-              {visibleTaxGroups.length} of {taxGroups.length} item
-              {taxGroups.length === 1 ? "" : "s"}
+              {visibleTaxGroups.length} of {taxAllItemCount} item
+              {taxAllItemCount === 1 ? "" : "s"}
+              {taxFilterNote && <span className="text-zinc-600"> · {taxFilterNote}</span>}
             </span>
           </div>
           <div className="max-h-[32rem] overflow-auto rounded-md">
-            <table className="w-full min-w-[880px]">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr>
                   <StickyTh>Item</StickyTh>
-                  <StickyTh>Category</StickyTh>
-                  <StickyTh right>Reg. qty</StickyTh>
-                  <StickyTh right>In store</StickyTh>
-                  <StickyTh right>Stocked out</StickyTh>
-                  <StickyTh right>Base</StickyTh>
+                  <StickyTh right>Registered</StickyTh>
                   <StickyTh right>VAT</StickyTh>
                   <StickyTh right>Inclusive</StickyTh>
-                  <StickyTh right>Detail</StickyTh>
+                  <StickyTh right>Actions</StickyTh>
                 </tr>
               </thead>
               <tbody>
                 {taxLoading && !taxGroups.length ? (
-                  <SkeletonRows cols={9} rows={6} />
+                  <SkeletonRows cols={5} rows={6} />
                 ) : (
                   visibleTaxGroups.map((group) => (
                     <tr
@@ -2654,37 +2846,44 @@ export default function StorePage() {
                           group={group}
                           onOpenDetail={() => setTaxDetailKey(group.key)}
                         />
-                      </Td>
-                      <Td className="text-zinc-400">{group.category}</Td>
-                      <Td right className="text-zinc-300">{qty(group.registeredQty)}</Td>
-                      <Td right>
-                        <QtyValueCell
-                          tone="inStore"
-                          quantity={group.inStoreQty}
-                          value={group.inStoreValue}
-                        />
+                        <p className="mt-0.5 max-w-[18rem] truncate text-[11px] text-violet-300/70">
+                          {group.category}
+                          {group.units.length > 0 && (
+                            <span className="text-zinc-600"> · {group.units.join(" / ")}</span>
+                          )}
+                        </p>
                       </Td>
                       <Td right>
                         <QtyValueCell
-                          tone="stockedOut"
-                          quantity={group.stockedOutQty}
-                          value={group.stockedOutValue}
+                          tone="registered"
+                          quantity={group.registeredQty}
+                          value={group.baseValue}
                         />
                       </Td>
-                      <Td right>{money(group.baseValue)}</Td>
                       <Td right className="text-amber-300">{money(group.vatAmount)}</Td>
                       <Td right className="text-emerald-300">
                         {money(group.inclusiveAmount)}
                       </Td>
                       <Td right>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-white/12 bg-transparent text-zinc-300 hover:bg-white/[0.06]"
-                          onClick={() => setTaxDetailKey(group.key)}
-                        >
-                          <Layers3 className="size-3.5" /> Detail
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            title={`Export ${group.itemName} to PDF`}
+                            className="size-8 border-white/12 bg-transparent p-0 text-cyan-300 hover:bg-white/[0.06]"
+                            onClick={() => exportItemPdf(group)}
+                          >
+                            <FileDown className="size-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-white/12 bg-transparent text-zinc-300 hover:bg-white/[0.06]"
+                            onClick={() => setTaxDetailKey(group.key)}
+                          >
+                            <Layers3 className="size-3.5" /> Detail
+                          </Button>
+                        </div>
                       </Td>
                     </tr>
                   ))
@@ -2696,7 +2895,9 @@ export default function StorePage() {
             <EmptyRow>
               {taxQuery.trim()
                 ? `No items match “${taxQuery.trim()}” in this slice.`
-                : "No vouchers in this slice."}
+                : taxFiltersActive
+                  ? `No voucher matches these filters (${taxFilterNote}).`
+                  : "No vouchers in this slice."}
             </EmptyRow>
           )}
 
@@ -2781,14 +2982,12 @@ export default function StorePage() {
                     </div>
 
                     <div className="overflow-auto rounded-xl border border-white/10">
-                      <table className="w-full min-w-[620px]">
+                      <table className="w-full min-w-[520px]">
                         <thead>
                           <tr>
                             <StickyTh>Voucher</StickyTh>
-                            <StickyTh right>Reg. qty</StickyTh>
-                            <StickyTh right>In store</StickyTh>
-                            <StickyTh right>Stocked out</StickyTh>
-                            <StickyTh right>Base</StickyTh>
+                            <StickyTh>Supplier</StickyTh>
+                            <StickyTh right>Registered</StickyTh>
                             <StickyTh right>VAT</StickyTh>
                             <StickyTh right>Inclusive</StickyTh>
                           </tr>
@@ -2802,24 +3001,19 @@ export default function StorePage() {
                               <Td className="font-mono text-xs text-emerald-300">
                                 {row.voucher_number}
                               </Td>
-                              <Td right className="text-zinc-300">
-                                {qty(row.registered_qty)}
+                              <Td className="text-zinc-200">
+                                {row.supplier_name || "—"}
+                                <span className="block font-mono text-[11px] text-sky-300/80">
+                                  {row.registration_date || "—"}
+                                </span>
                               </Td>
                               <Td right>
                                 <QtyValueCell
-                                  tone="inStore"
-                                  quantity={row.in_store_qty}
-                                  value={row.in_store_value}
+                                  tone="registered"
+                                  quantity={row.registered_qty}
+                                  value={row.base_value}
                                 />
                               </Td>
-                              <Td right>
-                                <QtyValueCell
-                                  tone="stockedOut"
-                                  quantity={row.stocked_out_qty}
-                                  value={row.stocked_out_value}
-                                />
-                              </Td>
-                              <Td right>{money(row.base_value)}</Td>
                               <Td right className="text-amber-300">
                                 {money(row.vat_amount)}
                               </Td>
@@ -2834,25 +3028,13 @@ export default function StorePage() {
                             <Td className="text-[11px] font-semibold text-zinc-400 uppercase">
                               Item totals
                             </Td>
-                            <Td right className="font-semibold text-white">
-                              {qty(taxDetail.registeredQty)}
-                            </Td>
+                            <Td />
                             <Td right>
                               <QtyValueCell
-                                tone="inStore"
-                                quantity={taxDetail.inStoreQty}
-                                value={taxDetail.inStoreValue}
+                                tone="registered"
+                                quantity={taxDetail.registeredQty}
+                                value={taxDetail.baseValue}
                               />
-                            </Td>
-                            <Td right>
-                              <QtyValueCell
-                                tone="stockedOut"
-                                quantity={taxDetail.stockedOutQty}
-                                value={taxDetail.stockedOutValue}
-                              />
-                            </Td>
-                            <Td right className="font-semibold text-white">
-                              {money(taxDetail.baseValue)}
                             </Td>
                             <Td right className="font-semibold text-amber-300">
                               {money(taxDetail.vatAmount)}

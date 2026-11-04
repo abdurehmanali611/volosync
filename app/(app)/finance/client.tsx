@@ -53,7 +53,6 @@ import {
   ChevronDown,
   ChevronRight,
   AlertTriangle,
-  Filter,
   Image as ImageIcon,
   Loader2,
   PackageMinus,
@@ -82,13 +81,18 @@ import {
   InventoryReportingCard,
   PenaltyMark,
   PenaltyReport,
+  CollectionMethodsReport,
+  PromotionReport,
   ReportExportButtons,
+  ReportKpiStrip,
   ReportLensBar,
   ReportingRangeBar,
   SalesAgentsCard,
+  StockPositionReport,
   type ReportLens,
 } from "@/components/volo/reports";
 import {
+  PAYMENT_METHODS,
   dailySales,
   dayOf,
   inRange,
@@ -101,6 +105,7 @@ import {
   type SaleLikeRow,
 } from "@/lib/reports";
 import { FinancePayrollSection } from "@/components/finance/finance-payroll";
+import { cn } from "@/lib/utils";
 import { groupLotsByItem, matchesQuery } from "@/components/volo/lots";
 import { ComboSelect, DateField, PaymentMethodPicker } from "@/components/volo/controls";
 import {
@@ -115,12 +120,6 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const today = () => new Date().toISOString().slice(0, 10);
-const METHODS = [
-  { value: "TELEBIRR", label: "Telebirr" },
-  { value: "BANK", label: "Bank" },
-  { value: "RECEIPT", label: "Receipt (cash)" },
-];
-
 const SETTLEMENT_STATUSES = [
   { value: "PENDING_FINANCE", label: "Pending finance" },
   { value: "PENDING_MANAGER", label: "Pending manager" },
@@ -143,7 +142,7 @@ const fmtDate = (iso?: string | null) => (iso ? iso.slice(0, 10) : "—");
 const fmtDateTime = (iso?: string | null) =>
   iso ? iso.replace("T", " ").slice(0, 16) : "—";
 const methodLabel = (value: string) =>
-  METHODS.find((option) => option.value === value)?.label ?? value;
+  PAYMENT_METHODS.find((option) => option.value === value)?.label ?? value;
 const categoryLabel = (code: string) =>
   ASSET_CATEGORIES.find((option) => option.value === code)?.label ??
   code.toLowerCase();
@@ -184,11 +183,14 @@ function blankSaleLine(key: number): SaleLine {
 }
 
 /** Finance requires both figures whenever a penalty is raised. */
-function penaltyLineError(line: SaleLine): string | null {
+function penaltyLineError(line: SaleLine, expected = 0): string | null {
   if (!line.penalty) return null;
   const value = Number(line.penalty_amount.replace(",", ""));
   if (!Number.isFinite(value) || value <= 0) {
     return "A penalty needs an amount greater than zero.";
+  }
+  if (value > expected) {
+    return "A penalty cannot be more than what this sale should have brought in.";
   }
   if (!line.penalty_reason.trim()) {
     return "A penalty needs a reason.";
@@ -424,15 +426,11 @@ export default function FinancePage() {
     }
   }
 
-  function applySettlementFilters() {
-    settlementFiltersRef.current = settlementFilters;
-    reloadSettlements(settlementFilters);
-  }
-
-  function clearSettlementFilters() {
-    setSettlementFilters(EMPTY_SETTLEMENT_FILTERS);
-    settlementFiltersRef.current = EMPTY_SETTLEMENT_FILTERS;
-    reloadSettlements(EMPTY_SETTLEMENT_FILTERS);
+  function setSettlementFilter(patch: Partial<SettlementFilterState>) {
+    const next = { ...settlementFiltersRef.current, ...patch };
+    settlementFiltersRef.current = next;
+    setSettlementFilters(next);
+    reloadSettlements(next);
   }
 
   function patchSaleLine(key: number, patch: Partial<SaleLine>) {
@@ -468,9 +466,11 @@ export default function FinancePage() {
     const picked = lineChosen(line);
     return picked ? Number(picked.unit_price) * Number(line.sold_quantity || 0) : 0;
   };
-  const readySaleLines = saleLines.filter(
-    (line) => line.assignment && Number(line.sold_quantity) > 0,
-  );
+  // A line is ready once an agent is picked and a sold figure is typed. Zero is
+  // a real answer — the agent took stock and sold none of it.
+  const saleLineFilled = (line: SaleLine) =>
+    Boolean(line.assignment) && line.sold_quantity.trim() !== "";
+  const readySaleLines = saleLines.filter(saleLineFilled);
   const stagedTotal = readySaleLines.reduce(
     (sum, line) => sum + lineAmount(line),
     0,
@@ -482,12 +482,15 @@ export default function FinancePage() {
       return;
     }
     const invalid = saleLines.find((line) => {
-      if (!line.assignment && !line.sold_quantity) return false;
+      if (!line.assignment && !line.sold_quantity.trim()) return false;
       const picked = lineChosen(line);
+      const sold = Number(line.sold_quantity);
       return (
         !picked ||
-        !Number(line.sold_quantity) ||
-        Number(line.sold_quantity) > Number(picked.assigned_quantity)
+        line.sold_quantity.trim() === "" ||
+        !Number.isFinite(sold) ||
+        sold < 0 ||
+        sold > Number(picked.assigned_quantity)
       );
     });
     if (invalid) {
@@ -505,9 +508,11 @@ export default function FinancePage() {
       toast.error("Each assignment can appear only once per batch.");
       return;
     }
-    const badPenalty = readySaleLines.find((line) => penaltyLineError(line) !== null);
+    const badPenalty = readySaleLines.find(
+      (line) => penaltyLineError(line, lineAmount(line)) !== null,
+    );
     if (badPenalty) {
-      toast.error(penaltyLineError(badPenalty) ?? "Penalty details are incomplete.");
+      toast.error(penaltyLineError(badPenalty, lineAmount(badPenalty)) ?? "Penalty details are incomplete.");
       return;
     }
     setBusy(true);
@@ -566,11 +571,26 @@ export default function FinancePage() {
     setPenaltyForm({ amount: "", reason: "" });
   }
 
+  // Live expected → penalty → collected arithmetic for the verdict dialog.
+  const penaltyExpected = Number(penaltyTarget?.expected_amount || 0);
+  const penaltyValue = Number(penaltyForm.amount.replace(",", "")) || 0;
+  const penaltyOver = penaltyValue > penaltyExpected;
+  const penaltyCollected = Math.max(penaltyExpected - penaltyValue, 0);
+  const penaltyShare =
+    penaltyExpected > 0 ? Math.round((penaltyCollected / penaltyExpected) * 100) : 0;
+
   async function confirmPenalty() {
     if (!penaltyTarget) return;
     const value = Number(penaltyForm.amount.replace(",", ""));
     if (!Number.isFinite(value) || value <= 0) {
       toast.error("A penalty needs an amount greater than zero.");
+      return;
+    }
+    const expected = Number(penaltyTarget.expected_amount || 0);
+    if (value > expected) {
+      toast.error(
+        `A penalty cannot exceed the ${money(expected)} this sale should have brought in.`,
+      );
       return;
     }
     if (!penaltyForm.reason.trim()) {
@@ -743,6 +763,7 @@ export default function FinancePage() {
           row.item_name,
           row.voucher_number,
           row.agent_name,
+          row.payment_method,
           methodLabel(row.payment_method),
           row.status,
           row.entered_by_name,
@@ -758,6 +779,7 @@ export default function FinancePage() {
           assetQuery,
           asset.asset_tag,
           asset.name,
+          asset.category,
           categoryLabel(asset.category),
           asset.serial_number,
           asset.assignee_name,
@@ -891,10 +913,8 @@ export default function FinancePage() {
     "Sold",
     "Returned",
     "Method",
-    "Sales amount",
     "Expected",
-    "Variance",
-    "Variance",
+    "Collected",
     "Penalty amount",
     "Penalty reason",
     "Status",
@@ -909,9 +929,8 @@ export default function FinancePage() {
     Number(row.sold_quantity),
     Number(row.returned_quantity),
     methodLabel(row.payment_method),
-    Number(row.sales_amount),
     Number(row.expected_amount),
-    Number(row.variance),
+    Number(row.collected_amount || row.expected_amount),
     row.penalty ? Number(row.penalty_amount || 0) : 0,
     row.penalty ? row.penalty_reason : "",
     row.status,
@@ -928,8 +947,7 @@ export default function FinancePage() {
     "Status",
     "Assignee",
     "Condition",
-    "Unit cost",
-    "Book value",
+    "Total cost",
   ];
   const assetMatrix = visibleAssets.map((asset) => [
     asset.asset_tag,
@@ -940,8 +958,7 @@ export default function FinancePage() {
     asset.status,
     asset.assignee_name ?? "",
     asset.condition_at_registration.toLowerCase(),
-    Number(asset.unit_cost),
-    Number(asset.book_value),
+    Number(asset.unit_cost) * Number(asset.quantity),
   ]);
 
   const awaitingFinance = {
@@ -984,10 +1001,6 @@ export default function FinancePage() {
   const agentReport = useMemo(
     () => summariseByAgent(ledger, reportWindow, agentList),
     [ledger, reportWindow, agentList],
-  );
-  const windowRows = useMemo(
-    () => reportRows.filter((row) => inRange(row.created_at, reportWindow)),
-    [reportRows, reportWindow],
   );
   const todaySales = useMemo(() => dailySales(reportRows), [reportRows]);
   const raisedToday = useMemo(() => {
@@ -1043,7 +1056,8 @@ export default function FinancePage() {
             {awaitingFinance.settlements.length ? (
               <div className="space-y-2">
                 {awaitingFinance.settlements.map((row) => {
-                  const hasRemainings = Number(row.returned_quantity) > 0;
+                  const penalised = Number(row.penalty_amount || 0) > 0;
+                  const penaltyable = Number(row.expected_amount) > 0;
                   const busyHere = decidingKey !== null;
                   return (
                     <div
@@ -1062,14 +1076,15 @@ export default function FinancePage() {
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-500">
                           <span>Sold {qty(row.sold_quantity)}</span>
                           <span className="text-zinc-700">·</span>
-                          <span className={hasRemainings ? "text-amber-300" : undefined}>
-                            Unsold {qty(row.returned_quantity)}
+                          <span className={penalised ? "text-rose-300" : "text-sky-300"}>
+                            {money(row.collected_amount || row.expected_amount)} collected
+                          </span>
+                          <span className="text-zinc-700">of</span>
+                          <span className="text-emerald-300">
+                            {money(row.expected_amount)} expected
                           </span>
                           <span className="text-zinc-700">·</span>
-                          <span>
-                            {money(row.sales_amount)} collected vs {money(row.expected_amount)}{" "}
-                            expected
-                          </span>
+                          <span>Unsold {qty(row.returned_quantity)}</span>
                           {row.penalty && (
                             <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[10px] font-medium text-rose-300">
                               <AlertTriangle className="size-3" />
@@ -1098,11 +1113,11 @@ export default function FinancePage() {
                           size="sm"
                           variant="outline"
                           className="gap-1.5 border-amber-400/30 text-amber-300 hover:bg-amber-400/10 hover:text-amber-200"
-                          disabled={busyHere || !hasRemainings}
+                          disabled={busyHere || !penaltyable}
                           title={
-                            hasRemainings
-                              ? "Approve and record a penalty for the unsold remainings"
-                              : "A penalty needs unsold remainings on this sale"
+                            penaltyable
+                              ? "Approve and record the cash this agent did not bring in"
+                              : "Nothing was sold, so there is no expected revenue to penalise"
                           }
                           onClick={() => openPenaltyDialog(row)}
                         >
@@ -1259,7 +1274,7 @@ export default function FinancePage() {
                                 className="border-white/10 bg-white/[0.03]"
                               />
                             </Field>
-                            <Field label="Sales amount · system">
+                            <Field label="Expected gross">
                               <div className="flex h-9 items-center justify-between gap-2 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-3">
                                 <span className="text-sm font-semibold text-emerald-200">
                                   {money(lineAmount(line))}
@@ -1267,7 +1282,7 @@ export default function FinancePage() {
                                 <span className="truncate text-[10px] text-emerald-300/70">
                                   {picked
                                     ? `${money(picked.unit_price)} × ${qty(line.sold_quantity || 0)}`
-                                    : "price × qty"}
+                                    : "price × sold units"}
                                 </span>
                               </div>
                             </Field>
@@ -1304,21 +1319,38 @@ export default function FinancePage() {
                           </div>
 
                           {line.penalty && (
-                            <div className="mt-3 grid gap-3 rounded-xl border border-rose-400/25 bg-rose-500/[0.06] p-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
-                              <Field label="Penalty amount">
+                            <div className="mt-3 grid gap-3 rounded-xl border border-rose-400/25 bg-rose-500/[0.06] p-3 sm:grid-cols-[9rem_10rem_minmax(0,1fr)]">
+                              <Field label="Penalty · not brought">
                                 <Input
                                   type="number"
                                   min="0"
                                   step="0.01"
+                                  max={lineAmount(line) || undefined}
                                   value={line.penalty_amount}
                                   onChange={(event) =>
                                     patchSaleLine(line.key, {
                                       penalty_amount: event.target.value,
                                     })
                                   }
-                                  placeholder="0.00"
+                                  placeholder={`0.00 – ${money(lineAmount(line))}`}
                                   className="border-rose-400/30 bg-white/[0.04] text-rose-100"
                                 />
+                              </Field>
+                              <Field label="Collected gross">
+                                <div className="flex h-9 items-center justify-between gap-2 rounded-lg border border-sky-400/25 bg-sky-400/10 px-3">
+                                  <span className="text-sm font-semibold text-sky-200">
+                                    {money(
+                                      Math.max(
+                                        lineAmount(line) -
+                                          (Number(line.penalty_amount.replace(",", "")) || 0),
+                                        0,
+                                      ),
+                                    )}
+                                  </span>
+                                  <span className="text-[10px] text-sky-300/60">
+                                    expected − penalty
+                                  </span>
+                                </div>
                               </Field>
                               <Field label="Reason · required">
                                 <Input
@@ -1332,10 +1364,10 @@ export default function FinancePage() {
                                   className="border-rose-400/30 bg-white/[0.04] text-rose-100"
                                 />
                               </Field>
-                              {penaltyLineError(line) && (
-                                <p className="text-[11px] text-rose-300 sm:col-span-2">
+                              {penaltyLineError(line, lineAmount(line)) && (
+                                <p className="text-[11px] text-rose-300 sm:col-span-3">
                                   <AlertTriangle className="mr-1 inline size-3" />
-                                  {penaltyLineError(line)}
+                                  {penaltyLineError(line, lineAmount(line))}
                                 </p>
                               )}
                             </div>
@@ -1361,12 +1393,18 @@ export default function FinancePage() {
                         {readySaleLines.length === 1 ? "" : "s"}
                       </p>
                       <p className="mt-1 text-[11px] text-zinc-400">
-                        Amounts are calculated as the item&apos;s selling price × sold quantity.
+                        Expected gross = selling price × sold quantity. A penalty is the
+                        slice of it the agent did not hand over.
                       </p>
                     </div>
-                    <span className="text-lg font-semibold text-emerald-200">
-                      {money(stagedTotal)}
-                    </span>
+                    <div className="text-right">
+                      <p className="text-[10px] font-semibold tracking-[0.16em] text-emerald-300/70 uppercase">
+                        Expected gross
+                      </p>
+                      <span className="text-lg font-semibold text-emerald-200">
+                        {money(stagedTotal)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1390,9 +1428,7 @@ export default function FinancePage() {
               <Field label="From">
                 <DateField
                   value={settlementFilters.from}
-                  onChange={(value) =>
-                    setSettlementFilters((current) => ({ ...current, from: value }))
-                  }
+                  onChange={(value) => setSettlementFilter({ from: value })}
                   placeholder="Any date"
                   clearable
                 />
@@ -1400,9 +1436,7 @@ export default function FinancePage() {
               <Field label="To">
                 <DateField
                   value={settlementFilters.to}
-                  onChange={(value) =>
-                    setSettlementFilters((current) => ({ ...current, to: value }))
-                  }
+                  onChange={(value) => setSettlementFilter({ to: value })}
                   placeholder="Any date"
                   clearable
                 />
@@ -1410,9 +1444,7 @@ export default function FinancePage() {
               <Field label="Sales agent">
                 <ComboSelect
                   value={settlementFilters.agent}
-                  onChange={(value) =>
-                    setSettlementFilters((current) => ({ ...current, agent: value }))
-                  }
+                  onChange={(value) => setSettlementFilter({ agent: value })}
                   options={[
                     { value: "", label: "All agents" },
                     ...agentList.map((agent) => ({
@@ -1428,9 +1460,7 @@ export default function FinancePage() {
               <Field label="Item">
                 <ComboSelect
                   value={settlementFilters.item}
-                  onChange={(value) =>
-                    setSettlementFilters((current) => ({ ...current, item: value }))
-                  }
+                  onChange={(value) => setSettlementFilter({ item: value })}
                   options={[
                     { value: "", label: "All items" },
                     ...lots.map((lot) => ({
@@ -1446,9 +1476,7 @@ export default function FinancePage() {
               <Field label="Status">
                 <ComboSelect
                   value={settlementFilters.status}
-                  onChange={(value) =>
-                    setSettlementFilters((current) => ({ ...current, status: value }))
-                  }
+                  onChange={(value) => setSettlementFilter({ status: value })}
                   options={[{ value: "", label: "All statuses" }, ...SETTLEMENT_STATUSES]}
                   placeholder="All statuses"
                   searchPlaceholder="Search statuses…"
@@ -1458,10 +1486,8 @@ export default function FinancePage() {
               <Field label="Payment method">
                 <ComboSelect
                   value={settlementFilters.method}
-                  onChange={(value) =>
-                    setSettlementFilters((current) => ({ ...current, method: value }))
-                  }
-                  options={[{ value: "", label: "All methods" }, ...METHODS]}
+                  onChange={(value) => setSettlementFilter({ method: value })}
+                  options={[{ value: "", label: "All methods" }, ...PAYMENT_METHODS]}
                   placeholder="All methods"
                   searchPlaceholder="Search methods…"
                   emptyText="No method found."
@@ -1474,55 +1500,35 @@ export default function FinancePage() {
                 value={settlementQuery}
                 onChange={setSettlementQuery}
                 placeholder="Search item, voucher, agent…"
-                className="w-64"
+                className="w-64 sm:w-72"
               />
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs text-zinc-500">
+              <p className="flex items-center gap-2 text-xs text-zinc-500">
+                {settlementFiltering && (
+                  <span className="flex items-center gap-1.5 text-zinc-400">
+                    <Loader2 className="size-3.5 animate-spin" /> Filtering
+                  </span>
+                )}
+                <span>
                   <span className="font-semibold text-zinc-300">{visibleSettlements.length}</span>{" "}
                   of {settlements.length} settlement{settlements.length === 1 ? "" : "s"}
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-white/15 bg-transparent"
-                  onClick={clearSettlementFilters}
-                  disabled={settlementFiltering || !settlementFilterActive}
-                >
-                  <X className="size-3.5" /> Clear
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={applySettlementFilters}
-                  disabled={settlementFiltering}
-                  className="gap-1.5"
-                >
-                  {settlementFiltering ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Filter className="size-3.5" />
-                  )}
-                  Apply filters
-                </Button>
-              </div>
+                </span>
+              </p>
             </div>
 
-            <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden rounded-xl border border-white/10">
+            <div className="max-h-[70vh] overflow-auto rounded-xl border border-white/10">
               <table className="w-full [&_td]:px-2 [&_th]:px-2">
                 <thead>
                   <tr>
                     <StickyTh>Item</StickyTh>
-                    <StickyTh>Voucher</StickyTh>
                     <StickyTh>Agent</StickyTh>
                     <StickyTh right>Assigned</StickyTh>
                     <StickyTh right>Sold</StickyTh>
                     <StickyTh right>Returned</StickyTh>
                     <StickyTh>Method</StickyTh>
-                    <StickyTh right>Sales amount</StickyTh>
                     <StickyTh right>Expected</StickyTh>
-                    <StickyTh right>Variance</StickyTh>
+                    <StickyTh right>Collected</StickyTh>
                     <StickyTh>Penalty</StickyTh>
                     <StickyTh>Status</StickyTh>
-                    <StickyTh>Entered by</StickyTh>
                     <StickyTh>Approvals</StickyTh>
                     <StickyTh right>Action</StickyTh>
                   </tr>
@@ -1532,20 +1538,28 @@ export default function FinancePage() {
                     <tr key={row.id} className="transition hover:bg-white/[0.03]">
                       <Td>{row.item_name}</Td>
                       <Td className="font-mono text-xs text-emerald-300">{row.voucher_number}</Td>
-                      <Td>{row.agent_name || "—"}</Td>
+                      <Td>
+                        <span className="block text-zinc-100">
+                          {row.agent_name || "—"}
+                        </span>
+                        <span className="block text-[11px] text-zinc-500">
+                          {row.entered_by_name || "—"} · {fmtDate(row.entered_at)}
+                        </span>
+                      </Td>
                       <Td right>{qty(row.assigned_quantity)}</Td>
                       <Td right>{qty(row.sold_quantity)}</Td>
                       <Td right className="text-amber-300">{qty(row.returned_quantity)}</Td>
                       <Td>{methodLabel(row.payment_method)}</Td>
-                      <Td right>{money(row.sales_amount)}</Td>
-                      <Td right>{money(row.expected_amount)}</Td>
+                      <Td right className="text-emerald-300">
+                        {money(row.expected_amount)}
+                      </Td>
                       <Td
                         right
                         className={
-                          Number(row.variance) < 0 ? "text-rose-300" : "text-zinc-500"
+                          Number(row.penalty_amount || 0) > 0 ? "text-rose-300" : "text-sky-300"
                         }
                       >
-                        {money(row.variance)}
+                        {money(row.collected_amount || row.expected_amount)}
                       </Td>
                       <Td>
                         <PenaltyMark
@@ -1568,14 +1582,6 @@ export default function FinancePage() {
                       </Td>
                       <Td>
                         <StatusPill status={row.status} tone={statusTone(row.status)} />
-                      </Td>
-                      <Td>
-                        <span className="block text-zinc-300">
-                          {row.entered_by_name || "—"}
-                        </span>
-                        <span className="block text-[11px] text-zinc-500">
-                          {fmtDate(row.entered_at)}
-                        </span>
                       </Td>
                       <Td>
                         <ApprovalStamps
@@ -1603,13 +1609,13 @@ export default function FinancePage() {
                               />
                               <IconButton
                                 label={
-                                  Number(row.returned_quantity) > 0
+                                  Number(row.expected_amount) > 0
                                     ? "Approve with penalty"
-                                    : "Approve with penalty — no unsold remainings on this sale"
+                                    : "Approve with penalty — nothing was sold, so there is no revenue to penalise"
                                 }
                                 tone="amber"
                                 disabled={
-                                  decidingKey !== null || Number(row.returned_quantity) <= 0
+                                  decidingKey !== null || Number(row.expected_amount) <= 0
                                 }
                                 onClick={() => openPenaltyDialog(row)}
                               />
@@ -1633,9 +1639,6 @@ export default function FinancePage() {
                       <tr key={`sk-${index}`}>
                         <Td>
                           <Skeleton className="h-4 w-28" />
-                        </Td>
-                        <Td>
-                          <Skeleton className="h-4 w-32" />
                         </Td>
                         <Td>
                           <Skeleton className="h-4 w-24" />
@@ -1666,12 +1669,6 @@ export default function FinancePage() {
                         </Td>
                         <Td>
                           <Skeleton className="h-4 w-24" />
-                        </Td>
-                        <Td>
-                          <Skeleton className="h-4 w-24" />
-                        </Td>
-                        <Td>
-                          <Skeleton className="h-4 w-20" />
                         </Td>
                         <Td right>
                           <Skeleton className="ml-auto h-4 w-16" />
@@ -1845,7 +1842,7 @@ export default function FinancePage() {
               />
             }
           >
-            <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden rounded-xl border border-white/10">
+            <div className="max-h-[60vh] overflow-auto rounded-xl border border-white/10">
               <table className="w-full [&_td]:px-2 [&_th]:px-2">
                 <thead>
                   <tr>
@@ -1906,42 +1903,41 @@ export default function FinancePage() {
         <Panel
           title="Promotion receipts"
           description="The list re-filters as soon as you pick a date. Print one promotion or every approved promotion in the range."
-          actions={
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2">
-                <DateField
-                  value={promoFrom}
-                  onChange={setPromoFrom}
-                  placeholder="From date"
-                  clearable
-                  className="w-36"
-                />
-                <DateField
-                  value={promoTo}
-                  onChange={setPromoTo}
-                  placeholder="To date"
-                  clearable
-                  className="w-36"
-                />
-              </div>
-              <Button
-                size="sm"
-                onClick={() => {
-                  const docs = visiblePromoReceipts.filter(
-                    (doc) => doc.status === "APPROVED",
-                  );
-                  if (!docs.length) {
-                    toast.error("No approved promotions in this range.");
-                    return;
-                  }
-                  printReceipts(docs.map(promotionReceipt));
-                }}
-              >
-                <Printer className="size-3.5" /> Print all filtered
-              </Button>
-            </div>
-          }
         >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <DateField
+                value={promoFrom}
+                onChange={setPromoFrom}
+                placeholder="From date"
+                clearable
+                className="w-36"
+              />
+              <DateField
+                value={promoTo}
+                onChange={setPromoTo}
+                placeholder="To date"
+                clearable
+                className="w-36"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                const docs = visiblePromoReceipts.filter(
+                  (doc) => doc.status === "APPROVED",
+                );
+                if (!docs.length) {
+                  toast.error("No approved promotions in this range.");
+                  return;
+                }
+                printReceipts(docs.map(promotionReceipt));
+              }}
+            >
+              <Printer className="size-3.5" /> Print all filtered
+            </Button>
+          </div>
+
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <TableSearch
               value={promoReceiptQuery}
@@ -2300,6 +2296,14 @@ export default function FinancePage() {
             description="Filters every card, chart and export on this page."
           />
 
+          <ReportKpiStrip
+            groups={itemReport}
+            agents={agentReport}
+            inventory={summary?.rows ?? []}
+            promotions={promotions}
+            range={reportWindow}
+          />
+
           <div className="grid gap-4 xl:grid-cols-2">
             <InventoryReportingCard
               rows={summary?.rows ?? []}
@@ -2346,48 +2350,17 @@ export default function FinancePage() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
-            <Panel
-              tone="indigo"
-              title="Collection methods"
-              description="Approved settlement value per payment channel in this window."
-            >
-              <div className="space-y-2 text-sm">
-                {METHODS.map((option) => {
-                  const total = windowRows
-                    .filter(
-                      (row) =>
-                        row.payment_method === option.value && row.status === "APPROVED",
-                    )
-                    .reduce((sum, row) => sum + Number(row.sales_amount), 0);
-                  return <Row key={option.value} label={option.label} value={money(total)} />;
-                })}
-                <Row
-                  label="Returned units"
-                  value={qty(
-                    windowRows.reduce((sum, row) => sum + Number(row.returned_quantity), 0),
-                  )}
-                />
-                <Row
-                  label={`Penalties · ${windowRows.filter((row) => row.penalty).length} raised`}
-                  value={money(
-                    windowRows.reduce((sum, row) => sum + Number(row.penalty_amount || 0), 0),
-                  )}
-                />
-                <Row
-                  label="Lines settled"
-                  value={String(windowRows.filter((row) => row.status === "APPROVED").length)}
-                />
-                <Row
-                  label="Input VAT on stock"
-                  value={money(summary?.totals.total_input_vat ?? 0)}
-                />
-                <Row
-                  label="Output VAT on sold stock"
-                  value={money(summary?.totals.total_output_vat ?? 0)}
-                />
-                <Row label="Net VAT" value={money(summary?.totals.net_vat ?? 0)} />
-              </div>
-            </Panel>
+            <CollectionMethodsReport
+              rows={ledger}
+              range={reportWindow}
+              methods={PAYMENT_METHODS}
+              vat={{
+                input: Number(summary?.totals.total_input_vat ?? 0),
+                output: Number(summary?.totals.total_output_vat ?? 0),
+                net: Number(summary?.totals.net_vat ?? 0),
+              }}
+              promotions={promotions}
+            />
             <PenaltyReport
               groups={agentReport}
               range={reportWindow}
@@ -2396,22 +2369,22 @@ export default function FinancePage() {
             />
           </div>
 
-          <Panel
-            title="Promotions"
-            description="Stock given away on the manufacturer's order."
-          >
-            <div className="grid gap-2 text-sm sm:grid-cols-3">
-              <Row label="Promotion documents" value={String(promotions.length)} />
-              <Row
-                label="Approved"
-                value={String(promotions.filter((doc) => doc.status === "APPROVED").length)}
-              />
-              <Row
-                label="Value printed"
-                value={money(promotions.reduce((sum, doc) => sum + Number(doc.total), 0))}
-              />
-            </div>
-          </Panel>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <PromotionReport promotions={promotions} range={reportWindow} />
+            <StockPositionReport
+              totals={{
+                registered_value: Number(summary?.totals.registered_value ?? 0),
+                in_store_value: Number(summary?.totals.in_store_value ?? 0),
+                stocked_out_value: Number(summary?.totals.stocked_out_value ?? 0),
+                base_value: Number(summary?.totals.base_value ?? 0),
+                vat: Number(summary?.totals.total_input_vat ?? 0),
+                inclusive_amount: Number(summary?.totals.inclusive_amount ?? 0),
+                output_vat: Number(summary?.totals.total_output_vat ?? 0),
+                net_vat: Number(summary?.totals.net_vat ?? 0),
+              }}
+              agents={agentReport}
+            />
+          </div>
 
           <div className="space-y-4">
             <Panel
@@ -2427,7 +2400,7 @@ export default function FinancePage() {
               }
             >
               {recentRegistrations.length ? (
-                <div className="overflow-y-auto overflow-x-hidden">
+                <div className="overflow-auto">
                   <table className="w-full [&_td]:px-2 [&_th]:px-2">
                     <thead>
                       <tr>
@@ -2483,7 +2456,7 @@ export default function FinancePage() {
               }
             >
               {recentMovements.length ? (
-                <div className="overflow-y-auto overflow-x-hidden">
+                <div className="overflow-auto">
                   <table className="w-full [&_td]:px-2 [&_th]:px-2">
                     <thead>
                       <tr>
@@ -2540,7 +2513,7 @@ export default function FinancePage() {
               }
             >
               {recentPromotions.length ? (
-                <div className="overflow-y-auto overflow-x-hidden">
+                <div className="overflow-auto">
                   <table className="w-full [&_td]:px-2 [&_th]:px-2">
                     <thead>
                       <tr>
@@ -2680,24 +2653,22 @@ export default function FinancePage() {
         <Panel
           title="Assets"
           description="Finance is the only role that moves company property — assign by name, remove to release."
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <TableSearch
-                value={assetQuery}
-                onChange={setAssetQuery}
-                placeholder="Search tag, asset, serial or assignee"
-                className="w-64"
-              />
-              <ReportExportButtons
-                title="Asset register"
-                headers={assetHeaders}
-                rows={assetMatrix}
-                file="volosync-assets"
-                business={reportingBusiness}
-              />
-            </div>
-          }
         >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <TableSearch
+              value={assetQuery}
+              onChange={setAssetQuery}
+              placeholder="Search tag, asset, serial or assignee"
+              className="w-64 sm:w-72"
+            />
+            <ReportExportButtons
+              title="Asset register"
+              headers={assetHeaders}
+              rows={assetMatrix}
+              file="volosync-assets"
+              business={reportingBusiness}
+            />
+          </div>
           <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
             <ComboSelect
               value={assetTab}
@@ -2729,21 +2700,19 @@ export default function FinancePage() {
             />
           </div>
 
-          <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden rounded-xl border border-white/10">
+          <div className="max-h-[70vh] overflow-auto rounded-xl border border-white/10">
             <table className="w-full [&_td]:px-2 [&_th]:px-2">
               <thead>
                 <tr>
                   <StickyTh>Tag</StickyTh>
                   <StickyTh>Photo</StickyTh>
                   <StickyTh>Name</StickyTh>
-                  <StickyTh>Category</StickyTh>
                   <StickyTh>Serial</StickyTh>
                   <StickyTh right>Qty</StickyTh>
                   <StickyTh>Status</StickyTh>
                   <StickyTh>Assignee</StickyTh>
                   <StickyTh>Condition</StickyTh>
-                  <StickyTh right>Unit cost</StickyTh>
-                  <StickyTh right>Book value</StickyTh>
+                  <StickyTh right>Total cost</StickyTh>
                   <StickyTh right>Action</StickyTh>
                 </tr>
               </thead>
@@ -2772,8 +2741,10 @@ export default function FinancePage() {
                           {asset.brand_model}
                         </span>
                       )}
+                      <span className="mt-1 inline-flex rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-zinc-400">
+                        {categoryLabel(asset.category)}
+                      </span>
                     </Td>
-                    <Td className="text-zinc-400">{categoryLabel(asset.category)}</Td>
                     <Td className="text-zinc-400">{asset.serial_number || "—"}</Td>
                     <Td right>{qty(asset.quantity)}</Td>
                     <Td>
@@ -2796,8 +2767,12 @@ export default function FinancePage() {
                     <Td className="capitalize text-zinc-400">
                       {asset.condition_at_registration.toLowerCase()}
                     </Td>
-                    <Td right>{money(asset.unit_cost)}</Td>
-                    <Td right className="text-emerald-300">{money(asset.book_value)}</Td>
+                    <Td right className="text-emerald-300">
+                      {money(Number(asset.unit_cost) * Number(asset.quantity))}
+                      <span className="block text-[10px] font-normal text-zinc-500">
+                        {money(asset.unit_cost)} each
+                      </span>
+                    </Td>
                     <Td right>
                       {asset.status === "ASSIGNED" ? (
                         <Button
@@ -2846,9 +2821,6 @@ export default function FinancePage() {
                       <Td>
                         <Skeleton className="h-4 w-24" />
                       </Td>
-                      <Td>
-                        <Skeleton className="h-4 w-24" />
-                      </Td>
                       <Td right>
                         <Skeleton className="ml-auto h-4 w-10" />
                       </Td>
@@ -2860,9 +2832,6 @@ export default function FinancePage() {
                       </Td>
                       <Td>
                         <Skeleton className="h-4 w-16" />
-                      </Td>
-                      <Td right>
-                        <Skeleton className="ml-auto h-4 w-20" />
                       </Td>
                       <Td right>
                         <Skeleton className="ml-auto h-4 w-20" />
@@ -2978,16 +2947,76 @@ export default function FinancePage() {
               {penaltyTarget
                 ? `${penaltyTarget.item_name} · ${penaltyTarget.voucher_number} · ${
                     penaltyTarget.agent_name || "unassigned agent"
-                  }. Recorded against the agent's standing, so both figures are required.`
+                  }. The penalty is the cash the agent did not bring in, so it can never
+                  exceed what this sale should have produced.`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-2.5">
+                <p className="text-[9.5px] font-semibold tracking-[0.18em] text-emerald-200/70 uppercase">
+                  Expected gross
+                </p>
+                <p className="mt-1 truncate text-sm font-semibold text-emerald-200">
+                  {money(penaltyTarget?.expected_amount ?? 0)}
+                </p>
+                <p className="text-[10px] text-emerald-200/50">
+                  {qty(penaltyTarget?.sold_quantity ?? 0)} sold ×{" "}
+                  {money(penaltyTarget?.unit_price ?? 0)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-rose-400/25 bg-rose-400/10 p-2.5">
+                <p className="text-[9.5px] font-semibold tracking-[0.18em] text-rose-200/70 uppercase">
+                  Penalty
+                </p>
+                <p className="mt-1 truncate text-sm font-semibold text-rose-200">
+                  {money(Number(penaltyForm.amount.replace(",", "")) || 0)}
+                </p>
+                <p className="text-[10px] text-rose-200/50">not brought in</p>
+              </div>
+              <div
+                className={cn(
+                  "rounded-xl border p-2.5",
+                  penaltyOver
+                    ? "border-amber-400/30 bg-amber-400/10"
+                    : "border-sky-400/25 bg-sky-400/10",
+                )}
+              >
+                <p
+                  className={cn(
+                    "text-[9.5px] font-semibold tracking-[0.18em] uppercase",
+                    penaltyOver ? "text-amber-200/70" : "text-sky-200/70",
+                  )}
+                >
+                  Collected gross
+                </p>
+                <p
+                  className={cn(
+                    "mt-1 truncate text-sm font-semibold",
+                    penaltyOver ? "text-amber-200" : "text-sky-200",
+                  )}
+                >
+                  {money(penaltyCollected)}
+                </p>
+                <p
+                  className={cn(
+                    "text-[10px]",
+                    penaltyOver ? "text-amber-200/60" : "text-sky-200/50",
+                  )}
+                >
+                  {penaltyOver
+                    ? "Over the expected gross"
+                    : `${penaltyShare}% of expected`}
+                </p>
+              </div>
+            </div>
             <Field label="Penalty amount">
               <Input
                 type="number"
                 min="0"
                 step="0.01"
+                max={penaltyExpected || undefined}
                 value={penaltyForm.amount}
                 onChange={(event) =>
                   setPenaltyForm((current) => ({
@@ -2995,7 +3024,7 @@ export default function FinancePage() {
                     amount: event.target.value,
                   }))
                 }
-                placeholder="0.00"
+                placeholder={`0.00 – ${money(penaltyExpected)}`}
                 autoFocus
                 className="border-rose-400/30 bg-white/[0.04] text-rose-100"
               />
@@ -3014,7 +3043,7 @@ export default function FinancePage() {
               />
             </Field>
             <p className="text-[11px] text-zinc-500">
-              Unsold remainings on this sale:{" "}
+              Sold {qty(penaltyTarget?.sold_quantity ?? 0)} · unsold remainings{" "}
               <span className="text-amber-300">
                 {qty(penaltyTarget?.returned_quantity ?? 0)}
               </span>
@@ -3023,7 +3052,7 @@ export default function FinancePage() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={penaltySaving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={penaltySaving}
+              disabled={penaltySaving || penaltyOver}
               className="gap-2 bg-rose-600 text-white hover:bg-rose-500"
               onClick={(event) => {
                 event.preventDefault();
@@ -3037,15 +3066,6 @@ export default function FinancePage() {
         </AlertDialogContent>
       </AlertDialog>
     </>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between border-b border-white/5 py-1.5">
-      <span className="text-zinc-400">{label}</span>
-      <span className="font-medium text-zinc-100">{value}</span>
-    </div>
   );
 }
 

@@ -61,6 +61,10 @@ export type SettlementRow = {
   payment_method: string;
   sales_amount: string;
   expected_amount: string;
+  /** expected_amount less the penalty: what the agent actually handed over. */
+  collected_amount: string;
+  /** Selling price per unit at assignment; expected_amount = this × sold_quantity. */
+  unit_price: string;
   variance: string;
   penalty: boolean;
   /** Finance's verdict: both figures exist only together with a penalty. */
