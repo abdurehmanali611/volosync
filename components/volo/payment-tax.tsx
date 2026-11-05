@@ -720,7 +720,7 @@ export function PaymentTaxPanel({
                     .sort();
                   const suppliers = Array.from(
                     new Set(
-                      detail.rows.map((row) => row.supplier_name?.trim()).filter(Boolean),
+                      detail.rows.map((row) => row.supplier_name?.trim() ?? "").filter(Boolean),
                     ),
                   ).sort((a, b) => a.localeCompare(b));
                   const paid = detail.rows.reduce(

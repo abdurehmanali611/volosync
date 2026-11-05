@@ -319,7 +319,7 @@ export function Td({
   className,
   colSpan,
 }: {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   right?: boolean;
   className?: string;
   colSpan?: number;

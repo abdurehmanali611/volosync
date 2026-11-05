@@ -39,6 +39,7 @@ export type SaleLikeRow = {
   sold_quantity: string;
   returned_quantity: string;
   sales_amount: string;
+  payment_method: string;
   /** What the sold units should have cost the customer: price × sold quantity. */
   expected_amount: string;
   penalty: boolean;
