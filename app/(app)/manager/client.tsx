@@ -29,7 +29,7 @@ import {
   type RankingPeriod,
   type SummaryTotals,
 } from "@/lib/api/manager";
-import { storeApi, type SummaryTab, type TabSummary } from "@/lib/api/store";
+import { storeApi, type TabSummary } from "@/lib/api/store";
 import { useView } from "@/lib/use-view";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import { printReceipts, type ReceiptDoc } from "@/lib/print";
@@ -241,10 +241,8 @@ export default function ManagerPage() {
   const [lotDeleting, setLotDeleting] = useState(false);
   const [decidingKey, setDecidingKey] = useState<string | null>(null);
 
-  // Payment & tax (server-side tab slice)
-  const taxView = view === "tax" || view === "tax-with" || view === "tax-without";
-  const taxTab: SummaryTab =
-    view === "tax-with" ? "with_vat" : view === "tax-without" ? "without_vat" : "all";
+  // Payment & tax
+  const taxView = view === "tax";
   const [taxSummary, setTaxSummary] = useState<TabSummary | null>(null);
   const [taxLoading, setTaxLoading] = useState(true);
 
@@ -367,7 +365,7 @@ export default function ManagerPage() {
       .finally(() => setBooting(false));
   }, [load]);
 
-  // Payment & tax rows come from the server already sliced per tab.
+  // Payment & tax rows come from the server with their totals.
   useEffect(() => {
     if (!taxView) return;
     let cancelled = false;
@@ -375,7 +373,7 @@ export default function ManagerPage() {
     async function loadTax() {
       setTaxLoading(true);
       try {
-        const response = await storeApi.summaryByTab(taxTab);
+        const response = await storeApi.summaryByTab("all");
         if (!cancelled) setTaxSummary(response.data);
       } catch (error) {
         toast.error(
@@ -390,7 +388,7 @@ export default function ManagerPage() {
     return () => {
       cancelled = true;
     };
-  }, [taxView, taxTab]);
+  }, [taxView]);
 
   // The Sales login may be created in Access (or the admin console) after this
   // page mounted, so refresh its username whenever the Agents view opens.
@@ -1662,17 +1660,12 @@ export default function ManagerPage() {
 
       {taxView && (
         <PaymentTaxPanel
-          tab={taxTab}
           rows={taxRows}
           totals={taxTotals}
           loading={taxLoading}
           business={reportingBusiness}
           tenantName={dashboard?.tenant.name}
-          emptyMessage={
-            taxTab === "without_vat"
-              ? "Every registration now carries VAT — only vouchers already booked at a 0% rate land here."
-              : "No vouchers in this slice."
-          }
+          emptyMessage="No vouchers registered yet."
         />
       )}
 
@@ -2970,9 +2963,7 @@ export default function ManagerPage() {
                 registered_value: Number(summaryTotals?.registered_value ?? 0),
                 in_store_value: Number(summaryTotals?.in_store_value ?? 0),
                 stocked_out_value: Number(summaryTotals?.stocked_out_value ?? 0),
-                base_value: Number(summaryTotals?.base_value ?? 0),
                 vat: Number(summaryTotals?.total_input_vat ?? summaryTotals?.vat ?? 0),
-                inclusive_amount: Number(summaryTotals?.inclusive_amount ?? 0),
                 output_vat: Number(summaryTotals?.total_output_vat ?? summaryTotals?.output_vat ?? 0),
                 net_vat: Number(summaryTotals?.net_vat ?? 0),
               }}

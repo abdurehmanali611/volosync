@@ -116,11 +116,11 @@ Catalog entity: name, category, unit, optional image, note. Holds **no stock**.
 |---|---|
 | `voucherNumber` | unique per tenant, sequential (`VS-2026-000123`) |
 | `item`, `quantity`, `remainingQuantity` | `quantity` = registered amount (kept for reporting); `remainingQuantity` = live balance, and it is what the inventory screen displays as **Quantity** |
-| `unitCost` | purchase cost per unit |
-| `paidAmount` | **read-only, derived** (Q6 + R4): `quantity × unitCost + 15% vatRate`. Never posted by the client |
-| `unitSales` | selling price per unit, **VAT exclusive** |
-| `priceWithVat` | `unitSales × (1 + vatRate)` — **VAT is added on top** (Q6) |
-| `vatRateAtRegistration` | stored per lot so historical tax never re-derives at a new rate |
+| `unitCost` | purchase cost per unit, **VAT inclusive** — registration has no VAT switch |
+| `paidAmount` | **read-only, derived** (Q6 + R4): `quantity × unitCost`. Never posted by the client |
+| `unitSales` | selling price per unit, **VAT inclusive** |
+| `priceWithVat` | = `unitSales` — VAT sits inside the price, it is never added on top (Q6) |
+| `vatRateAtRegistration` | stored per lot so historical tax never re-derives at a new rate; the VAT inside any amount is `amount × rate / (100 + rate)` |
 | `registrationDate`, `expiryDate` | |
 | `supplierName/Phone/Address/Tin` | supplier **is the manufacturer** (Q9) |
 | `note`, `image` | |
@@ -147,8 +147,8 @@ Editable by the Manager:
 - **`Quantity`** — a plain field edit, exactly like editing the name. Type the new number, save, done: **no
   adjustment record, no old → new history, no reason field, no ledger entry**. The saved number simply becomes
   the quantity, and every later stockout is validated against it (requesting more than it is rejected).
-- `unitSales`, `priceWithVat` (re-derived as `unitSales × (1 + vatRate)`), `unitCost` and its derived
-  `paidAmount`
+- `unitSales`, `priceWithVat` (= `unitSales`; both are VAT-inclusive), `unitCost` and its derived
+  `paidAmount` (= registered quantity × `unitCost`)
 - name, category, unit, note, image, expiry date, supplier block
 
 `voucherNumber` is immutable. All of it applies immediately — no approval chain. Open assignments and settled
@@ -290,7 +290,7 @@ credit:
 |---|---|
 | Top | Register · Inventory · Inactive · Suppliers · Review before send · Item receipts |
 | Request status | Stock movements · Item registrations |
-| Payment & tax | All lines · With VAT · Without VAT |
+| Payment & tax | single flat view (every line carries VAT) |
 
 `Paid receiving` and `Credit vouchers` are **removed** (Q5).
 
@@ -382,7 +382,7 @@ assigned date, condition at registration, unit cost, book value.
 - No approval chain on any asset action.
 
 #### Payment & tax
-`All lines · With VAT · Without VAT` only. PDF export. No credit anywhere.
+Single flat view — every line carries VAT, so there is no All / With / Without sub-menu. PDF export. No credit anywhere.
 
 Each row is a **voucher lot**, and the panel reports the **whole registered line, not just what is left** —
 exactly the HotCol `hotelInventoryPayment` shape:
@@ -393,7 +393,7 @@ exactly the HotCol `hotelInventoryPayment` shape:
 | **In store** | `remainingQuantity` and its value |
 | **Stocked out** | `quantity − remainingQuantity` and its value |
 | Unit cost · paid amount | per unit and line total, VAT inclusive |
-| Base · VAT · Inclusive | `unitCost` base, 15% VAT, and the sum |
+| VAT inside | the 15% already carried by the VAT-inclusive `unitCost`, read out at `amount × rate / (100 + rate)` |
 
 Group headers summarise the same split (`n in store · n stocked out`), and a line that is fully out is
 classified **Stocked out** while a partially or fully available one shows under **In store** with its
@@ -465,8 +465,8 @@ Tabs: **Reports · Payments · Access · Billing · Branches · Staff · Modules
 Tabs: Portfolio · Sales · Inventory · Staff · More.
 
 - **Portfolio** — switch between branches (each a child tenant) and an all-branch roll-up: stock value,
-  sales, returns, promotions, pending approvals, subscription status. **VAT shown separately**
-  (base / VAT / inclusive) on every money figure.
+  sales, returns, promotions, pending approvals, subscription status. Money figures are
+  VAT-inclusive; input and output VAT are read out of them and shown separately.
 - **Sales** — revenue, units, agent ranking, payment-method mix, trends, penalties.
 - **Inventory** — stock value, low/expiring stock, recent movements, promotion impact.
 - **Staff** — headcount, HR snapshot, sales agents.
@@ -511,8 +511,8 @@ no multi-currency · no customer-level returns · no tenant subdomains.
 | 2 | Inventory effect at **Manager approval** |
 | 3 | `changingAmount` = per-unit price delta (negative = discount) **+ required reason input** |
 | 4 | No overselling; Finance/Manager decline bad entries; returns add quantity back to the same lot; Payment & tax keeps the true record |
-| 5 | Payment & tax = All lines / With VAT / Without VAT only |
-| 6 | **VAT added on top** (15%); `paidAmount` kept = `unitCost + VAT` per unit |
+| 5 | ~~Payment & tax = All lines / With VAT / Without VAT only~~ → **revised 2026-11-06: single flat Payment & tax view**, no nested slice menu, because every registered line is VAT-inclusive |
+| 6 | ~~**VAT added on top** (15%)~~ → **revised 2026-11-06: every price is VAT-inclusive.** No VAT switch at registration; `unitCost` and `unitSales` both already contain VAT, so `paidAmount = quantity × unitCost` and VAT is read back at `amount × rate / (100 + rate)` |
 | 7 | **Shared username, per-agent unique password**, forced change at first login, initial password never retrievable afterwards |
 | 8 | **Branch = separate tenant**; owner mobile app switches between branches |
 | 9 | Registration supplier **is** the manufacturer; no separate registry |

@@ -228,9 +228,11 @@ The edit form now covers the full spec §4.2a set. All fields optional (PATCH):
 
 - `remaining_quantity` is the inventory screen's single **Quantity** (the
   remaining balance) — a plain overwrite, no ledger entry, no approval.
-- `unit_sales` re-derives `price_with_vat = unit_sales × (1 + vat_rate/100)`.
-- `unit_cost` re-derives `paid_amount = registered quantity × unit_cost ×
-  (1 + vat_rate/100)` (R4: registered quantity, not the edited remaining).
+- `unit_sales` re-derives `price_with_vat`, which is simply `unit_sales` — the
+  selling price is entered VAT-inclusive, so nothing is added on top.
+- `unit_cost` re-derives `paid_amount = registered quantity × unit_cost`
+  (R4: registered quantity, not the edited remaining). The cost is already
+  VAT-inclusive.
 - `item_name` / `category` / `unit` update the linked catalog `Item`.
 - `voucher_number` is immutable (ignored if sent).
 - `unit_sales` must be > 0; `unit_cost` ≥ 0; `remaining_quantity` ≥ 0.
@@ -273,11 +275,11 @@ Each row in `data.rows` (new fields; old fields kept):
   "stocked_out_qty": "16.000",
   "stocked_out_value": "18400.00",
   "unit_cost": "1150.00",
-  "paid_amount": "52900.00",
+  "paid_amount": "46000.00",
   "base_value": "46000.00",
-  "vat_amount": "6900.00",
-  "inclusive_amount": "52900.00",
-  "output_vat": "3192.00",
+  "vat_amount": "6000.00",
+  "inclusive_amount": "46000.00",
+  "output_vat": "3168.00",
   "vat_rate": "15.00",
   "quantity": "40.000",
   "remaining_quantity": "24.000",
@@ -286,18 +288,18 @@ Each row in `data.rows` (new fields; old fields kept):
   "registered_value": "46000.00",
   "in_store_value": "27600.00",
   "stocked_out_value": "18400.00",
-  "vat": "6900.00"
+  "vat": "6000.00"
 }
 ```
 
 Definitions:
 
-- `paid_amount` = `inclusive_amount` = registered qty × unit_cost × (1 + vat)
-  — the VAT-inclusive line total (input side).
-- `base_value` = registered qty × unit_cost; `vat_amount` = `paid_amount −
-  base_value` (input VAT).
-- `output_vat` = `stocked_out_qty × unit_sales × vat_rate / 100` — output VAT
-  on the sold portion, estimated at the lot's current `unit_sales`.
+- `paid_amount` = `inclusive_amount` = `base_value` = registered qty × unit_cost
+  — the cost is entered VAT-inclusive, so the line total is just qty × cost.
+- `vat_amount` = `paid_amount × vat_rate / (100 + vat_rate)` — the input VAT read
+  back out of that total.
+- `output_vat` = `stocked_out_qty × unit_sales × vat_rate / (100 + vat_rate)` —
+  output VAT inside the sold portion, estimated at the lot's current `unit_sales`.
 
 `data.totals` (all strings):
 
@@ -307,12 +309,12 @@ Definitions:
   "in_store_value": "66400.00",
   "stocked_out_value": "45600.00",
   "base_value": "112000.00",
-  "vat": "16800.00",
-  "inclusive_amount": "128800.00",
-  "output_vat": "7680.00",
-  "total_input_vat": "16800.00",
-  "total_output_vat": "7680.00",
-  "net_vat": "-9120.00"
+  "vat": "14608.70",
+  "inclusive_amount": "112000.00",
+  "output_vat": "6678.26",
+  "total_input_vat": "14608.70",
+  "total_output_vat": "6678.26",
+  "net_vat": "-7930.44"
 }
 ```
 

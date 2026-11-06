@@ -26,7 +26,6 @@ import {
   type FinanceAsset,
   type SettlementRow,
   type SummaryPayload,
-  type SummaryTab,
 } from "@/lib/api/finance";
 import { useView } from "@/lib/use-view";
 import {
@@ -227,10 +226,8 @@ export default function FinancePage() {
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // payment & tax (server-side tab slice)
-  const isTaxView = view === "tax" || view === "tax-with" || view === "tax-without";
-  const taxTab: SummaryTab =
-    view === "tax-with" ? "with_vat" : view === "tax-without" ? "without_vat" : "all";
+  // payment & tax
+  const isTaxView = view === "tax";
   const [taxSummary, setTaxSummary] = useState<SummaryPayload | null>(null);
   const [taxLoading, setTaxLoading] = useState(true);
 
@@ -343,24 +340,26 @@ export default function FinancePage() {
     });
   }, [load]);
 
-  // Payment & tax: totals always follow the server-side slice.
+  // Payment & tax: totals always follow the filtered rows.
   useEffect(() => {
     if (!isTaxView) return;
     let cancelled = false;
     setTaxLoading(true);
     financeApi
-      .summary(taxTab)
+      .summary("all")
       .then((res) => {
         if (!cancelled) setTaxSummary(res.data);
       })
-      .catch((error) => toast.error(errorMessage(error, "Could not load the tax slice")))
+      .catch((error) =>
+        toast.error(errorMessage(error, "Could not load payment & tax")),
+      )
       .finally(() => {
         if (!cancelled) setTaxLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [isTaxView, taxTab]);
+  }, [isTaxView]);
 
   // Assets: category / status are server-side filters.
   const fetchAssets = useCallback(async () => {
@@ -2113,7 +2112,6 @@ export default function FinancePage() {
 
       {isTaxView && (
         <PaymentTaxPanel
-          tab={taxTab}
           rows={taxRows}
           totals={taxTotals}
           loading={taxLoading}
@@ -2122,11 +2120,7 @@ export default function FinancePage() {
             tin: dashboard?.tenant.tin,
           }}
           tenantName={dashboard?.tenant.name}
-          emptyMessage={
-            taxTab === "without_vat"
-              ? "Every registration now carries VAT — only vouchers already booked at a 0% rate land here."
-              : "No vouchers in this slice."
-          }
+          emptyMessage="No vouchers registered yet."
         />
       )}
 
@@ -2376,9 +2370,7 @@ export default function FinancePage() {
                 registered_value: Number(summary?.totals.registered_value ?? 0),
                 in_store_value: Number(summary?.totals.in_store_value ?? 0),
                 stocked_out_value: Number(summary?.totals.stocked_out_value ?? 0),
-                base_value: Number(summary?.totals.base_value ?? 0),
                 vat: Number(summary?.totals.total_input_vat ?? 0),
-                inclusive_amount: Number(summary?.totals.inclusive_amount ?? 0),
                 output_vat: Number(summary?.totals.total_output_vat ?? 0),
                 net_vat: Number(summary?.totals.net_vat ?? 0),
               }}

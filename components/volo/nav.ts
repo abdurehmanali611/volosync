@@ -141,11 +141,7 @@ export const ROLE_NAV: Record<Role, NavSection[]> = {
           { label: "Item registrations", view: "requests" },
           { label: "Stock movements", view: "movements" },
         ]),
-        item("Payment & tax", STORE_ROOT, "tax", ReceiptText, [
-          { label: "All lines", view: "tax" },
-          { label: "With VAT", view: "tax-with" },
-          { label: "Without VAT", view: "tax-without" },
-        ]),
+        item("Payment & tax", STORE_ROOT, "tax", ReceiptText),
       ],
     },
   ],
@@ -173,11 +169,7 @@ export const ROLE_NAV: Record<Role, NavSection[]> = {
     {
       label: "Ledger",
       items: [
-        item("Payment & tax", FINANCE_ROOT, "tax", ReceiptText, [
-          { label: "All lines", view: "tax" },
-          { label: "With VAT", view: "tax-with" },
-          { label: "Without VAT", view: "tax-without" },
-        ]),
+        item("Payment & tax", FINANCE_ROOT, "tax", ReceiptText),
       ],
     },
   ],
@@ -189,15 +181,7 @@ export const ROLE_NAV: Record<Role, NavSection[]> = {
           { label: "Reports", view: "reports" },
           { label: "Approvals", view: "approvals" },
           { label: "Inventory", view: "inventory" },
-          {
-            label: "Payment & tax",
-            view: "tax",
-            children: [
-              { label: "All lines", view: "tax" },
-              { label: "With VAT", view: "tax-with" },
-              { label: "Without VAT", view: "tax-without" },
-            ],
-          },
+          { label: "Payment & tax", view: "tax" },
           { label: "Agents", view: "agents" },
           { label: "Promotions", view: "promotions" },
           { label: "Assets", view: "assets" },
@@ -284,8 +268,6 @@ export function isNavActive(
   const base = leaf.href.split("?")[0];
   if (pathname !== base) return false;
   const view = currentView ?? defaultViewFor(base);
-  // Store's Payment & tax tab also covers its with/without VAT sub-views.
-  if (base === STORE_ROOT && leaf.view === "tax") return view.startsWith("tax");
   if (leaf.view === view) return true;
   return Boolean(leaf.children?.some((child) => matchesView(child, view)));
 }

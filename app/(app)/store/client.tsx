@@ -23,7 +23,7 @@ import {
   buildStockOutReceipt,
   tenantBusiness,
 } from "@/lib/receipts";
-import { storeApi, type SummaryTab, type SummaryTabRow, type TabSummary } from "@/lib/api/store";
+import { storeApi, type SummaryTabRow, type TabSummary } from "@/lib/api/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -416,7 +416,6 @@ export default function StorePage() {
   const [taxFrom, setTaxFrom] = useState("");
   const [taxTo, setTaxTo] = useState("");
   const [taxSupplier, setTaxSupplier] = useState("all");
-  const [taxVat, setTaxVat] = useState<"all" | "with" | "without">("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -470,18 +469,16 @@ export default function StorePage() {
     }
   }, []);
 
-  const isTaxView = view === "tax" || view === "tax-with" || view === "tax-without";
-  const taxTab: SummaryTab =
-    view === "tax-with" ? "with_vat" : view === "tax-without" ? "without_vat" : "all";
+  const isTaxView = view === "tax";
 
-  // Payment & tax rows come from the server already sliced per tab; totals
+  // Payment & tax rows come from the server with their totals; totals
   // follow the filtered rows so the panel reconciles.
   useEffect(() => {
     if (!isTaxView) return;
     let cancelled = false;
     setTaxLoading(true);
     storeApi
-      .summaryByTab(taxTab)
+      .summaryByTab("all")
       .then((response) => {
         if (!cancelled) setTax(response.data);
       })
@@ -496,7 +493,7 @@ export default function StorePage() {
     return () => {
       cancelled = true;
     };
-  }, [isTaxView, taxTab]);
+  }, [isTaxView]);
 
   const totals = useMemo(() => {
     const quantity = lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
@@ -901,8 +898,7 @@ export default function StorePage() {
     }
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [rawTaxRows]);
-  const taxFiltersActive =
-    Boolean(taxFrom || taxTo) || taxSupplier !== "all" || taxVat !== "all";
+  const taxFiltersActive = Boolean(taxFrom || taxTo) || taxSupplier !== "all";
   const taxRows = useMemo(
     () =>
       rawTaxRows.filter((row) => {
@@ -912,20 +908,15 @@ export default function StorePage() {
         if (taxSupplier !== "all" && (row.supplier_name ?? "").trim() !== taxSupplier) {
           return false;
         }
-        const inputVat = Number(row.vat_amount || 0);
-        if (taxVat === "with" && inputVat <= 0) return false;
-        if (taxVat === "without" && inputVat > 0) return false;
         return true;
       }),
-    [rawTaxRows, taxFrom, taxTo, taxSupplier, taxVat],
+    [rawTaxRows, taxFrom, taxTo, taxSupplier],
   );
   const taxFilterNote = taxFiltersActive
     ? [
         taxFrom && `from ${taxFrom}`,
         taxTo && `to ${taxTo}`,
         taxSupplier !== "all" && taxSupplier,
-        taxVat === "with" && "with VAT",
-        taxVat === "without" && "without VAT",
       ]
         .filter(Boolean)
         .join(" · ")
@@ -993,8 +984,6 @@ export default function StorePage() {
   );
   const taxDetail = taxGroups.find((group) => group.key === taxDetailKey) ?? null;
 
-  const taxTabLabel =
-    taxTab === "with_vat" ? "With VAT" : taxTab === "without_vat" ? "Without VAT" : "All lines";
   const taxHeaders = [
     "Voucher",
     "Item",
@@ -1005,10 +994,8 @@ export default function StorePage() {
     "Stocked out qty",
     "Stocked out value",
     "Unit cost",
-    "Paid amount",
-    "Base",
-    "VAT",
-    "Inclusive",
+    "Paid amount (VAT-incl.)",
+    "VAT inside",
   ];
   const taxMatrix = taxRows.map((row) => [
     row.voucher_number,
@@ -1021,9 +1008,7 @@ export default function StorePage() {
     Number(row.stocked_out_value),
     Number(row.unit_cost),
     Number(row.paid_amount),
-    Number(row.base_value),
     Number(row.vat_amount),
-    Number(row.inclusive_amount),
   ]);
   const taxExportTotals = taxTotals
     ? ([
@@ -1037,9 +1022,7 @@ export default function StorePage() {
         Number(taxTotals.stocked_out_value),
         "",
         taxQtyTotals.paid,
-        Number(taxTotals.base_value),
         Number(taxTotals.total_input_vat),
-        Number(taxTotals.inclusive_amount),
       ] as (string | number)[])
     : undefined;
 
@@ -1057,13 +1040,11 @@ export default function StorePage() {
       Number(row.stocked_out_value),
       Number(row.unit_cost),
       Number(row.paid_amount),
-      Number(row.base_value),
       Number(row.vat_amount),
-      Number(row.inclusive_amount),
     ];
     exportPdf({
       title: `Payment & tax · ${group.itemName}`,
-      subtitle: `${dashboard?.tenant.name ?? "Store"} · ${taxTabLabel} · ${group.category} · ${
+      subtitle: `${dashboard?.tenant.name ?? "Store"} · ${group.category} · ${
         group.rows.length
       } voucher${group.rows.length === 1 ? "" : "s"}`,
       headers: taxHeaders,
@@ -1079,9 +1060,7 @@ export default function StorePage() {
         group.stockedOutValue,
         "",
         group.rows.reduce((sum, row) => sum + Number(row.paid_amount), 0),
-        group.baseValue,
         group.vatAmount,
-        group.inclusiveAmount,
       ],
       file: `volosync-tax-${(group.itemName || "item")
         .toLowerCase()
@@ -2701,7 +2680,7 @@ export default function StorePage() {
 
       {isTaxView && (
         <Panel
-          title={`Payment & tax · ${taxTabLabel}`}
+          title="Payment & tax"
           description="Grouped per item: hover a name for a quick preview, open Detail for the full voucher breakdown. Registered = in store + stocked out; costs and selling prices are VAT-inclusive, so input VAT is read out of the purchase and output VAT out of the stocked-out portion."
           actions={
             <div className="ml-auto flex gap-2">
@@ -2713,7 +2692,7 @@ export default function StorePage() {
                 onClick={() =>
                   exportPdf({
                     title: "Payment & tax",
-                    subtitle: `${dashboard?.tenant.name ?? ""} · ${taxTabLabel} · ${taxRows.length} vouchers`,
+                    subtitle: `${dashboard?.tenant.name ?? ""} · ${taxRows.length} vouchers`,
                     headers: taxHeaders,
                     rows: taxMatrix,
                     file: "volosync-payment-tax",
@@ -2731,7 +2710,7 @@ export default function StorePage() {
                 disabled={taxLoading}
                 onClick={() =>
                   exportExcel({
-                    title: `Payment & tax · ${taxTabLabel}`,
+                    title: "Payment & tax",
                     headers: taxHeaders,
                     rows: taxMatrix,
                     totals: taxExportTotals,
@@ -2778,19 +2757,6 @@ export default function StorePage() {
                 />
               </div>
             </Field>
-            <Field label="VAT">
-              <div className="w-32">
-                <ComboSelect
-                  value={taxVat}
-                  onChange={(value) => setTaxVat(value as "all" | "with" | "without")}
-                  options={[
-                    { value: "all", label: "Any VAT" },
-                    { value: "with", label: "With VAT" },
-                    { value: "without", label: "Without VAT" },
-                  ]}
-                />
-              </div>
-            </Field>
             {taxFiltersActive && (
               <Button
                 size="sm"
@@ -2800,7 +2766,6 @@ export default function StorePage() {
                   setTaxFrom("");
                   setTaxTo("");
                   setTaxSupplier("all");
-                  setTaxVat("all");
                   setTaxQuery("");
                 }}
               >
@@ -2828,14 +2793,13 @@ export default function StorePage() {
                 <tr>
                   <StickyTh>Item</StickyTh>
                   <StickyTh right>Registered</StickyTh>
-                  <StickyTh right>VAT</StickyTh>
-                  <StickyTh right>Inclusive</StickyTh>
+                  <StickyTh right>VAT inside</StickyTh>
                   <StickyTh right>Actions</StickyTh>
                 </tr>
               </thead>
               <tbody>
                 {taxLoading && !taxGroups.length ? (
-                  <SkeletonRows cols={5} rows={6} />
+                  <SkeletonRows cols={4} rows={6} />
                 ) : (
                   visibleTaxGroups.map((group) => (
                     <tr
@@ -2858,13 +2822,10 @@ export default function StorePage() {
                         <QtyValueCell
                           tone="registered"
                           quantity={group.registeredQty}
-                          value={group.baseValue}
+                          value={group.registeredValue}
                         />
                       </Td>
                       <Td right className="text-amber-300">{money(group.vatAmount)}</Td>
-                      <Td right className="text-emerald-300">
-                        {money(group.inclusiveAmount)}
-                      </Td>
                       <Td right>
                         <div className="flex items-center justify-end gap-1.5">
                           <Button
@@ -2904,7 +2865,11 @@ export default function StorePage() {
 
           {taxTotals && (
             <div className="mt-4 flex flex-wrap gap-2">
-              <TaxTotalPill label="Base value" value={money(taxTotals.base_value)} tone="base" />
+              <TaxTotalPill
+                label="Registered value (VAT-incl.)"
+                value={money(taxTotals.registered_value)}
+                tone="base"
+              />
               <TaxTotalPill
                 label="In store value"
                 value={money(taxTotals.in_store_value)}
@@ -2926,11 +2891,6 @@ export default function StorePage() {
                 tone="output"
               />
               <TaxTotalPill label="Net VAT" value={money(taxTotals.net_vat)} tone="net" />
-              <TaxTotalPill
-                label="Inclusive amount"
-                value={money(taxTotals.inclusive_amount)}
-                tone="inclusive"
-              />
             </div>
           )}
 
@@ -2948,7 +2908,7 @@ export default function StorePage() {
                 <>
                   <SheetHeader className="border-b border-white/10 p-5">
                     <p className="text-[10px] font-semibold tracking-[0.22em] text-zinc-500 uppercase">
-                      {taxDetail.category} · {taxTabLabel}
+                      {taxDetail.category}
                     </p>
                     <SheetTitle className="text-lg text-white">
                       {taxDetail.itemName}
@@ -2963,6 +2923,12 @@ export default function StorePage() {
                   <div className="space-y-4 p-5">
                     <div className="grid gap-2 sm:grid-cols-3">
                       <TaxDetailStat
+                        label="Registered"
+                        value={money(taxDetail.registeredValue)}
+                        hint={`${qty(taxDetail.registeredQty)} units`}
+                        tone="base"
+                      />
+                      <TaxDetailStat
                         label="In store"
                         value={money(taxDetail.inStoreValue)}
                         hint={`${qty(taxDetail.inStoreQty)} units`}
@@ -2974,12 +2940,6 @@ export default function StorePage() {
                         hint={`${qty(taxDetail.stockedOutQty)} units`}
                         tone="stockedOut"
                       />
-                      <TaxDetailStat
-                        label="Inclusive"
-                        value={money(taxDetail.inclusiveAmount)}
-                        hint={`VAT ${money(taxDetail.vatAmount)}`}
-                        tone="inclusive"
-                      />
                     </div>
 
                     <div className="overflow-auto rounded-xl border border-white/10">
@@ -2989,8 +2949,7 @@ export default function StorePage() {
                             <StickyTh>Voucher</StickyTh>
                             <StickyTh>Supplier</StickyTh>
                             <StickyTh right>Registered</StickyTh>
-                            <StickyTh right>VAT</StickyTh>
-                            <StickyTh right>Inclusive</StickyTh>
+                            <StickyTh right>VAT inside</StickyTh>
                           </tr>
                         </thead>
                         <tbody>
@@ -3012,14 +2971,11 @@ export default function StorePage() {
                                 <QtyValueCell
                                   tone="registered"
                                   quantity={row.registered_qty}
-                                  value={row.base_value}
+                                  value={row.registered_value}
                                 />
                               </Td>
                               <Td right className="text-amber-300">
                                 {money(row.vat_amount)}
-                              </Td>
-                              <Td right className="text-emerald-300">
-                                {money(row.inclusive_amount)}
                               </Td>
                             </tr>
                           ))}
@@ -3034,14 +2990,11 @@ export default function StorePage() {
                               <QtyValueCell
                                 tone="registered"
                                 quantity={taxDetail.registeredQty}
-                                value={taxDetail.baseValue}
+                                value={taxDetail.registeredValue}
                               />
                             </Td>
                             <Td right className="font-semibold text-amber-300">
                               {money(taxDetail.vatAmount)}
-                            </Td>
-                            <Td right className="font-semibold text-emerald-300">
-                              {money(taxDetail.inclusiveAmount)}
                             </Td>
                           </tr>
                         </tfoot>
@@ -3049,9 +3002,9 @@ export default function StorePage() {
                     </div>
 
                     <p className="text-[11px] text-zinc-500">
-                      Registered = in store + stocked out. Input VAT is paid on the
-                      registered purchase; output VAT is charged on the stocked-out
-                      portion.
+                      Registered = in store + stocked out. Costs and selling prices are
+                      entered VAT-inclusive, so input VAT is read out of the registered
+                      purchase and output VAT out of the stocked-out portion.
                     </p>
                   </div>
                 </>
@@ -4915,9 +4868,9 @@ function TaxItemDetailTrigger({
             </span>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-zinc-500">Inclusive</span>
+            <span className="text-zinc-500">VAT inside</span>
             <span className="font-medium text-emerald-300">
-              {money(group.inclusiveAmount)}
+              {money(group.vatAmount)}
             </span>
           </div>
         </div>
@@ -4933,7 +4886,7 @@ function TaxItemDetailTrigger({
             >
               <span className="font-mono text-emerald-300">{row.voucher_number}</span>
               <span className="text-zinc-400">
-                {qty(row.stocked_out_qty)} out · {money(row.inclusive_amount)}
+                {qty(row.stocked_out_qty)} out · {money(row.registered_value)}
               </span>
             </div>
           ))}

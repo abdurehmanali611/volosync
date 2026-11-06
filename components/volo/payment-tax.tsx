@@ -33,23 +33,6 @@ import { EmptyRow, Field, Panel, Td } from "@/components/volo/kit";
 import { ComboSelect, DateField } from "@/components/volo/controls";
 import { cn } from "@/lib/utils";
 
-export type PaymentTaxSlice = "all" | "with_vat" | "without_vat";
-
-/** The VAT picker above the table; narrows whatever slice the server gave us. */
-type VatFilter = "all" | "with" | "without";
-
-const VAT_FILTERS: { value: VatFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "with", label: "With VAT" },
-  { value: "without", label: "Without VAT" },
-];
-
-export const PAYMENT_TAX_SLICES: { value: PaymentTaxSlice; label: string }[] = [
-  { value: "all", label: "All lines" },
-  { value: "with_vat", label: "With VAT" },
-  { value: "without_vat", label: "Without VAT" },
-];
-
 /** The row shape shared by Store's `SummaryTabRow` and Finance's `SummaryTaxRow`. */
 export type PaymentTaxRow = {
   id: number;
@@ -207,15 +190,11 @@ const TAX_EXPORT_HEADERS = [
   "Stocked out qty",
   "Stocked out value",
   "Unit cost",
-  "Paid amount",
-  "Base",
-  "VAT",
-  "Inclusive",
+  "Paid amount (VAT-incl.)",
+  "VAT inside",
 ];
 
 export function PaymentTaxPanel({
-  tab,
-  onTabChange,
   rows,
   totals,
   loading,
@@ -224,8 +203,6 @@ export function PaymentTaxPanel({
   emptyMessage,
   description,
 }: {
-  tab: PaymentTaxSlice;
-  onTabChange?: (tab: PaymentTaxSlice) => void;
   rows: PaymentTaxRow[];
   totals?: PaymentTaxTotals | null;
   loading?: boolean;
@@ -239,7 +216,6 @@ export function PaymentTaxPanel({
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [supplier, setSupplier] = useState("all");
-  const [vatFilter, setVatFilter] = useState<VatFilter>("all");
 
   const supplierOptions = useMemo(() => {
     const names = new Set<string>();
@@ -252,8 +228,7 @@ export function PaymentTaxPanel({
       .map((name) => ({ value: name, label: name }));
   }, [rows]);
 
-  const filtersActive =
-    Boolean(from || to || query.trim()) || supplier !== "all" || vatFilter !== "all";
+  const filtersActive = Boolean(from || to || query.trim()) || supplier !== "all";
 
   // The search box is a filter like any other, so the summary numbers and both
   // exports always describe exactly what is on screen.
@@ -266,9 +241,6 @@ export function PaymentTaxPanel({
         if (supplier !== "all" && (row.supplier_name ?? "").trim() !== supplier) {
           return false;
         }
-        const inputVat = Number(row.vat_amount || 0);
-        if (vatFilter === "with" && inputVat <= 0) return false;
-        if (vatFilter === "without" && inputVat > 0) return false;
         const needle = query.trim().toLowerCase();
         if (needle) {
           const haystack = [
@@ -285,11 +257,9 @@ export function PaymentTaxPanel({
         }
         return true;
       }),
-    [rows, from, to, supplier, vatFilter, query],
+    [rows, from, to, supplier, query],
   );
 
-  const tabLabel =
-    PAYMENT_TAX_SLICES.find((slice) => slice.value === tab)?.label ?? "All lines";
   const groups = useMemo(() => groupTaxRows(filteredRows), [filteredRows]);
   const allItemCount = useMemo(() => groupTaxRows(rows).length, [rows]);
   const detail = groups.find((group) => group.key === detailKey) ?? null;
@@ -349,11 +319,6 @@ export function PaymentTaxPanel({
         query.trim() ? `“${query.trim()}”` : "",
         from || to ? `${from || "…"} → ${to || "…"}` : "",
         supplier !== "all" ? supplier : "",
-        vatFilter === "with"
-          ? "with VAT"
-          : vatFilter === "without"
-            ? "without VAT"
-            : "",
       ]
         .filter(Boolean)
         .join(" · ")
@@ -370,9 +335,7 @@ export function PaymentTaxPanel({
     Number(row.stocked_out_value),
     Number(row.unit_cost),
     Number(row.paid_amount),
-    Number(row.base_value),
     Number(row.vat_amount),
-    Number(row.inclusive_amount),
   ];
   const exportRows = filteredRows.map(rowCells);
   const exportTotals = [
@@ -386,9 +349,7 @@ export function PaymentTaxPanel({
     valueTotals.stockedOutValue,
     "",
     qtyTotals.paid,
-    valueTotals.base,
     valueTotals.inputVat,
-    valueTotals.inclusive,
   ] as (string | number)[];
 
   // One table row bundles every voucher that registered the same item, so the
@@ -399,10 +360,7 @@ export function PaymentTaxPanel({
     exportPdf({
       title: `Payment & tax · ${group.itemName}`,
       subtitle: [
-        `${tenantName ?? ""} · ${tabLabel} · ${group.category}`.replace(
-          /^ · /,
-          "",
-        ),
+        [tenantName, group.category].filter(Boolean).join(" · "),
         `${count} voucher${count === 1 ? "" : "s"}`,
         filterNote,
       ]
@@ -425,9 +383,7 @@ export function PaymentTaxPanel({
         group.stockedOutValue,
         "",
         paid,
-        group.baseValue,
         group.vatAmount,
-        group.inclusiveAmount,
       ],
       business,
     });
@@ -435,7 +391,7 @@ export function PaymentTaxPanel({
 
   return (
     <Panel
-      title={`Payment & tax · ${tabLabel}`}
+      title="Payment & tax"
       description={
         description ??
         "Grouped per item: hover a name for a quick preview, open Detail for the full voucher breakdown. Registered = in store + stocked out; costs and selling prices are VAT-inclusive, so input VAT is read out of the purchase and output VAT out of the stocked-out portion."
@@ -451,7 +407,7 @@ export function PaymentTaxPanel({
               exportPdf({
                 title: "Payment & tax",
                 subtitle: [
-                  `${tenantName ?? ""} · ${tabLabel} · ${filteredRows.length} vouchers`,
+                  `${tenantName ?? ""} · ${filteredRows.length} vouchers`,
                   filterNote,
                 ]
                   .filter(Boolean)
@@ -473,7 +429,7 @@ export function PaymentTaxPanel({
             disabled={loading || !filteredRows.length}
             onClick={() =>
               exportExcel({
-                title: `Payment & tax · ${tabLabel}${filterNote ? ` · ${filterNote}` : ""}`,
+                title: `Payment & tax${filterNote ? ` · ${filterNote}` : ""}`,
                 headers: TAX_EXPORT_HEADERS,
                 rows: exportRows,
                 totals: exportTotals,
@@ -488,30 +444,6 @@ export function PaymentTaxPanel({
         </div>
       }
     >
-      {onTabChange && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex rounded-lg border border-white/10 p-0.5">
-            {PAYMENT_TAX_SLICES.map((slice) => (
-              <button
-                key={slice.value}
-                onClick={() => onTabChange(slice.value)}
-                className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
-                  tab === slice.value
-                    ? "bg-emerald-400/15 text-emerald-300"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                {slice.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-zinc-500">
-            <span className="font-semibold text-zinc-300">{rows.length}</span> voucher
-            {rows.length === 1 ? "" : "s"} in this slice
-          </p>
-        </div>
-      )}
-
       <div className="mb-2 flex flex-wrap items-end justify-end gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-2.5">
         <Field label="From">
           <DateField
@@ -540,17 +472,6 @@ export function PaymentTaxPanel({
             className="w-44"
           />
         </Field>
-        <Field label="VAT">
-          <ComboSelect
-            value={vatFilter}
-            onChange={(value) => setVatFilter(value as VatFilter)}
-            options={VAT_FILTERS.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
-            className="w-32"
-          />
-        </Field>
         <div className="flex items-center gap-2 pb-0.5">
           <span className="flex items-center gap-1.5 text-xs text-zinc-500">
             <Filter className="size-3.5" />
@@ -567,7 +488,6 @@ export function PaymentTaxPanel({
                 setFrom("");
                 setTo("");
                 setSupplier("all");
-                setVatFilter("all");
                 setQuery("");
               }}
             >
@@ -597,14 +517,13 @@ export function PaymentTaxPanel({
             <tr>
               <StickyTh>Item</StickyTh>
               <StickyTh right>Registered</StickyTh>
-              <StickyTh right>VAT</StickyTh>
-              <StickyTh right>Inclusive</StickyTh>
+              <StickyTh right>VAT inside</StickyTh>
               <StickyTh right>Actions</StickyTh>
             </tr>
           </thead>
           <tbody>
             {loading && !groups.length ? (
-              <SkeletonRows cols={5} rows={6} />
+              <SkeletonRows cols={4} rows={6} />
             ) : (
               groups.map((group) => (
                 <tr key={group.key} className="transition-colors hover:bg-white/[0.03]">
@@ -624,14 +543,11 @@ export function PaymentTaxPanel({
                     <QtyValueCell
                       tone="registered"
                       quantity={group.registeredQty}
-                      value={group.baseValue}
+                      value={group.registeredValue}
                     />
                   </Td>
                   <Td right className="text-amber-300">
                     {money(group.vatAmount)}
-                  </Td>
-                  <Td right className="text-emerald-300">
-                    {money(group.inclusiveAmount)}
                   </Td>
                   <Td right>
                     <div className="flex items-center justify-end gap-1.5">
@@ -672,7 +588,11 @@ export function PaymentTaxPanel({
 
       {displayTotals && (
         <div className="mt-4 flex flex-wrap gap-2">
-          <TaxTotalPill label="Base value" value={money(displayTotals.base_value)} tone="base" />
+          <TaxTotalPill
+            label="Registered value (VAT-incl.)"
+            value={money(displayTotals.registered_value)}
+            tone="base"
+          />
           <TaxTotalPill
             label="In store value"
             value={money(displayTotals.in_store_value)}
@@ -694,11 +614,6 @@ export function PaymentTaxPanel({
             tone="output"
           />
           <TaxTotalPill label="Net VAT" value={money(displayTotals.net_vat)} tone="net" />
-          <TaxTotalPill
-            label="Inclusive amount"
-            value={money(displayTotals.inclusive_amount)}
-            tone="inclusive"
-          />
         </div>
       )}
 
@@ -723,16 +638,12 @@ export function PaymentTaxPanel({
                       detail.rows.map((row) => row.supplier_name?.trim() ?? "").filter(Boolean),
                     ),
                   ).sort((a, b) => a.localeCompare(b));
-                  const paid = detail.rows.reduce(
-                    (sum, row) => sum + Number(row.paid_amount),
-                    0,
-                  );
                   const netVat = detail.outputVat - detail.vatAmount;
                   return (
                     <>
                       <SheetHeader className="border-b border-white/10 p-5">
                         <p className="text-[10px] font-semibold tracking-[0.22em] text-violet-300/80 uppercase">
-                          {detail.category} · {tabLabel}
+                          {detail.category}
                         </p>
                         <SheetTitle className="text-lg text-white">
                           {detail.itemName}
@@ -747,7 +658,7 @@ export function PaymentTaxPanel({
                       </SheetHeader>
 
                       <div className="space-y-4 p-5">
-                        <div className="grid gap-2 sm:grid-cols-4">
+                        <div className="grid gap-2 sm:grid-cols-3">
                           <TaxDetailStat
                             label="Registered"
                             value={money(detail.registeredValue)}
@@ -765,12 +676,6 @@ export function PaymentTaxPanel({
                             value={money(detail.stockedOutValue)}
                             hint={`${qty(detail.stockedOutQty)} units`}
                             tone="stockedOut"
-                          />
-                          <TaxDetailStat
-                            label="Inclusive"
-                            value={money(detail.inclusiveAmount)}
-                            hint={`Paid ${money(paid)}`}
-                            tone="inclusive"
                           />
                         </div>
 
@@ -813,7 +718,7 @@ export function PaymentTaxPanel({
                         </div>
 
                         <div className="overflow-auto rounded-xl border border-white/10">
-                          <table className="w-full min-w-[860px]">
+                          <table className="w-full min-w-[720px]">
                             <thead>
                               <tr>
                                 <StickyTh>Voucher</StickyTh>
@@ -821,7 +726,6 @@ export function PaymentTaxPanel({
                                 <StickyTh right>Unit cost</StickyTh>
                                 <StickyTh right>Registered</StickyTh>
                                 <StickyTh right>VAT in / out</StickyTh>
-                                <StickyTh right>Paid</StickyTh>
                               </tr>
                             </thead>
                             <tbody>
@@ -852,7 +756,7 @@ export function PaymentTaxPanel({
                                     <QtyValueCell
                                       tone="registered"
                                       quantity={row.registered_qty}
-                                      value={row.base_value}
+                                      value={row.registered_value}
                                     />
                                   </Td>
                                   <Td right>
@@ -862,9 +766,6 @@ export function PaymentTaxPanel({
                                     <span className="mt-1.5 block text-[13px] leading-none font-semibold tabular-nums text-rose-300">
                                       {money(row.output_vat)}
                                     </span>
-                                  </Td>
-                                  <Td right className="font-semibold text-teal-200">
-                                    {money(row.paid_amount)}
                                   </Td>
                                 </tr>
                               ))}
@@ -880,7 +781,7 @@ export function PaymentTaxPanel({
                                   <QtyValueCell
                                     tone="registered"
                                     quantity={detail.registeredQty}
-                                    value={detail.baseValue}
+                                    value={detail.registeredValue}
                                   />
                                 </Td>
                                 <Td right>
@@ -890,9 +791,6 @@ export function PaymentTaxPanel({
                                   <span className="mt-1.5 block text-[13px] leading-none font-semibold tabular-nums text-rose-300">
                                     {money(detail.outputVat)}
                                   </span>
-                                </Td>
-                                <Td right className="font-semibold text-teal-200">
-                                  {money(paid)}
                                 </Td>
                               </tr>
                             </tfoot>
@@ -1152,9 +1050,9 @@ function TaxItemDetailTrigger({
             </span>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-zinc-500">Inclusive</span>
+            <span className="text-zinc-500">VAT inside</span>
             <span className="font-medium text-emerald-300">
-              {money(group.inclusiveAmount)}
+              {money(group.vatAmount)}
             </span>
           </div>
         </div>
@@ -1170,7 +1068,7 @@ function TaxItemDetailTrigger({
             >
               <span className="font-mono text-emerald-300">{row.voucher_number}</span>
               <span className="text-zinc-400">
-                {qty(row.stocked_out_qty)} out · {money(row.inclusive_amount)}
+                {qty(row.stocked_out_qty)} out · {money(row.registered_value)}
               </span>
             </div>
           ))}

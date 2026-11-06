@@ -502,10 +502,8 @@ export function InventoryReportingCard({
       registeredValue: sum.registeredValue + Number(row.registered_value),
       inStoreValue: sum.inStoreValue + Number(row.in_store_value),
       stockedOutValue: sum.stockedOutValue + Number(row.stocked_out_value),
-      base: sum.base + Number(row.base_value),
       inputVat: sum.inputVat + Number(row.vat_amount),
       outputVat: sum.outputVat + Number(row.output_vat),
-      inclusive: sum.inclusive + Number(row.inclusive_amount),
       registeredQty: sum.registeredQty + Number(row.registered_qty),
       stockedOutQty: sum.stockedOutQty + Number(row.stocked_out_qty),
       items: sum.items + 1,
@@ -514,10 +512,8 @@ export function InventoryReportingCard({
       registeredValue: 0,
       inStoreValue: 0,
       stockedOutValue: 0,
-      base: 0,
       inputVat: 0,
       outputVat: 0,
-      inclusive: 0,
       registeredQty: 0,
       stockedOutQty: 0,
       items: 0,
@@ -609,25 +605,19 @@ export function InventoryReportingCard({
         </span>
       </div>
       <div className="grid shrink-0 gap-1.5 sm:grid-cols-2">
-        <SummaryRow label="Registered value" value={money(totals.registeredValue)} />
+        <SummaryRow label="Registered value (VAT-incl.)" value={money(totals.registeredValue)} strong />
         <SummaryRow label="In store value" value={money(totals.inStoreValue)} tone="sky" />
         <SummaryRow
           label="Stocked out value"
           value={money(totals.stockedOutValue)}
           tone="violet"
         />
-        <SummaryRow label="Base value (ex VAT)" value={money(totals.base)} />
         <SummaryRow label="Input VAT" value={money(totals.inputVat)} tone="amber" />
         <SummaryRow label="Output VAT" value={money(totals.outputVat)} tone="rose" />
         <SummaryRow
           label="Net VAT (output − input)"
           value={money(totals.outputVat - totals.inputVat)}
           tone="emerald"
-        />
-        <SummaryRow
-          label="Paid to suppliers"
-          value={money(totals.inclusive)}
-          strong
         />
       </div>
 
@@ -1830,9 +1820,7 @@ export function StockPositionReport({
     registered_value: number;
     in_store_value: number;
     stocked_out_value: number;
-    base_value: number;
     vat: number;
-    inclusive_amount: number;
     output_vat: number;
     net_vat: number;
   };
@@ -1851,16 +1839,14 @@ export function StockPositionReport({
     >
       <div className="flex flex-1 flex-col">
         <div className="space-y-2 text-sm">
-          <SummaryRow label="Registered value" value={money(totals.registered_value)} />
+          <SummaryRow label="Registered value (VAT-incl.)" value={money(totals.registered_value)} />
           <SummaryRow label="In store" value={money(totals.in_store_value)} tone="emerald" />
           <SummaryRow
             label="Stocked out"
             value={money(totals.stocked_out_value)}
             tone="amber"
           />
-          <SummaryRow label="Base value (ex VAT)" value={money(totals.base_value)} />
           <SummaryRow label="Input VAT" value={money(totals.vat)} tone="sky" />
-          <SummaryRow label="Inclusive amount" value={money(totals.inclusive_amount)} />
           <SummaryRow label="Output VAT" value={money(totals.output_vat)} tone="sky" />
           <SummaryRow
             label="Net VAT (output − input)"
