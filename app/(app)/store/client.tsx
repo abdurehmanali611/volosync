@@ -36,7 +36,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Command,
@@ -131,8 +130,13 @@ const today = () => new Date().toISOString().slice(0, 10);
 const lineVatRate = (line: RegistrationLine) => Number(line.vat_rate ?? 15);
 const lineBase = (line: RegistrationLine) =>
   Number(line.quantity || 0) * Number(line.unit_cost || 0);
-const lineTotal = (line: RegistrationLine) =>
-  Number(line.quantity || 0) * Number(line.unit_cost || 0) * (1 + lineVatRate(line) / 100);
+/** The unit cost is entered VAT-inclusive, so what is paid is simply qty × cost. */
+const lineTotal = (line: RegistrationLine) => lineBase(line);
+/** VAT already sitting inside the paid amount. */
+const lineVatInside = (line: RegistrationLine) => {
+  const rate = lineVatRate(line);
+  return rate > 0 ? (lineBase(line) * rate) / (100 + rate) : 0;
+};
 const lineSalePrice = (line: RegistrationLine) =>
   Number(line.unit_sales || 0);
 
@@ -498,7 +502,8 @@ export default function StorePage() {
     const quantity = lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
     const base = lines.reduce((sum, line) => sum + lineBase(line), 0);
     const paid = lines.reduce((sum, line) => sum + lineTotal(line), 0);
-    return { quantity, base, paid, vat: paid - base };
+    const vat = lines.reduce((sum, line) => sum + lineVatInside(line), 0);
+    return { quantity, base, paid, vat };
   }, [lines]);
 
   const approvedStockOuts = useMemo(
@@ -1129,7 +1134,6 @@ export default function StorePage() {
             <div className="space-y-4">
               {lines.map((line, index) => {
                 const rate = lineVatRate(line);
-                const vatOn = rate > 0;
                 const uploading = uploadingLine === index;
                 return (
                   <section
@@ -1148,7 +1152,7 @@ export default function StorePage() {
                           </p>
                           <p className="text-[11px] text-zinc-500">
                             {money(lineTotal(line))} paid ·{" "}
-                            {vatOn ? `VAT ${rate}%` : "No VAT"}
+                            {rate > 0 ? `VAT ${rate}% inside` : "No VAT"}
                           </p>
                         </div>
                       </div>
@@ -1322,29 +1326,26 @@ export default function StorePage() {
                     </div>
 
                     <div className="mt-4 flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-3">
-                        <Switch
-                          id={`line-vat-${index}`}
-                          checked={vatOn}
-                          onCheckedChange={(checked) =>
-                            updateLine(index, "vat_rate", checked ? "15.00" : "0.00")
-                          }
-                        />
-                        <div>
-                          <Label
-                            htmlFor={`line-vat-${index}`}
-                            className="cursor-pointer text-xs font-medium text-zinc-200"
-                          >
-                            Price includes VAT
-                          </Label>
-                          <p className="text-[10px] text-zinc-500">
-                            {vatOn
-                              ? "15% VAT is added to the purchase cost."
-                              : "No VAT is added to this line."}
-                          </p>
-                        </div>
+                      <div>
+                        <p className="text-xs font-medium text-zinc-200">
+                          Unit cost includes VAT
+                        </p>
+                        <p className="text-[10px] text-zinc-500">
+                          {rate > 0
+                            ? `VAT ${rate}% is already inside the ${money(lineBase(line))} paid.`
+                            : "This line is registered without VAT."}
+                        </p>
                       </div>
                       <div className="flex items-center justify-between gap-5 sm:justify-end">
+                        <div className="text-right">
+                          <p className="text-[10px] tracking-wider text-zinc-500 uppercase">
+                            VAT inside
+                          </p>
+                          <p className="text-sm font-semibold text-rose-300 tabular-nums">
+                            {money(lineVatInside(line))}
+                          </p>
+                        </div>
+                        <span className="h-8 w-px bg-white/10" />
                         <div className="text-right">
                           <p className="text-[10px] tracking-wider text-zinc-500 uppercase">
                             Selling price
@@ -2701,7 +2702,7 @@ export default function StorePage() {
       {isTaxView && (
         <Panel
           title={`Payment & tax · ${taxTabLabel}`}
-          description="Grouped per item: hover a name for a quick preview, open Detail for the full voucher breakdown. Registered = in store + stocked out; input VAT is paid on purchases and output VAT on the stocked-out portion."
+          description="Grouped per item: hover a name for a quick preview, open Detail for the full voucher breakdown. Registered = in store + stocked out; costs and selling prices are VAT-inclusive, so input VAT is read out of the purchase and output VAT out of the stocked-out portion."
           actions={
             <div className="ml-auto flex gap-2">
               <Button
@@ -3350,21 +3351,9 @@ function RegistrationEditDialog({
                     onChange={(event) => updateLine(index, "note", event.target.value)}
                   />
                 </Field>
-                <div className="flex items-center gap-2 lg:col-span-6">
-                  <Switch
-                    id={`edit-line-vat-${index}`}
-                    checked={lineVatRate(line) > 0}
-                    onCheckedChange={(checked) =>
-                      updateLine(index, "vat_rate", checked ? "15.00" : "0.00")
-                    }
-                  />
-                  <Label
-                    htmlFor={`edit-line-vat-${index}`}
-                    className="cursor-pointer text-xs font-medium text-zinc-300"
-                  >
-                    Price includes VAT
-                  </Label>
-                </div>
+                <p className="text-[11px] text-zinc-500 lg:col-span-6">
+                  Unit cost and selling price are entered VAT-inclusive.
+                </p>
               </div>
             </div>
           ))}
@@ -3653,6 +3642,7 @@ function RegistrationDraftCard({
   const units = doc.lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
   const base = doc.lines.reduce((sum, line) => sum + lineBase(line), 0);
   const paid = doc.lines.reduce((sum, line) => sum + lineTotal(line), 0);
+  const vatInside = doc.lines.reduce((sum, line) => sum + lineVatInside(line), 0);
   return (
     <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/10 bg-white/[0.02] px-3 py-2.5">
@@ -3719,7 +3709,7 @@ function RegistrationDraftCard({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-3 py-2 text-xs text-zinc-500">
         <span>
-          Base {money(base)} · VAT {money(paid - base)}
+          Cost {money(base)} · VAT inside {money(vatInside)}
         </span>
         <span className="font-medium text-zinc-300">Total paid {money(paid)}</span>
       </div>

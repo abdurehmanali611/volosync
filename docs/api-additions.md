@@ -250,11 +250,12 @@ New query param:
 
 | Param | Values | Meaning |
 |---|---|---|
-| `tab` | `all` \| `with_vat` \| `without_vat` | `all` = every lot; `with_vat` = lots whose computed input VAT > 0; `without_vat` = lots registered at a 0% rate (empty until such lots exist) |
+| `tab` | `all` \| `with_vat` \| `without_vat` | `all` = every lot; `with_vat` = lots whose computed input VAT > 0; `without_vat` = lots booked at a 0% rate (legacy only) |
 
-Registration already accepts a per-line `vat_rate` override (including `0`), so
-zero-rated lots appear naturally and the `without_vat` tab fills up as they are
-registered. Totals always follow the filtered rows so the panel reconciles.
+Registration has no VAT switch: the unit cost and the selling price are both
+entered VAT-inclusive, so `paid_amount` is simply `quantity × unit_cost` and the
+input and output VAT are read back out of those amounts at `rate / (100 + rate)`.
+Totals always follow the filtered rows so the panel reconciles.
 
 Each row in `data.rows` (new fields; old fields kept):
 

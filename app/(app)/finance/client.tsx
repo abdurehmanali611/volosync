@@ -2124,7 +2124,7 @@ export default function FinancePage() {
           tenantName={dashboard?.tenant.name}
           emptyMessage={
             taxTab === "without_vat"
-              ? "No zero-rated vouchers yet — register a line with a 0% VAT rate and it lands here."
+              ? "Every registration now carries VAT — only vouchers already booked at a 0% rate land here."
               : "No vouchers in this slice."
           }
         />

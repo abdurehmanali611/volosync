@@ -854,11 +854,12 @@ export default function ManagerPage() {
     0,
   );
 
-  // live derivations for the lot editor (price with VAT, paid amount)
+  // live derivations for the lot editor (cost and selling price are VAT-inclusive)
   const vatRate = Number(editing?.vat_rate ?? 0);
-  const previewPriceWithVat = Number(editForm.unit_sales || 0) * (1 + vatRate / 100);
-  const previewPaidAmount =
-    Number(editing?.quantity ?? 0) * Number(editForm.unit_cost || 0) * (1 + vatRate / 100);
+  const previewPriceWithVat = Number(editForm.unit_sales || 0);
+  const previewPaidAmount = Number(editing?.quantity ?? 0) * Number(editForm.unit_cost || 0);
+  const previewVatInside =
+    vatRate > 0 ? (previewPaidAmount * vatRate) / (100 + vatRate) : 0;
 
   const phoneFor = (row: RankRow) =>
     agents.find((agent) => agent.id === row.agent_id)?.phone ?? "";
@@ -1530,6 +1531,9 @@ export default function ManagerPage() {
                   <strong className="text-amber-300">{money(previewPaidAmount)}</strong>
                 </span>
                 <span>
+                  VAT inside <strong className="text-rose-300">{money(previewVatInside)}</strong>
+                </span>
+                <span>
                   VAT rate <strong className="text-zinc-200">{vatRate.toFixed(2)}%</strong>
                 </span>
               </div>
@@ -1666,7 +1670,7 @@ export default function ManagerPage() {
           tenantName={dashboard?.tenant.name}
           emptyMessage={
             taxTab === "without_vat"
-              ? "No zero-rated vouchers yet — register a line with a 0% VAT rate and it lands here."
+              ? "Every registration now carries VAT — only vouchers already booked at a 0% rate land here."
               : "No vouchers in this slice."
           }
         />

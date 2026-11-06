@@ -438,7 +438,7 @@ export function PaymentTaxPanel({
       title={`Payment & tax · ${tabLabel}`}
       description={
         description ??
-        "Grouped per item: hover a name for a quick preview, open Detail for the full voucher breakdown. Registered = in store + stocked out; input VAT is paid on purchases and output VAT on the stocked-out portion."
+        "Grouped per item: hover a name for a quick preview, open Detail for the full voucher breakdown. Registered = in store + stocked out; costs and selling prices are VAT-inclusive, so input VAT is read out of the purchase and output VAT out of the stocked-out portion."
       }
       actions={
         <div className="ml-auto flex gap-2">
@@ -918,9 +918,9 @@ export function PaymentTaxPanel({
                         </div>
 
                         <p className="text-[11px] text-zinc-500">
-                          Registered = in store + stocked out. Input VAT is paid on the
-                          registered purchase; output VAT is charged on the stocked-out
-                          portion at the selling price.
+                          Registered = in store + stocked out. Costs and selling prices are
+                          entered VAT-inclusive, so input VAT is read out of the registered
+                          purchase and output VAT out of the stocked-out portion.
                         </p>
                       </div>
                     </>

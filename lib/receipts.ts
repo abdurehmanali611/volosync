@@ -59,7 +59,12 @@ export function buildRegistrationReceipt(
     0,
   );
   const inclusive = Number(doc.total_value);
-  const vat = Math.max(0, inclusive - base);
+  // The registered unit cost is entered VAT-inclusive, so the VAT sits inside it.
+  const vat = doc.lines.reduce((sum, line) => {
+    const rate = Number(line.vat_rate ?? 15);
+    const cost = Number(line.quantity || 0) * Number(line.unit_cost || 0);
+    return sum + (rate > 0 ? (cost * rate) / (100 + rate) : 0);
+  }, 0);
   const sellingValue = doc.lines.reduce(
     (sum, line) => sum + Number(line.quantity || 0) * Number(line.unit_sales || 0),
     0,
@@ -98,9 +103,8 @@ export function buildRegistrationReceipt(
     totals:
       vat > 0.005
         ? [
-            { label: "Cost subtotal (excl. VAT)", value: money(base) },
-            { label: "VAT", value: money(vat) },
-            { label: "Total including VAT", value: money(inclusive) },
+            { label: "Total paid (VAT-inclusive)", value: money(inclusive) },
+            { label: "VAT inside cost", value: money(vat) },
           ]
         : [{ label: "Total", value: money(inclusive) }],
     linesCaption: `${qty(units)} units registered · value at selling price ${money(
