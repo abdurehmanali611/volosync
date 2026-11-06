@@ -952,10 +952,10 @@ export type ApexChatTranscript = {
 
 export const apexChatApi = {
   load: () => request<{ data: ApexChatTranscript }>("/api/apex-chat/"),
-  send: (body: string) =>
+  send: (body: string, imageUrl?: string) =>
     request<{ data: ApexChatTranscript }>("/api/apex-chat/", {
       method: "POST",
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, image_url: imageUrl ?? "" }),
     }),
   markRead: () =>
     request<{ data: { marked_read: boolean } }>("/api/apex-chat/", {
