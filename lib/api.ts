@@ -925,3 +925,41 @@ export const noticeApi = {
       body: JSON.stringify({ items }),
     }),
 };
+
+/** The manager workspace's direct line to the Apex team. */
+export type ApexChatMessage = {
+  id: number;
+  side: "APEX" | "TENANT";
+  body: string;
+  image_url?: string | null;
+  sender: string;
+  created_at: string;
+};
+
+export type ApexChatThread = {
+  subject: string;
+  status: "OPEN" | "CLOSED";
+  messages: number;
+  unread_for_tenant: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ApexChatTranscript = {
+  thread: ApexChatThread | null;
+  messages: ApexChatMessage[];
+};
+
+export const apexChatApi = {
+  load: () => request<{ data: ApexChatTranscript }>("/api/apex-chat/"),
+  send: (body: string) =>
+    request<{ data: ApexChatTranscript }>("/api/apex-chat/", {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+  markRead: () =>
+    request<{ data: { marked_read: boolean } }>("/api/apex-chat/", {
+      method: "PATCH",
+      body: JSON.stringify({ action: "read" }),
+    }),
+};
