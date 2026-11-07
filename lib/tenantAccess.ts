@@ -126,7 +126,10 @@ export function subscriptionBlockMessage(status: SubscriptionPeriodStatus): stri
   if (status === "trial_ending") {
     return "Your free trial is ending soon. Submit the yearly payment to keep access after it ends.";
   }
-  if (status === "trial_expired" || status === "expired") {
+  if (status === "trial_expired") {
+    return "Your free trial has ended.";
+  }
+  if (status === "expired") {
     return "Your subscription is ended.";
   }
   if (status === "pending_approval") {

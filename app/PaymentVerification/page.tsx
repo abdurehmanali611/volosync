@@ -197,12 +197,20 @@ export default function PaymentVerificationPage() {
   const annualFee = snapshot?.annualFeeETB ?? 0;
   const meta = APEX_PAYMENT_CHANNEL_META[channel];
 
-  const title = "Yearly subscription payment";
+  // A free-trial payment and a yearly renewal are both the yearly fee, but
+  // the upfront copy must say which one is being paid — like hotcol's setup
+  // vs yearly kind titles.
+  const trialPayment = status === "trial_ending" || status === "trial_expired";
+  const title = trialPayment ? "Free trial payment" : "Yearly subscription payment";
   const description = restricted
     ? "Apex has restricted this account. Contact Apex to restore access — a payment will not lift the restriction."
-    : ended
-      ? "Your paid year has ended. Pay the yearly fee and submit your transfer reference."
-      : "Pay the yearly fee before your free trial ends and submit your transfer reference.";
+    : status === "trial_ending"
+      ? "Your free trial is ending soon. Pay the yearly fee now and submit your transfer reference to keep access after it ends."
+      : status === "trial_expired"
+        ? "Your free trial has ended. Pay the yearly fee and submit your transfer reference to restore access for every role."
+        : ended
+          ? "Your paid year has ended. Pay the yearly fee and submit your transfer reference."
+          : "Pay the yearly fee and submit your transfer reference to keep access running.";
 
   return (
     <div className="app-shell-bg flex min-h-svh items-center justify-center p-4 text-zinc-100">
