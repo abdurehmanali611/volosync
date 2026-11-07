@@ -97,18 +97,25 @@ export function computeSubscriptionPeriodStatus(
   // A hold freezes renewals without revoking access.
   if (snap.billingHold) return "on_hold";
 
+  // An active free trial is the current billing window: it governs access and
+  // its own 10-day warning, even when the tenant row also carries the yearly
+  // renewal date the console stamps at signup. Checking the paid date first
+  // (the old behaviour) hid every trial warning on those tenants.
+  const trialLeft = freeTrialDaysRemaining(snap, now);
+  if (trialLeft !== null && trialLeft >= 0) {
+    return trialLeft <= TRIAL_PAYMENT_WINDOW_DAYS ? "trial_ending" : "trial";
+  }
+
   const daysLeft = subscriptionDaysRemaining(snap, now);
   if (daysLeft !== null) {
     if (daysLeft < 0) return snap.paymentPending ? "pending_approval" : "expired";
     return daysLeft <= SUBSCRIPTION_WARNING_DAYS ? "warning" : "active";
   }
 
-  const trialLeft = freeTrialDaysRemaining(snap, now);
+  // A trial that ended with no paid year on record blocks access. An approved
+  // renewal writes a future paid date, so it wins and retires the old trial.
   if (trialLeft !== null) {
-    if (trialLeft < 0) {
-      return snap.paymentPending ? "pending_approval" : "trial_expired";
-    }
-    return trialLeft <= TRIAL_PAYMENT_WINDOW_DAYS ? "trial_ending" : "trial";
+    return snap.paymentPending ? "pending_approval" : "trial_expired";
   }
 
   // Neither a trial nor a paid year on record: nothing to enforce yet.

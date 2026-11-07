@@ -99,23 +99,39 @@ export default function PaymentVerificationPage() {
       return;
     }
     setUser(session);
+    const role = session.role;
 
     // Reaching this page with the forced-portal flag means access was blocked
-    // at login or by the route guard. Apex may have approved the payment while
-    // the manager was away, so re-check the live snapshot and release the flag
-    // instead of stranding them here until they sign out.
+    // at login or by the route guard. Apex may approve the payment while the
+    // manager waits here, so release the flag as soon as the live snapshot
+    // says access is full — on load, on tab focus, and by polling.
     const forcedPortal = isPaymentPortalMode();
 
     let cancelled = false;
+
+    function unlockIfApproved(sub: TenantBillingSnapshot): boolean {
+      if (cancelled || !forcedPortal || sub.accessMode !== "full") return false;
+      clearTenantAccessModeStorage();
+      toast.success("Payment approved — your workspace is unlocked.");
+      router.replace(roleHome(role));
+      return true;
+    }
+
+    async function poll() {
+      try {
+        const response = await api.tenantSubscription();
+        if (cancelled) return;
+        persistTenantSubscription(response.data);
+        unlockIfApproved(response.data);
+      } catch {
+        // Keep waiting; the manual refresh button still works.
+      }
+    }
+
     void (async () => {
       try {
         const sub = await load();
-        if (!cancelled && forcedPortal && sub.accessMode === "full") {
-          clearTenantAccessModeStorage();
-          toast.success("Payment approved — your workspace is unlocked.");
-          router.replace(roleHome(session.role));
-          return;
-        }
+        if (unlockIfApproved(sub)) return;
       } catch {
         if (!cancelled) {
           toast.error("Could not load your billing details. Refresh to retry.");
@@ -124,8 +140,20 @@ export default function PaymentVerificationPage() {
         if (!cancelled) setLoading(false);
       }
     })();
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void poll();
+    };
+    window.addEventListener("focus", poll);
+    document.addEventListener("visibilitychange", onVisibility);
+    // While parked here waiting for Apex, check for approval automatically.
+    const timer = forcedPortal ? window.setInterval(poll, 20_000) : null;
+
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", poll);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (timer) window.clearInterval(timer);
     };
   }, [router, load]);
 

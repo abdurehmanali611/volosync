@@ -192,12 +192,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const userId = user?.id;
   const userRole = user?.role;
 
-  // Pull the real yearly billing snapshot once per login so the top-bar
-  // warning has data, and enforce a period that ended while signed in.
+  // Pull the real yearly billing snapshot so the top-bar warning has data,
+  // and keep it fresh: Apex can set a trial/renewal date while the manager is
+  // signed in, and a year can cross the 7-day warning line without a reload.
   useEffect(() => {
     if (!userId || !userRole) return;
     let cancelled = false;
-    void (async () => {
+
+    async function syncSubscription() {
       try {
         await refreshTenantSubscription();
       } catch {
@@ -214,9 +216,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       toast.error(subscriptionBlockMessage(status));
       clearSession();
       router.replace("/");
-    })();
+    }
+
+    void syncSubscription();
+
+    const onFocus = () => void syncSubscription();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void syncSubscription();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    // Cheap safety net for a tab left open across the warning threshold.
+    const timer = window.setInterval(onFocus, 5 * 60_000);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(timer);
     };
   }, [userId, userRole, router]);
 
