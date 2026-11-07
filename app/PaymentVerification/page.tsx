@@ -194,20 +194,30 @@ export default function PaymentVerificationPage() {
   const status = snapshot?.periodStatus ?? "exempt";
   const ended = status === "expired" || status === "trial_expired";
   const restricted = status === "restricted";
-  const annualFee = snapshot?.annualFeeETB ?? 0;
+  const annualFee = Number(snapshot?.annualFeeETB ?? 0);
+  const setupFee = Number(snapshot?.setupFeeETB ?? 0);
   const meta = APEX_PAYMENT_CHANNEL_META[channel];
 
-  // A free-trial payment and a yearly renewal are both the yearly fee, but
-  // the upfront copy must say which one is being paid — like hotcol's setup
-  // vs yearly kind titles.
-  const trialPayment = status === "trial_ending" || status === "trial_expired";
+  // A free-trial payment and a yearly renewal are both the yearly fee today,
+  // but the upfront copy must say which one is being paid — like hotcol's
+  // setup vs yearly kind titles. Mirrors the backend's fee selection.
+  const trialPayment =
+    status === "trial" || status === "trial_ending" || status === "trial_expired";
   const title = trialPayment ? "Free trial payment" : "Yearly subscription payment";
+
+  // The amount follows the payment kind: a free-trial payment uses the setup
+  // fee when the console has set one; a yearly renewal always uses the yearly
+  // fee — the two can never show each other's amount. Volosync's tenants
+  // table has no setup fee column yet, so the trial case falls back to the
+  // yearly fee it actually activates.
+  const amountDue = trialPayment && setupFee > 0 ? setupFee : annualFee;
+
   const description = restricted
     ? "Apex has restricted this account. Contact Apex to restore access — a payment will not lift the restriction."
-    : status === "trial_ending"
-      ? "Your free trial is ending soon. Pay the yearly fee now and submit your transfer reference to keep access after it ends."
+    : status === "trial" || status === "trial_ending"
+      ? "Your free trial is running. Submit the payment below — Apex verifies it to keep access after the trial ends."
       : status === "trial_expired"
-        ? "Your free trial has ended. Pay the yearly fee and submit your transfer reference to restore access for every role."
+        ? "Your free trial has ended. Submit the payment below to restore access for every role."
         : ended
           ? "Your paid year has ended. Pay the yearly fee and submit your transfer reference."
           : "Pay the yearly fee and submit your transfer reference to keep access running.";
@@ -245,7 +255,7 @@ export default function PaymentVerificationPage() {
               {description}
             </p>
             <p className="text-sm font-medium text-white">
-              Amount due: {annualFee > 0 ? formatETB(annualFee) : "Contact Apex"}
+              Amount due: {amountDue > 0 ? formatETB(amountDue) : "Contact Apex"}
             </p>
           </div>
 
@@ -260,13 +270,13 @@ export default function PaymentVerificationPage() {
             </div>
           ) : null}
 
-          {annualFee <= 0 ? (
+          {amountDue <= 0 ? (
             <div
               className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
               role="status"
             >
-              Apex has not set a yearly fee for this wholesaler yet. Contact
-              Apex to have it applied before paying.
+              Apex has not set the fee for this wholesaler yet. Contact Apex to
+              have it applied before paying.
             </div>
           ) : null}
 
@@ -341,7 +351,7 @@ export default function PaymentVerificationPage() {
 
             <Button
               type="submit"
-              disabled={submitting || annualFee <= 0}
+              disabled={submitting || amountDue <= 0}
               className="role-gradient-bg h-11 w-full gap-2 text-[15px] font-semibold text-white"
             >
               {submitting ? (
