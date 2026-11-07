@@ -57,6 +57,10 @@ export type SignupPricing = {
 
 export type TenantSubscription = SignupPricing & {
   modules: ModuleOption[];
+  /** The console's yearly price for this wholesaler. */
+  annualFeeETB?: number;
+  accountStatus?: string;
+  paymentPending?: boolean;
   setupFeeApproved: boolean;
   createdAt: string | null;
   billingStartedAt: string | null;

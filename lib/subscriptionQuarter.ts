@@ -1,14 +1,15 @@
-/** Days per billing quarter — counted from billingStartedAt when hold is released. */
-export const SUBSCRIPTION_QUARTER_DAYS = 90;
+/** Days per billing year — volosync bills yearly, never quarterly. */
+export const SUBSCRIPTION_YEAR_DAYS = 365;
 
-/** Notify before quarter end and grace days after. */
-export const SUBSCRIPTION_WARNING_DAYS = 10;
-export const SUBSCRIPTION_GRACE_DAYS = 10;
-export const TRIAL_PAYMENT_WINDOW_DAYS = 5;
+/** Warn this many days before a free trial ends. */
+export const TRIAL_PAYMENT_WINDOW_DAYS = 10;
+/** Warn this many days before a paid year ends. */
+export const SUBSCRIPTION_WARNING_DAYS = 7;
 
 export type SubscriptionPeriodStatus =
   | "exempt"
   | "on_hold"
+  | "restricted"
   | "trial"
   | "trial_ending"
   | "trial_expired"
@@ -16,56 +17,50 @@ export type SubscriptionPeriodStatus =
   | "pending_approval"
   | "active"
   | "warning"
-  | "grace"
   | "expired";
 
 export type SubscriptionBillingSnapshot = {
   setupFeeETB: number;
   quarterlyFeeETB: number;
+  /** The console's yearly price — what the payment portal asks for. */
+  annualFeeETB?: number;
   setupFeeApproved: boolean;
   subscriptionPaymentApproved: boolean;
   createdAt: string | null;
   billingStartedAt: string | null;
   billingHold: boolean;
   isIllustrationTenant: boolean;
+  /** ACTIVE | SUSPENDED | BANNED | DELETED, set by Apex in the console. */
+  accountStatus?: string;
   freeTrialEndsAt: string | null;
   subscriptionPaidUntil: string | null;
   paidQuartersCount: number;
+  /** A yearly payment is sitting in Apex's queue awaiting verification. */
+  paymentPending?: boolean;
   /** Set at login — true only for /SignUp tenants awaiting Apex setup approval. */
   awaitingSelfSignupSetup?: boolean;
   paymentTransactionRef?: string | null;
 };
 
-export function selfSignupAwaitingSetup(
-  snap: SubscriptionBillingSnapshot,
-): boolean {
-  if (snap.awaitingSelfSignupSetup != null) {
-    return snap.awaitingSelfSignupSetup;
-  }
-  if (snap.setupFeeApproved) return false;
-  if (snap.setupFeeETB <= 0) return false;
-  const ref = snap.paymentTransactionRef?.trim() ?? "";
-  return ref.length >= 4;
-}
-
 export function subscriptionBillingApplies(snap: SubscriptionBillingSnapshot): boolean {
-  if (snap.isIllustrationTenant) return false;
-  return snap.quarterlyFeeETB > 0;
+  return !snap.isIllustrationTenant;
 }
 
 export function parseSubscriptionDate(raw: string | null | undefined): Date | null {
   if (raw == null || String(raw).trim() === "") return null;
-  const d = new Date(raw);
+  const text = String(raw).trim();
+  // A bare calendar date must stay on that date in local time, not shift a
+  // day behind for anyone west of UTC.
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (day) return new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]));
+  const d = new Date(text);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function isFreeTrialActive(
-  snap: SubscriptionBillingSnapshot,
-  now: Date = new Date(),
-): boolean {
-  const end = parseSubscriptionDate(snap.freeTrialEndsAt);
-  if (!end) return false;
-  return now.getTime() < end.getTime();
+export function daysBetweenCalendar(start: Date, end: Date): number {
+  const a = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const b = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  return Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000));
 }
 
 export function freeTrialDaysRemaining(
@@ -77,102 +72,47 @@ export function freeTrialDaysRemaining(
   return daysBetweenCalendar(now, end);
 }
 
-export function hadFreeTrial(snap: SubscriptionBillingSnapshot): boolean {
-  return parseSubscriptionDate(snap.freeTrialEndsAt) !== null;
-}
-
-export function trialPaymentDeadline(
+export function subscriptionDaysRemaining(
   snap: SubscriptionBillingSnapshot,
-): Date | null {
-  const end = parseSubscriptionDate(snap.freeTrialEndsAt);
+  now: Date = new Date(),
+): number | null {
+  const end = parseSubscriptionDate(snap.subscriptionPaidUntil);
   if (!end) return null;
-  const deadline = new Date(end.getTime());
-  deadline.setDate(deadline.getDate() + TRIAL_PAYMENT_WINDOW_DAYS);
-  return deadline;
+  return daysBetweenCalendar(now, end);
 }
 
-/** Quarter anchor — billingStartedAt after hold release, else createdAt. */
-export function resolveBillingAnchor(snap: SubscriptionBillingSnapshot): Date | null {
-  if (snap.billingHold) return null;
-  const started = parseSubscriptionDate(snap.billingStartedAt);
-  if (started) return started;
-  return parseSubscriptionDate(snap.createdAt);
-}
-
-export function computeQuarterEndFromCreatedAt(
-  anchor: Date,
-  paidQuartersCount: number,
-): Date {
-  const end = new Date(anchor.getTime());
-  end.setDate(end.getDate() + paidQuartersCount * SUBSCRIPTION_QUARTER_DAYS);
-  return end;
-}
-
-export function daysBetweenCalendar(start: Date, end: Date): number {
-  const a = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const b = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  return Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000));
-}
-
+/**
+ * Yearly standing, mirroring BackEnd/billing/access.py.
+ *
+ * A paid year wins over an old trial date, so an approved renewal clears a
+ * trial that has since ended. There is no grace period: the day after either
+ * window closes, the login is blocked.
+ */
 export function computeSubscriptionPeriodStatus(
   snap: SubscriptionBillingSnapshot,
   now: Date = new Date(),
 ): SubscriptionPeriodStatus {
-  if (snap.isIllustrationTenant) return "exempt";
+  if (!subscriptionBillingApplies(snap)) return "exempt";
+  if ((snap.accountStatus ?? "ACTIVE") !== "ACTIVE") return "restricted";
+  // A hold freezes renewals without revoking access.
   if (snap.billingHold) return "on_hold";
 
-  if (!subscriptionBillingApplies(snap)) {
-    return "exempt";
+  const daysLeft = subscriptionDaysRemaining(snap, now);
+  if (daysLeft !== null) {
+    if (daysLeft < 0) return snap.paymentPending ? "pending_approval" : "expired";
+    return daysLeft <= SUBSCRIPTION_WARNING_DAYS ? "warning" : "active";
   }
 
-  if (selfSignupAwaitingSetup(snap)) {
-    return "setup_pending";
-  }
-
-  if (isFreeTrialActive(snap, now)) {
-    const daysLeft = freeTrialDaysRemaining(snap, now);
-    if (daysLeft !== null && daysLeft <= TRIAL_PAYMENT_WINDOW_DAYS && !snap.setupFeeApproved) {
-      return "trial_ending";
+  const trialLeft = freeTrialDaysRemaining(snap, now);
+  if (trialLeft !== null) {
+    if (trialLeft < 0) {
+      return snap.paymentPending ? "pending_approval" : "trial_expired";
     }
-    return "trial";
+    return trialLeft <= TRIAL_PAYMENT_WINDOW_DAYS ? "trial_ending" : "trial";
   }
 
-  if (hadFreeTrial(snap) && !snap.setupFeeApproved) {
-    return "trial_expired";
-  }
-
-  if (!resolveBillingAnchor(snap)) {
-    return "on_hold";
-  }
-
-  const paidUntil = parseSubscriptionDate(snap.subscriptionPaidUntil);
-  if (!paidUntil) {
-    return "active";
-  }
-
-  const daysUntilEnd = daysBetweenCalendar(now, paidUntil);
-
-  if (daysUntilEnd > SUBSCRIPTION_WARNING_DAYS) {
-    return "active";
-  }
-  if (daysUntilEnd >= 0) {
-    return "warning";
-  }
-
-  const daysPast = -daysUntilEnd;
-  if (daysPast >= 1 && daysPast < SUBSCRIPTION_GRACE_DAYS) {
-    return "grace";
-  }
-  return "expired";
-}
-
-export function isPastPaidQuarterEnd(
-  snap: SubscriptionBillingSnapshot,
-  now: Date = new Date(),
-): boolean {
-  const paidUntil = parseSubscriptionDate(snap.subscriptionPaidUntil);
-  if (!paidUntil) return false;
-  return daysBetweenCalendar(now, paidUntil) < 0;
+  // Neither a trial nor a paid year on record: nothing to enforce yet.
+  return "exempt";
 }
 
 export function subscriptionAllowsFullSystemAccess(
@@ -180,6 +120,7 @@ export function subscriptionAllowsFullSystemAccess(
 ): boolean {
   return (
     status === "exempt" ||
+    status === "on_hold" ||
     status === "trial" ||
     status === "trial_ending" ||
     status === "active" ||
@@ -201,10 +142,18 @@ export function formatSubscriptionDate(d: Date): string {
   });
 }
 
-export function currentQuarterNumber(
-  anchor: Date,
-  now: Date = new Date(),
+export function formatSubscriptionDateKey(raw: string | null | undefined): string {
+  const d = parseSubscriptionDate(raw);
+  return d ? formatSubscriptionDate(d) : "—";
+}
+
+export function subscriptionAmountDueETB(
+  snap: SubscriptionBillingSnapshot,
+  years = 1,
 ): number {
-  const days = Math.max(0, daysBetweenCalendar(anchor, now));
-  return Math.floor(days / SUBSCRIPTION_QUARTER_DAYS) + 1;
+  return (Number(snap.annualFeeETB) || 0) * years;
+}
+
+export function pluralDays(count: number): string {
+  return `${count} day${Math.abs(count) === 1 ? "" : "s"}`;
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, roleHome, saveSession } from "@/lib/api";
 import { refreshTenantSubscription } from "@/lib/actions";
+import { persistTenantAccessMode } from "@/lib/tenantAccessMode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,19 @@ export default function LoginPage() {
       } catch {
         // The route guard retries this; keep the session usable if it fails.
       }
+      // An ended trial or year still lets the manager in, but only as far as
+      // the payment portal. Every other role was denied by the backend and
+      // lands in the catch below with "Your subscription is ended."
+      if (response.access_mode === "payment_portal") {
+        persistTenantAccessMode("payment_portal", response.payment_kind ?? "yearly");
+        toast.message(
+          response.access_message ||
+            "Complete payment verification to unlock your workspace.",
+        );
+        router.replace("/PaymentVerification");
+        return;
+      }
+      persistTenantAccessMode("full");
       toast.success(`Welcome back, ${response.user.name.split(" ")[0]}`);
       router.replace(roleHome(response.user.role));
     } catch (error) {

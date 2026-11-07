@@ -10,11 +10,16 @@ import {
   canUseTenantSystem,
   getSubscriptionPeriodStatus,
   hasAuthToken,
+  isAdminOrManagerRole,
   loggedInRoleMatchesTerminal,
   moduleBlockMessage,
+  readLoggedInRole,
   subscriptionBlockMessage,
 } from "@/lib/tenantAccess";
-import { isPaymentPortalMode } from "@/lib/tenantAccessMode";
+import {
+  isPaymentPortalMode,
+  persistTenantAccessMode,
+} from "@/lib/tenantAccessMode";
 import { refreshTenantSubscription } from "@/lib/actions";
 import { clearAuthStorage } from "@/lib/sessionExpiry";
 
@@ -50,10 +55,15 @@ export function useTenantRouteGuard(options?: {
 
       const status = getSubscriptionPeriodStatus();
       if (!canUseTenantSystem()) {
-        toast.error(subscriptionBlockMessage(status));
-        if (status === "on_hold") {
-          clearAuthStorage();
+        // A manager still gets the payment portal; every other role is just
+        // told the subscription ended and sent back to the login screen.
+        if (isAdminOrManagerRole(readLoggedInRole())) {
+          persistTenantAccessMode("payment_portal", "yearly");
+          router.replace("/PaymentVerification");
+          return;
         }
+        toast.error(subscriptionBlockMessage(status));
+        clearAuthStorage();
         router.replace("/");
         return;
       }

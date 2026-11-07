@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Boxes, ChevronRight, LogOut } from "lucide-react";
+import { toast } from "sonner";
 import {
   Collapsible,
   CollapsibleContent,
@@ -19,6 +20,17 @@ import {
   type TenantInfo,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { refreshTenantSubscription } from "@/lib/actions";
+import {
+  getSubscriptionPeriodStatus,
+  isAdminOrManagerRole,
+  subscriptionBlockMessage,
+} from "@/lib/tenantAccess";
+import {
+  isPaymentPortalMode,
+  persistTenantAccessMode,
+} from "@/lib/tenantAccessMode";
+import { subscriptionAllowsFullSystemAccess } from "@/lib/subscriptionQuarter";
 import {
   Sidebar,
   SidebarContent,
@@ -161,6 +173,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     setUser(session);
 
+    // An ended trial or year parks the manager on the payment portal instead
+    // of the workspace; the backend only ever issues that token to managers.
+    if (isPaymentPortalMode()) {
+      router.replace("/PaymentVerification");
+      return;
+    }
+
     // Roles stay inside their own portal: a store login on /manager is
     // bounced back to its home.
     const roots = ROLE_ROOTS[session.role] ?? [];
@@ -169,6 +188,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
     if (!allowed) router.replace(roleHome(session.role));
   }, [router, pathname]);
+
+  const userId = user?.id;
+  const userRole = user?.role;
+
+  // Pull the real yearly billing snapshot once per login so the top-bar
+  // warning has data, and enforce a period that ended while signed in.
+  useEffect(() => {
+    if (!userId || !userRole) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await refreshTenantSubscription();
+      } catch {
+        return;
+      }
+      if (cancelled) return;
+      const status = getSubscriptionPeriodStatus();
+      if (subscriptionAllowsFullSystemAccess(status)) return;
+      if (isAdminOrManagerRole(userRole)) {
+        persistTenantAccessMode("payment_portal", "yearly");
+        router.replace("/PaymentVerification");
+        return;
+      }
+      toast.error(subscriptionBlockMessage(status));
+      clearSession();
+      router.replace("/");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, userRole, router]);
 
   useEffect(() => {
     if (!user) return;

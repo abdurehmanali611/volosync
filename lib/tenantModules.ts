@@ -17,6 +17,9 @@ import type { SubscriptionBillingSnapshot } from "@/lib/subscriptionQuarter";
 const MODULES_KEY = "tenant_modules";
 const SETUP_KEY = "tenant_setup_fee_etb";
 const QUARTERLY_KEY = "tenant_quarterly_fee_etb";
+const ANNUAL_FEE_KEY = "tenant_annual_fee_etb";
+const ACCOUNT_STATUS_KEY = "tenant_account_status";
+const PAYMENT_PENDING_KEY = "tenant_payment_pending";
 const SETUP_APPROVED_KEY = "tenant_setup_fee_approved";
 const CREATED_AT_KEY = "tenant_created_at";
 const BILLING_STARTED_KEY = "tenant_billing_started_at";
@@ -48,6 +51,9 @@ export function persistTenantSubscription(sub: TenantSubscription): void {
   localStorage.setItem(MODULES_KEY, JSON.stringify(sub.modules));
   localStorage.setItem(SETUP_KEY, String(sub.setupFeeETB));
   localStorage.setItem(QUARTERLY_KEY, String(sub.quarterlyFeeETB));
+  localStorage.setItem(ANNUAL_FEE_KEY, String(sub.annualFeeETB ?? 0));
+  localStorage.setItem(ACCOUNT_STATUS_KEY, sub.accountStatus ?? "ACTIVE");
+  localStorage.setItem(PAYMENT_PENDING_KEY, sub.paymentPending ? "1" : "0");
   localStorage.setItem(
     SETUP_APPROVED_KEY,
     sub.setupFeeApproved ? "1" : "0",
@@ -114,6 +120,9 @@ export function readTenantBillingFromStorage(): SubscriptionBillingSnapshot {
     return {
       setupFeeETB: 0,
       quarterlyFeeETB: 0,
+      annualFeeETB: 0,
+      accountStatus: "ACTIVE",
+      paymentPending: false,
       setupFeeApproved: true,
       subscriptionPaymentApproved: true,
       createdAt: null,
@@ -130,6 +139,9 @@ export function readTenantBillingFromStorage(): SubscriptionBillingSnapshot {
   return {
     setupFeeETB: Number(localStorage.getItem(SETUP_KEY) ?? 0) || 0,
     quarterlyFeeETB: Number(localStorage.getItem(QUARTERLY_KEY) ?? 0) || 0,
+    annualFeeETB: Number(localStorage.getItem(ANNUAL_FEE_KEY) ?? 0) || 0,
+    accountStatus: localStorage.getItem(ACCOUNT_STATUS_KEY) || "ACTIVE",
+    paymentPending: localStorage.getItem(PAYMENT_PENDING_KEY) === "1",
     setupFeeApproved: localStorage.getItem(SETUP_APPROVED_KEY) !== "0",
     subscriptionPaymentApproved:
       localStorage.getItem(PAYMENT_APPROVED_KEY) === "1",
@@ -212,6 +224,9 @@ export function clearTenantSubscriptionStorage(): void {
     MODULES_KEY,
     SETUP_KEY,
     QUARTERLY_KEY,
+    ANNUAL_FEE_KEY,
+    ACCOUNT_STATUS_KEY,
+    PAYMENT_PENDING_KEY,
     SETUP_APPROVED_KEY,
     CREATED_AT_KEY,
     BILLING_STARTED_KEY,

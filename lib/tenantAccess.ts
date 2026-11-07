@@ -10,10 +10,6 @@ import { tenantHasModule } from "@/lib/subscriptionModules";
 import { parseCafeOrderMode } from "@/lib/cafeOrderMode";
 import { readTenantBillingFromStorage, readTenantModulesFromStorage } from "@/lib/tenantModules";
 import { isPaymentPortalMode } from "@/lib/tenantAccessMode";
-import {
-  isLodgingBusinessType,
-  readBusinessTypeFromStorage,
-} from "@/lib/subscriptionBillingPeriod";
 
 export const TERMINAL_PAGE_MODULES: Record<string, ModuleOption | undefined> = {
   Admin: undefined,
@@ -91,7 +87,7 @@ export function readLoggedInRole(): string | null {
 }
 
 export function isAdminOrManagerRole(role: string | null | undefined): boolean {
-  return role === "Admin" || role === "Manager";
+  return role === "MANAGER" || role === "OWNER";
 }
 
 export function canAccessTenantOwnerPage(): boolean {
@@ -121,40 +117,27 @@ export function loggedInRoleMatchesTerminal(terminalRole: string): boolean {
 }
 
 export function subscriptionBlockMessage(status: SubscriptionPeriodStatus): string {
-  const isYearly = isLodgingBusinessType(readBusinessTypeFromStorage());
-  if (status === "on_hold") {
-    return "This property is on billing hold. Login is disabled until Apex releases the hold. Contact Apex on WhatsApp for help.";
+  if (status === "restricted") {
+    return "This wholesaler account is restricted. Contact Apex to restore access.";
   }
-  if (status === "trial") {
-    return "Free trial is active.";
+  if (status === "on_hold") {
+    return "Billing is on hold for this wholesaler. Renewals stay frozen until Apex releases the hold.";
   }
   if (status === "trial_ending") {
-    return "Free trial is ending soon. Submit the setup fee to continue using the system after the trial ends.";
+    return "Your free trial is ending soon. Submit the yearly payment to keep access after it ends.";
   }
-  if (status === "trial_expired") {
-    return "Free trial has ended. Login is disabled until Admin or Manager submits the setup payment and Apex approves.";
-  }
-  if (status === "setup_pending") {
-    return "Setup fee approval is pending. Sign-in is disabled until Apex verifies your payment (usually within about 30 minutes). Contact Apex on WhatsApp if you need help.";
+  if (status === "trial_expired" || status === "expired") {
+    return "Your subscription is ended.";
   }
   if (status === "pending_approval") {
-    return isYearly
-      ? "A yearly payment is awaiting Apex approval. Admin or Manager can check status on the payment portal."
-      : "A quarterly payment is awaiting Apex approval. Admin or Manager can check status on the payment portal.";
+    return "Your payment is awaiting Apex verification. Access unlocks once Apex approves it.";
   }
-  if (status === "grace") {
-    return isYearly
-      ? "Yearly renewal is required. Admin or Manager must submit payment within the grace period."
-      : "Quarterly renewal is required. Admin or Manager must submit payment within the grace period.";
+  if (status === "setup_pending") {
+    return "Setup approval is pending. Sign-in unlocks once Apex verifies your payment.";
   }
-  if (status === "expired") {
-    return isYearly
-      ? "Your yearly subscription grace period has ended. Pay Apex and contact support to restore access."
-      : "Your quarterly subscription grace period has ended. Pay Apex and contact support to restore access.";
-  }
-  return "Your property cannot access the system right now.";
+  return "This wholesaler cannot access the system right now.";
 }
 
 export function moduleBlockMessage(module: ModuleOption): string {
-  return `"${module}" is not subscribed for this property. Contact Apex to add the module.`;
+  return `"${module}" is not subscribed for this wholesaler. Contact Apex to add the module.`;
 }

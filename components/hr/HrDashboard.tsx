@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useTenantRouteGuard } from "@/hooks/useTenantRouteGuard";
+import { SubscriptionAlertButton } from "@/components/volo/subscription-alert-button";
 import { useTenantScopeAndDisplay } from "@/lib/useTenantScopeAndDisplay";
 import { readLoggedInRole } from "@/lib/tenantAccess";
 import { api as volosyncApi } from "@/lib/api";
@@ -708,6 +709,7 @@ export function HrDashboard({
                   {headerLabel}
                 </h1>
               </div>
+              <SubscriptionAlertButton role={readLoggedInRole() ?? ""} />
               <RefreshIconButton
                 busy={refreshing}
                 disabled={loading}

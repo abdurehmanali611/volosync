@@ -5,6 +5,7 @@ import { ManagerMessagesButton } from "@/components/volo/manager-messages-button
 import { NotificationsButton } from "@/components/volo/notifications-button";
 import { PasswordKeyButton } from "@/components/volo/password-button";
 import { RefreshButton } from "@/components/volo/refresh-button";
+import { SubscriptionAlertButton } from "@/components/volo/subscription-alert-button";
 import { Boxes } from "lucide-react";
 import type { SessionUser } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ export function WorkspaceTopBar({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          <SubscriptionAlertButton role={user.role} />
           {user.role === "MANAGER" && (
             <>
               <ApexChatButton />

@@ -1,4 +1,12 @@
 import { resetSessionExpiryGuard, scheduleSessionExpiredRedirect } from "@/lib/sessionExpiry";
+import { clearTenantSubscriptionStorage } from "@/lib/tenantModules";
+import {
+  clearTenantAccessModeStorage,
+  type TenantAccessMode,
+  type TenantPaymentKind,
+} from "@/lib/tenantAccessMode";
+import type { TenantSubscription } from "@/lib/subscriptionModules";
+import type { SubscriptionPeriodStatus } from "@/lib/subscriptionQuarter";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://volosync-backend.vercel.app";
 
@@ -51,6 +59,36 @@ export type TenantInfo = {
   vat_rate?: string;
 };
 
+export type PendingSubscriptionPayment = {
+  id: number;
+  transactionRef: string;
+  channel: string;
+  amount: number;
+  years: number;
+  paidOn: string | null;
+  coversUntil: string | null;
+  submittedAt: string | null;
+};
+
+/** What /api/tenants/subscription/ returns — the stored snapshot plus the
+ * portal-only figures (amount due, pending row) that are never persisted. */
+export type TenantBillingSnapshot = TenantSubscription & {
+  periodStatus: SubscriptionPeriodStatus;
+  accessMode: TenantAccessMode;
+  trialDaysLeft: number | null;
+  subscriptionDaysLeft: number | null;
+  amountDueETB: number;
+  pendingPayment: PendingSubscriptionPayment | null;
+};
+
+export type LoginResponse = {
+  access: string;
+  user: SessionUser;
+  access_mode?: TenantAccessMode;
+  payment_kind?: TenantPaymentKind | null;
+  access_message?: string;
+};
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(TOKEN_KEY);
@@ -77,6 +115,8 @@ export function clearSession() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
+  clearTenantSubscriptionStorage();
+  clearTenantAccessModeStorage();
 }
 
 export class ApiError extends Error {
@@ -140,11 +180,30 @@ export type StaffRow = {
 };
 export const api = {
   login: (username: string, password: string) =>
-    request<{ access: string; user: SessionUser }>("/api/auth/login/", {
+    request<LoginResponse>("/api/auth/login/", {
       method: "POST",
       body: JSON.stringify({ username, password }),
     }),
   tenantMe: () => request<{ data: TenantInfo | null }>("/api/tenants/me/"),
+  tenantSubscription: () =>
+    request<{ data: TenantBillingSnapshot }>("/api/tenants/subscription/"),
+  submitSubscriptionPayment: (payload: {
+    channel: string;
+    transaction_ref: string;
+    years?: number;
+    note?: string;
+  }) =>
+    request<{
+      data: {
+        payment: number;
+        status: string;
+        amount: number;
+        coversUntil: string | null;
+      };
+    }>("/api/tenants/subscription/payment/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   /* Manager Access section — staff logins for the manager's own tenant. */
   staff: () => request<{ data: StaffRow[] }>("/api/user/staff/"),
   createStaff: (payload: { username: string; password: string; role: string; phone?: string }) =>

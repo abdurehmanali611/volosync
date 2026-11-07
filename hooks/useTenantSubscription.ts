@@ -7,7 +7,9 @@ import {
 } from "@/lib/tenantModules";
 import {
   computeSubscriptionPeriodStatus,
+  freeTrialDaysRemaining,
   subscriptionAllowsFullSystemAccess,
+  subscriptionDaysRemaining,
 } from "@/lib/subscriptionQuarter";
 import {
   buildSubscriptionNotifications,
@@ -44,6 +46,11 @@ export function useTenantSubscriptionState() {
       canUseSystem: subscriptionAllowsFullSystemAccess(status),
       notifications,
       summary: subscriptionNotificationSummary(notifications),
+      /** Days on the badge: the trial window, else the paid-year window. */
+      daysLeft:
+        status === "trial_ending" || status === "trial_expired"
+          ? freeTrialDaysRemaining(sub)
+          : subscriptionDaysRemaining(sub),
     };
   }, [raw]);
 }
