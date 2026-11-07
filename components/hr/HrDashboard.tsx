@@ -36,9 +36,9 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { useTenantRouteGuard } from "@/hooks/useTenantRouteGuard";
-import { SubscriptionAlertButton } from "@/components/volo/subscription-alert-button";
+import { SubscriptionNotificationCenter } from "@/components/volo/subscription-notification-center";
 import { useTenantScopeAndDisplay } from "@/lib/useTenantScopeAndDisplay";
-import { readLoggedInRole } from "@/lib/tenantAccess";
+import { isAdminOrManagerRole, readLoggedInRole } from "@/lib/tenantAccess";
 import { api as volosyncApi } from "@/lib/api";
 import { rememberTenantBrand } from "@/lib/tenantBrand";
 import { logoutAction, notifyApiFailure } from "@/lib/actions";
@@ -709,7 +709,9 @@ export function HrDashboard({
                   {headerLabel}
                 </h1>
               </div>
-              <SubscriptionAlertButton role={readLoggedInRole() ?? ""} />
+              {isAdminOrManagerRole(readLoggedInRole() ?? "") && (
+                <SubscriptionNotificationCenter />
+              )}
               <RefreshIconButton
                 busy={refreshing}
                 disabled={loading}

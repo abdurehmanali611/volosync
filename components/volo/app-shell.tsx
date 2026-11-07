@@ -21,6 +21,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { refreshTenantSubscription } from "@/lib/actions";
+import { SubscriptionAlertBanner } from "@/components/volo/subscription-notification-center";
 import {
   getSubscriptionPeriodStatus,
   isAdminOrManagerRole,
@@ -431,6 +432,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
         <div className="relative z-[1] flex-1 md:min-h-0 md:overflow-y-auto">
           <div className="mx-auto w-full max-w-[1500px] min-w-0 px-4 py-6 sm:px-6 lg:px-8">
+            {isAdminOrManagerRole(user.role) && <SubscriptionAlertBanner />}
             {children}
           </div>
         </div>

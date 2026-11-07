@@ -5,9 +5,11 @@ import { ManagerMessagesButton } from "@/components/volo/manager-messages-button
 import { NotificationsButton } from "@/components/volo/notifications-button";
 import { PasswordKeyButton } from "@/components/volo/password-button";
 import { RefreshButton } from "@/components/volo/refresh-button";
-import { SubscriptionAlertButton } from "@/components/volo/subscription-alert-button";
+import { SubscriptionNotificationCenter } from "@/components/volo/subscription-notification-center";
+import { TrialBillingButton } from "@/components/volo/subscription-trial-button";
 import { Boxes } from "lucide-react";
 import type { SessionUser } from "@/lib/api";
+import { isAdminOrManagerRole } from "@/lib/tenantAccess";
 import { cn } from "@/lib/utils";
 
 type WorkspaceTopBarProps = {
@@ -51,7 +53,12 @@ export function WorkspaceTopBar({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <SubscriptionAlertButton role={user.role} />
+          {isAdminOrManagerRole(user.role) && (
+            <>
+              <TrialBillingButton />
+              <SubscriptionNotificationCenter />
+            </>
+          )}
           {user.role === "MANAGER" && (
             <>
               <ApexChatButton />

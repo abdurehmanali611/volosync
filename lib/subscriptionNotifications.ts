@@ -116,6 +116,12 @@ export function buildSubscriptionNotifications(
 
 export function subscriptionNotificationSummary(
   rows: SubscriptionNotification[],
-): string {
-  return rows[0]?.title ?? "";
+): { critical: number; warning: number } {
+  let critical = 0;
+  let warning = 0;
+  for (const row of rows) {
+    if (row.severity === "critical") critical += 1;
+    else warning += 1;
+  }
+  return { critical, warning };
 }
