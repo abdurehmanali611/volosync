@@ -206,16 +206,13 @@ export default function PaymentVerificationPage() {
   const title = trialPayment ? "Free trial payment" : "Yearly subscription payment";
 
   // The amount follows the payment kind: a free-trial payment uses the setup
-  // fee, a yearly renewal uses the yearly fee — the two can never show each
-  // other's amount. The server's `amountDueETB` is authoritative; the local
-  // calculation is only a fallback for an older backend build.
+  // fee, a yearly renewal uses the yearly fee. A missing fee stays at 0 — it
+  // is never replaced with the other fee. The server's `amountDueETB` is
+  // authoritative; the same-kind local value is only a fallback for an older
+  // backend build.
   const serverAmountDue = Number(snapshot?.amountDueETB ?? 0);
-  const amountDue =
-    serverAmountDue > 0
-      ? serverAmountDue
-      : trialPayment && setupFee > 0
-        ? setupFee
-        : annualFee;
+  const kindAmountDue = trialPayment ? setupFee : annualFee;
+  const amountDue = serverAmountDue > 0 ? serverAmountDue : kindAmountDue;
 
   const description = restricted
     ? "Apex has restricted this account. Contact Apex to restore access — a payment will not lift the restriction."
@@ -260,7 +257,7 @@ export default function PaymentVerificationPage() {
               {description}
             </p>
             <p className="text-sm font-medium text-white">
-              Amount due: {amountDue > 0 ? formatETB(amountDue) : "Contact Apex"}
+              Amount due: {formatETB(amountDue)}
             </p>
           </div>
 
@@ -280,8 +277,9 @@ export default function PaymentVerificationPage() {
               className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
               role="status"
             >
-              Apex has not set the fee for this wholesaler yet. Contact Apex to
-              have it applied before paying.
+              {trialPayment
+                ? "Apex has not set the setup fee for this wholesaler yet. Contact Apex to set the setup fee before paying."
+                : "Apex has not set the yearly fee for this wholesaler yet. Contact Apex to set the yearly fee before paying."}
             </div>
           ) : null}
 
