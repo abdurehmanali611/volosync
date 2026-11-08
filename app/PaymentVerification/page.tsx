@@ -198,19 +198,24 @@ export default function PaymentVerificationPage() {
   const setupFee = Number(snapshot?.setupFeeETB ?? 0);
   const meta = APEX_PAYMENT_CHANNEL_META[channel];
 
-  // A free-trial payment and a yearly renewal are both the yearly fee today,
-  // but the upfront copy must say which one is being paid — like hotcol's
+  // A free-trial payment is the one-time setup fee; a yearly renewal is the
+  // yearly fee. The copy must say which one is being paid — like hotcol's
   // setup vs yearly kind titles. Mirrors the backend's fee selection.
   const trialPayment =
     status === "trial" || status === "trial_ending" || status === "trial_expired";
   const title = trialPayment ? "Free trial payment" : "Yearly subscription payment";
 
   // The amount follows the payment kind: a free-trial payment uses the setup
-  // fee when the console has set one; a yearly renewal always uses the yearly
-  // fee — the two can never show each other's amount. Volosync's tenants
-  // table has no setup fee column yet, so the trial case falls back to the
-  // yearly fee it actually activates.
-  const amountDue = trialPayment && setupFee > 0 ? setupFee : annualFee;
+  // fee, a yearly renewal uses the yearly fee — the two can never show each
+  // other's amount. The server's `amountDueETB` is authoritative; the local
+  // calculation is only a fallback for an older backend build.
+  const serverAmountDue = Number(snapshot?.amountDueETB ?? 0);
+  const amountDue =
+    serverAmountDue > 0
+      ? serverAmountDue
+      : trialPayment && setupFee > 0
+        ? setupFee
+        : annualFee;
 
   const description = restricted
     ? "Apex has restricted this account. Contact Apex to restore access — a payment will not lift the restriction."
