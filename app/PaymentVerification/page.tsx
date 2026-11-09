@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Loader2, LogOut, Smartphone } from "lucide-react";
+import {
+  Building2,
+  CreditCard,
+  Loader2,
+  LogOut,
+  Smartphone,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Card,
@@ -41,6 +47,7 @@ import { cn } from "@/lib/utils";
 const CHANNEL_ICONS: Record<ApexPaymentChannel, typeof Smartphone> = {
   TELEBIRR: Smartphone,
   BANK: Building2,
+  OTHER: CreditCard,
 };
 
 /**

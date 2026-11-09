@@ -1,13 +1,13 @@
 /**
- * Apex Solution payment constants for the payment portal, mirroring the
- * hotcol signup payment metadata. The backend stores channels as TELEBIRR /
- * BANK; the portal presents them with the same Telebirr / CBE copy.
+ * Apex Solution payment constants for the signup and the payment portal.
+ * The backend stores channels as TELEBIRR / BANK / CASH / OTHER; the UI
+ * presents them with the Telebirr / CBE / Other copy.
  */
 
-/** Apex Solution CBE account — all yearly subscription transfers (including Telebirr → CBE). */
-export const APEX_SOLUTION_CBE_ACCOUNT = "1000418779358";
+/** Apex Solution CBE account — all transfers (including Telebirr → CBE). */
+export const APEX_SOLUTION_CBE_ACCOUNT = "1000176310832";
 
-export const APEX_PAYMENT_CHANNELS = ["TELEBIRR", "BANK"] as const;
+export const APEX_PAYMENT_CHANNELS = ["TELEBIRR", "BANK", "OTHER"] as const;
 
 export type ApexPaymentChannel = (typeof APEX_PAYMENT_CHANNELS)[number];
 
@@ -31,5 +31,11 @@ export const APEX_PAYMENT_CHANNEL_META: Record<
     transactionFieldLabel: "CBE transaction ID",
     transactionPlaceholder: "e.g. FT25234… from your bank slip or app",
     hint: `Deposit to Apex Solution CBE account ${APEX_SOLUTION_CBE_ACCOUNT}, then enter the CBE transaction ID from your confirmation.`,
+  },
+  OTHER: {
+    label: "Other",
+    transactionFieldLabel: "Transaction reference",
+    transactionPlaceholder: "Reference from your payment receipt",
+    hint: `Pay via Telebirr, CBE (${APEX_SOLUTION_CBE_ACCOUNT}), or any method agreed with Apex, then enter the transaction reference from your receipt.`,
   },
 };

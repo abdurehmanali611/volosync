@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, roleHome, saveSession } from "@/lib/api";
 import { refreshTenantSubscription } from "@/lib/actions";
@@ -272,6 +273,15 @@ export default function LoginPage() {
                       </>
                     )}
                   </Button>
+                  <p className="text-center text-[12px] text-zinc-400">
+                    New to VoloSync?{" "}
+                    <Link
+                      href="/SignUp"
+                      className="font-medium text-cyan-300 transition hover:text-cyan-200"
+                    >
+                      Create a wholesaler account
+                    </Link>
+                  </p>
                 </form>
 
                 <div className="mt-5 flex items-center gap-2 border-t border-white/5 pt-4 text-[10px] text-zinc-600">

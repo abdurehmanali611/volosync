@@ -204,6 +204,57 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  /* Self-signup - public endpoints; Apex approves the registration. */
+  signupAgents: () =>
+    request<{ data: { id: number; name: string; phone: string; city: string }[] }>(
+      "/api/tenants/signup/agents/",
+    ),
+  signupPricing: (inventory: boolean, hr: boolean) =>
+    request<{ data: { setupFeeETB: number; yearlyFeeETB: number } }>(
+      `/api/tenants/signup/pricing/?inventory=${inventory ? "1" : "0"}&hr=${hr ? "1" : "0"}`,
+    ),
+  signupSubmit: (payload: {
+    name: string;
+    tin: string;
+    logo_url?: string;
+    username: string;
+    password: string;
+    sales_agent_id?: number | null;
+    module_inventory: boolean;
+    module_hr: boolean;
+    channel: string;
+    transaction_ref: string;
+  }) =>
+    request<{
+      data: {
+        tenant: string;
+        tin: string;
+        username: string;
+        status: string;
+        message: string;
+      };
+    }>("/api/tenants/signup/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  signupStatus: (username: string) =>
+    request<{
+      data: { status: string; business_name: string; note: string };
+    }>(
+      `/api/tenants/signup/status/?username=${encodeURIComponent(username)}`,
+    ),
+  signupResubmit: (payload: {
+    username: string;
+    channel: string;
+    transaction_ref: string;
+  }) =>
+    request<{ data: { status: string; message: string } }>(
+      "/api/tenants/signup/payment/",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      },
+    ),
   /* Manager Access section — staff logins for the manager's own tenant. */
   staff: () => request<{ data: StaffRow[] }>("/api/user/staff/"),
   createStaff: (payload: { username: string; password: string; role: string; phone?: string }) =>
