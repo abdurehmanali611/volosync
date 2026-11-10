@@ -85,8 +85,8 @@ export function subscriptionDaysRemaining(
  * Yearly standing, mirroring BackEnd/billing/access.py.
  *
  * A paid year wins over an old trial date, so an approved renewal clears a
- * trial that has since ended. There is no grace period: the day after either
- * window closes, the login is blocked.
+ * trial that has since ended. There is no grace period: a yearly subscription
+ * warns 7 days out and blocks the login on its final day.
  */
 export function computeSubscriptionPeriodStatus(
   snap: SubscriptionBillingSnapshot,
@@ -108,7 +108,7 @@ export function computeSubscriptionPeriodStatus(
 
   const daysLeft = subscriptionDaysRemaining(snap, now);
   if (daysLeft !== null) {
-    if (daysLeft < 0) return snap.paymentPending ? "pending_approval" : "expired";
+    if (daysLeft <= 0) return snap.paymentPending ? "pending_approval" : "expired";
     return daysLeft <= SUBSCRIPTION_WARNING_DAYS ? "warning" : "active";
   }
 

@@ -47,7 +47,7 @@ export function buildSubscriptionNotifications(
         severity: "warning",
         priority: "high",
         title: "Yearly subscription ending soon",
-        message: `Your yearly subscription ends in ${pluralDays(left)} on ${formatSubscriptionDateKey(snap.subscriptionPaidUntil)}. Renew now — login is blocked the day after it ends.`,
+        message: `Your yearly subscription ends in ${pluralDays(left)} on ${formatSubscriptionDateKey(snap.subscriptionPaidUntil)}. Renew now — login is blocked on the final day.`,
         status,
       },
     ];

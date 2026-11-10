@@ -2115,10 +2115,7 @@ export default function FinancePage() {
           rows={taxRows}
           totals={taxTotals}
           loading={taxLoading}
-          business={{
-            name: dashboard?.tenant.name,
-            tin: dashboard?.tenant.tin,
-          }}
+          business={receiptBusiness()}
           tenantName={dashboard?.tenant.name}
           emptyMessage="No vouchers registered yet."
         />
