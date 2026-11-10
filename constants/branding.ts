@@ -1,7 +1,7 @@
 /** VoloSync system + Apex Solution branding (public/assets). */
-export const HOTCOL_SYSTEM = {
+export const VOLOSYNC_SYSTEM = {
   name: "VoloSync",
-  logoPath: "/assets/volosync-logo.png",
+  logoPath: "/assets/volosync.png",
 } as const;
 
 export const APEX_SOLUTION = {

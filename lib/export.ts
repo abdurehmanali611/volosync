@@ -15,9 +15,9 @@ const MUTED: [number, number, number] = [113, 113, 122];
 const LINE: [number, number, number] = [228, 228, 231];
 const ZEBRA: [number, number, number] = [250, 250, 251];
 
-const APEX_LOGO = "/assets/apex-logo-dark-bg.png";
-/** The Apex mark is 320x80, so width and height stay locked at 4:1. */
-const APEX_LOGO_MM: [number, number] = [34, 8.5];
+const SYSTEM_LOGO = "/assets/volosync.png";
+/** The VoloSync mark is 1408x768, so width and height stay locked to that ratio. */
+const SYSTEM_LOGO_MM: [number, number] = [30, 16.4];
 
 const stamp = () => new Date().toISOString().slice(0, 10);
 
@@ -71,14 +71,14 @@ function pageChrome(doc: jsPDF) {
   }
 }
 
-/** Letterhead: business identity on the left, the Apex mark on the right. */
+/** Letterhead: business identity on the left, the VoloSync mark on the right. */
 function letterhead(
   doc: jsPDF,
   input: {
     title: string;
     subtitle?: string;
     business?: ReceiptBusiness;
-    apexLogo?: string | null;
+    systemLogo?: string | null;
     tenantLogo?: string | null;
   },
 ): number {
@@ -107,13 +107,13 @@ function letterhead(
 
   const eyebrowWidth = Math.max(
     40,
-    width - 14 - (input.apexLogo ? APEX_LOGO_MM[0] : 0) - 6 - textX,
+    width - 14 - (input.systemLogo ? SYSTEM_LOGO_MM[0] : 0) - 6 - textX,
   );
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(...EMERALD_DARK);
-  doc.text(`VoloSync · ${name || "business report"}`.toUpperCase(), textX, 12, {
+  doc.text((name || "business report").toUpperCase(), textX, 12, {
     maxWidth: eyebrowWidth,
   });
 
@@ -143,20 +143,20 @@ function letterhead(
     baseline = 32;
   }
 
-  if (input.apexLogo) {
+  if (input.systemLogo) {
     doc.addImage(
-      input.apexLogo,
+      input.systemLogo,
       "PNG",
-      width - 14 - APEX_LOGO_MM[0],
-      9,
-      APEX_LOGO_MM[0],
-      APEX_LOGO_MM[1],
+      width - 14 - SYSTEM_LOGO_MM[0],
+      7,
+      SYSTEM_LOGO_MM[0],
+      SYSTEM_LOGO_MM[1],
     );
   } else {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(...MUTED);
-    doc.text("Apex Solution", width - 14, 12, { align: "right" });
+    doc.text("VoloSync", width - 14, 12, { align: "right" });
   }
 
   doc.setDrawColor(...EMERALD);
@@ -182,8 +182,8 @@ export async function exportPdf({
   totals?: Cell[];
   business?: ReceiptBusiness;
 }) {
-  const [apexLogo, tenantLogo] = await Promise.all([
-    imageToDataUrl(APEX_LOGO),
+  const [systemLogo, tenantLogo] = await Promise.all([
+    imageToDataUrl(SYSTEM_LOGO),
     business?.logoUrl ? imageToDataUrl(business.logoUrl) : Promise.resolve(null),
   ]);
   const doc = new jsPDF({
@@ -194,7 +194,7 @@ export async function exportPdf({
     title,
     subtitle,
     business,
-    apexLogo,
+    systemLogo,
     tenantLogo,
   });
 

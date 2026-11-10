@@ -1,5 +1,7 @@
 "use client";
 
+import { APEX_SOLUTION, VOLOSYNC_SYSTEM } from "@/constants/branding";
+
 /** Letterhead identity printed on every receipt. */
 export type ReceiptBusiness = {
   name?: string | null;
@@ -51,14 +53,7 @@ export type ReceiptDoc = {
   linesCaption?: string;
 };
 
-const APEX_SOLUTION = {
-  name: "Apex Solution",
-  website: "https://www.apexsolutionhub.com/",
-  display: "www.apexsolutionhub.com",
-  logoPath: "/assets/apex-logo-dark-bg.png",
-};
-
-const SYSTEM_NAME = "VoloSync";
+const SYSTEM_NAME = VOLOSYNC_SYSTEM.name;
 
 function esc(value: unknown): string {
   return String(value ?? "")
@@ -272,13 +267,15 @@ function penaltyHtml(penalty: ReceiptPenalty | null | undefined): string {
 function footerHtml(): string {
   return `<footer class="foot">
     <div class="foot-brand">
-      <img class="apex" src="${esc(absoluteUrl(APEX_SOLUTION.logoPath))}" alt="${esc(
-        APEX_SOLUTION.name,
+      <img class="system-logo" src="${esc(absoluteUrl(VOLOSYNC_SYSTEM.logoPath))}" alt="${esc(
+        VOLOSYNC_SYSTEM.name,
       )}" />
       <div>
-        <p class="foot-name">${esc(APEX_SOLUTION.name)}</p>
-        <p class="foot-tag">Software · systems integration · digital solutions</p>
-        <p class="foot-link">${esc(APEX_SOLUTION.display)}</p>
+        <p class="foot-name">${esc(VOLOSYNC_SYSTEM.name)}</p>
+        <p class="foot-tag">Wholesale management ERP</p>
+        <p class="foot-link">${esc(APEX_SOLUTION.name)} · ${esc(
+          APEX_SOLUTION.website.replace(/^https?:\/\//, "").replace(/\/$/, ""),
+        )}</p>
       </div>
     </div>
     <div class="foot-meta">
@@ -413,7 +410,7 @@ const receiptCss = `
     break-inside: avoid;
   }
   .foot-brand { display: flex; align-items: center; gap: 11px; }
-  .apex { display: block; height: 27px; width: auto; border-radius: 7px; }
+  .system-logo { display: block; height: 34px; width: auto; border-radius: 7px; }
   .foot-name { margin: 0; font-size: 11px; font-weight: 700; color: #f8fafc; letter-spacing: 0.02em; }
   .foot-tag { margin: 1px 0 0; font-size: 7px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #f59e0b; }
   .foot-link { margin: 3px 0 0; font-size: 8.5px; color: #94a3b8; }

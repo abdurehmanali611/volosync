@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import type { HrPayslip } from "@/lib/api/hrSource";
-import { APEX_SOLUTION, HOTCOL_SYSTEM } from "@/constants/branding";
+import { APEX_SOLUTION, VOLOSYNC_SYSTEM } from "@/constants/branding";
 import {
   formatPayrollWeeksLabel,
   payrollWeeksInRange,
@@ -138,10 +138,9 @@ export async function downloadPayslipPdf(
       : "");
   const month = slip.taxPeriod || slip.period?.monthName || "—";
 
-  const [companyLogoData, apexLogoData, hotcolLogoData] = await Promise.all([
+  const [companyLogoData, systemLogoData] = await Promise.all([
     org.logoUrl ? imageToDataUrl(org.logoUrl) : Promise.resolve(null),
-    imageToDataUrl(APEX_SOLUTION.logoPath),
-    imageToDataUrl(HOTCOL_SYSTEM.logoPath),
+    imageToDataUrl(VOLOSYNC_SYSTEM.logoPath),
   ]);
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -235,16 +234,16 @@ export async function downloadPayslipPdf(
     });
   }
 
-  // HotCol chip (top-right under meta)
-  if (hotcolLogoData) {
+  // VoloSync chip (top-right under meta)
+  if (systemLogoData) {
     try {
       doc.addImage(
-        hotcolLogoData,
-        "JPEG",
-        rightX - 22,
-        headerTop + 25,
-        5,
-        5,
+        systemLogoData,
+        "PNG",
+        rightX - 10,
+        headerTop + 24,
+        10,
+        5.5,
         undefined,
         "FAST",
       );
@@ -255,9 +254,9 @@ export async function downloadPayslipPdf(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
-  doc.text(HOTCOL_SYSTEM.name, rightX, headerTop + 28.5, { align: "right" });
+  doc.text(VOLOSYNC_SYSTEM.name, rightX, headerTop + 32, { align: "right" });
 
-  y = Math.max(leftMetaY, headerTop + 32) + 3;
+  y = Math.max(leftMetaY, headerTop + 35) + 3;
 
   // Emerald gradient-ish rule
   doc.setDrawColor(16, 185, 129);
@@ -383,7 +382,7 @@ export async function downloadPayslipPdf(
   doc.text(`Net pay: ${money(slip.netPayETB)}`, margin + 4, y + 22);
   y += 32;
 
-  // —— Apex / HotCol footer (store-receipt style) ——
+  // —— VoloSync / Apex footer (store-receipt style) ——
   const footerH = 28;
   const footerY = Math.max(y + 4, pageH - margin - footerH);
 
@@ -392,15 +391,15 @@ export async function downloadPayslipPdf(
   doc.roundedRect(margin, footerY, contentW, footerH, 2.5, 2.5, "FD");
 
   const footerPad = footerY + 5;
-  if (apexLogoData) {
+  if (systemLogoData) {
     try {
       doc.addImage(
-        apexLogoData,
+        systemLogoData,
         "PNG",
         margin + 4,
-        footerPad,
-        28,
-        10,
+        footerPad - 1,
+        26,
+        14.2,
         undefined,
         "FAST",
       );
@@ -412,40 +411,24 @@ export async function downloadPayslipPdf(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(6, 78, 59);
-  doc.text(APEX_SOLUTION.name, margin + 36, footerPad + 5);
+  doc.text(VOLOSYNC_SYSTEM.name, margin + 34, footerPad + 5);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(4, 120, 87);
   doc.text(
-    APEX_SOLUTION.website.replace(/^https?:\/\//, ""),
-    margin + 36,
+    `${APEX_SOLUTION.name} · ${APEX_SOLUTION.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}`,
+    margin + 34,
     footerPad + 10,
   );
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(71, 85, 105);
-  const powered = `Powered by ${HOTCOL_SYSTEM.name} · HR payroll`;
+  const powered = `Powered by ${VOLOSYNC_SYSTEM.name} · HR payroll`;
   doc.text(powered, margin + contentW - 4, footerPad + 5, { align: "right" });
   doc.text(new Date().toLocaleString(), margin + contentW - 4, footerPad + 10, {
     align: "right",
   });
-  if (hotcolLogoData) {
-    try {
-      doc.addImage(
-        hotcolLogoData,
-        "JPEG",
-        margin + contentW - 12,
-        footerPad + 13,
-        6,
-        6,
-        undefined,
-        "FAST",
-      );
-    } catch {
-      /* ignore */
-    }
-  }
 
   const safeName = (slip.employeeName || "employee")
     .replace(/[^\w\- ]+/g, "")

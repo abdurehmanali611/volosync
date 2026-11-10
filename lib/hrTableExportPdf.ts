@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import { APEX_SOLUTION, HOTCOL_SYSTEM } from "@/constants/branding";
+import { APEX_SOLUTION, VOLOSYNC_SYSTEM } from "@/constants/branding";
 import { readTenantBrand } from "@/lib/tenantBrand";
 
 export type HrExportOrgBrand = {
@@ -112,7 +112,7 @@ function drawPageChrome(
   margin: number,
   companyName: string,
   pageLabel: string,
-  logos?: { hotcol: string | null; apex: string | null },
+  logos?: { system: string | null; apex: string | null },
 ) {
   doc.setFillColor(15, 23, 42);
   doc.rect(0, 0, pageW, TOP_BAR_H, "F");
@@ -125,7 +125,8 @@ function drawPageChrome(
   doc.line(margin, footerTop, pageW - margin, footerTop);
 
   const baseline = pageH - 4.0;
-  const hotcolSize = 5.2;
+  const systemH = 5.2;
+  const systemW = 9.5;
   const apexH = 5.2;
   const apexW = 20.8;
   const gap = 2.2;
@@ -135,17 +136,17 @@ function drawPageChrome(
   doc.setTextColor(100, 116, 139);
   doc.text(companyName, margin, baseline);
 
-  const brandText = `${HOTCOL_SYSTEM.name}  |  Powered by ${APEX_SOLUTION.name}`;
+  const brandText = `${VOLOSYNC_SYSTEM.name}  |  Powered by ${APEX_SOLUTION.name}`;
   const brandW = doc.getTextWidth(brandText);
-  const clusterW = hotcolSize + gap + brandW + gap + apexW;
+  const clusterW = systemW + gap + brandW + gap + apexW;
   const clusterX = (pageW - clusterW) / 2;
   const logoY = baseline - 3.9;
 
-  tryAddImage(doc, logos?.hotcol ?? null, clusterX, logoY, hotcolSize, hotcolSize);
+  tryAddImage(doc, logos?.system ?? null, clusterX, logoY, systemW, systemH);
   doc.setTextColor(100, 116, 139);
-  doc.text(brandText, clusterX + hotcolSize + gap, baseline);
+  doc.text(brandText, clusterX + systemW + gap, baseline);
 
-  const apexX = clusterX + hotcolSize + gap + brandW + gap;
+  const apexX = clusterX + systemW + gap + brandW + gap;
   doc.setFillColor(15, 23, 42);
   doc.roundedRect(apexX - 1.2, logoY - 1.0, apexW + 2.4, apexH + 2.0, 0.8, 0.8, "F");
   tryAddImage(doc, logos?.apex ?? null, apexX, logoY, apexW, apexH);
@@ -174,12 +175,12 @@ export async function downloadHrTablePdf(input: {
   emptyText?: string;
 }): Promise<void> {
   const brand = input.brand ?? readClientOrgBrand();
-  const [hotcol, apex, hotelLogo] = await Promise.all([
-    imageToDataUrl(HOTCOL_SYSTEM.logoPath),
+  const [system, apex, hotelLogo] = await Promise.all([
+    imageToDataUrl(VOLOSYNC_SYSTEM.logoPath),
     imageToDataUrl(APEX_SOLUTION.logoPath),
     brand.logoUrl ? imageToDataUrl(brand.logoUrl) : Promise.resolve(null),
   ]);
-  const logos = { hotcol, apex };
+  const logos = { system, apex };
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
