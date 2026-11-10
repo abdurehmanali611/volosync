@@ -209,7 +209,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!userId || !userRole) return;
     let cancelled = false;
 
-    async function syncSubscription() {
+    const syncSubscription = async () => {
       try {
         await refreshTenantSubscription();
       } catch {
@@ -234,7 +234,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         clearSession();
         router.replace("/");
       }
-    }
+    };
 
     void syncSubscription();
 
