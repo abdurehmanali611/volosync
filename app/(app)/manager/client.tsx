@@ -31,8 +31,9 @@ import {
 } from "@/lib/api/manager";
 import { storeApi, type TabSummary } from "@/lib/api/store";
 import { useView } from "@/lib/use-view";
-import { navViewModule } from "@/lib/subscriptionModules";
+import { navViewModule, tenantHasModule } from "@/lib/subscriptionModules";
 import { canAccessTenantModule, moduleBlockMessage } from "@/lib/tenantAccess";
+import { useTenantModules } from "@/hooks/useTenantModules";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import { printReceipts, type ReceiptDoc } from "@/lib/print";
 import { buildPromotionReceipt, tenantBusiness } from "@/lib/receipts";
@@ -217,6 +218,8 @@ const registrationDate = (value?: string | null) => {
 
 export default function ManagerPage() {
   const [view] = useView("approvals");
+  // Live module tracking: re-evaluates the view guard when Apex toggles modules.
+  useTenantModules();
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [tenantInfo, setTenantInfo] = useState<TenantInfo | null>(null);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
@@ -3477,6 +3480,7 @@ type StaffRow = {
 };
 
 function AccessPanel({ salesEnabled }: { salesEnabled: boolean }) {
+  const modules = useTenantModules();
   const [rows, setRows] = React.useState<StaffRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [form, setForm] = React.useState({
@@ -3499,10 +3503,16 @@ function AccessPanel({ salesEnabled }: { salesEnabled: boolean }) {
   }, []);
 
   const takenRoles = new Set(rows.map((row) => row.role));
-  // The Sales role only exists while the tenant has it switched on.
+  // Only roles whose module is subscribed: Inventory carries store + finance,
+  // HR Module carries HR, and Sales needs the tenant switch.
   const roles = React.useMemo(
-    () => ACCESS_ROLES.filter((role) => role !== "SALES" || salesEnabled),
-    [salesEnabled],
+    () =>
+      ACCESS_ROLES.filter((role) => {
+        if (role === "SALES") return salesEnabled;
+        if (role === "HR") return tenantHasModule(modules, "HR Module");
+        return tenantHasModule(modules, "Inventory");
+      }),
+    [salesEnabled, modules],
   );
 
   React.useEffect(() => {
@@ -3522,6 +3532,10 @@ function AccessPanel({ salesEnabled }: { salesEnabled: boolean }) {
     event.preventDefault();
     if (form.role === "SALES" && !salesEnabled) {
       toast.error("Sales is switched off for this tenant.");
+      return;
+    }
+    if (!roles.includes(form.role)) {
+      toast.error("That role's module is not subscribed for this tenant.");
       return;
     }
     if (takenRoles.has(form.role)) {
@@ -3575,9 +3589,11 @@ function AccessPanel({ salesEnabled }: { salesEnabled: boolean }) {
       <Panel
         title="Add a staff login"
         description={
-          salesEnabled
-            ? "Store, finance, HR and sales accounts for your tenant."
-            : "Store, finance and HR accounts for your tenant."
+          roles.length
+            ? `${roles
+                .map((role) => role.charAt(0) + role.slice(1).toLowerCase())
+                .join(", ")} accounts for your tenant.`
+            : "No subscribed module roles yet — contact Apex to add modules."
         }
       >
         <form onSubmit={create} className="grid gap-3">

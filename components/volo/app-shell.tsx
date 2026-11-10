@@ -27,7 +27,10 @@ import {
   isAdminOrManagerRole,
   subscriptionBlockMessage,
   canAccessTenantModule,
+  moduleBlockMessage,
+  PORTAL_ROLE_MODULES,
 } from "@/lib/tenantAccess";
+import { useTenantModules } from "@/hooks/useTenantModules";
 import {
   isPaymentPortalMode,
   persistTenantAccessMode,
@@ -156,6 +159,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const currentView = searchParams.get("view");
   const visualRole = portalRole(pathname);
+  // Re-render the sidebar the moment Apex toggles a module while signed in.
+  useTenantModules();
 
   function signOut() {
     clearSession();
@@ -212,15 +217,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
       if (cancelled) return;
       const status = getSubscriptionPeriodStatus();
-      if (subscriptionAllowsFullSystemAccess(status)) return;
-      if (isAdminOrManagerRole(userRole)) {
-        persistTenantAccessMode("payment_portal", "yearly");
-        router.replace("/PaymentVerification");
+      if (!subscriptionAllowsFullSystemAccess(status)) {
+        if (isAdminOrManagerRole(userRole)) {
+          persistTenantAccessMode("payment_portal", "yearly");
+          router.replace("/PaymentVerification");
+          return;
+        }
+        toast.error(subscriptionBlockMessage(status));
+        clearSession();
+        router.replace("/");
         return;
       }
-      toast.error(subscriptionBlockMessage(status));
-      clearSession();
-      router.replace("/");
+      const required = PORTAL_ROLE_MODULES[userRole.toUpperCase()];
+      if (required && !canAccessTenantModule(required)) {
+        toast.error(moduleBlockMessage(required));
+        clearSession();
+        router.replace("/");
+      }
     }
 
     void syncSubscription();
@@ -231,8 +244,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
-    // Cheap safety net for a tab left open across the warning threshold.
-    const timer = window.setInterval(onFocus, 5 * 60_000);
+    // Live tracking: Apex can toggle modules or cross a billing threshold
+    // while the tab sits open.
+    const timer = window.setInterval(onFocus, 60_000);
 
     return () => {
       cancelled = true;

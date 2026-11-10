@@ -26,6 +26,13 @@ export const TERMINAL_PAGE_MODULES: Record<string, ModuleOption | undefined> = {
   HR: "HR Module",
 };
 
+/** Wholesale portals: store and finance both ride on the Inventory module. */
+export const PORTAL_ROLE_MODULES: Partial<Record<string, ModuleOption>> = {
+  STORE: "Inventory",
+  FINANCE: "Inventory",
+  HR: "HR Module",
+};
+
 export function readSubscriptionBillingSnapshot() {
   return readTenantBillingFromStorage();
 }
