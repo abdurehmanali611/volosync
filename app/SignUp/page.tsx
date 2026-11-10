@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -248,7 +248,9 @@ export default function SignUpPage() {
   const [pricing, setPricing] = useState<{
     setupFeeETB: number;
     yearlyFeeETB: number;
+    planName?: string;
   } | null>(null);
+  const [pricingError, setPricingError] = useState<string | null>(null);
   const [pricingLoaded, setPricingLoaded] = useState(false);
   const [channel, setChannel] = useState<ApexPaymentChannel>("TELEBIRR");
   const [reference, setReference] = useState("");
@@ -274,28 +276,29 @@ export default function SignUpPage() {
     };
   }, []);
 
-  useEffect(() => {
+  const loadPricing = useCallback(() => {
     if (receipt) return;
-    let alive = true;
-    setPricingLoaded(false);
+    setPricingError(null);
     api
       .signupPricing(moduleInventory, moduleHr, salesRole)
       .then((r) => {
-        if (alive) {
-          setPricing(r.data);
-          setPricingLoaded(true);
-        }
+        setPricing(r.data);
+        setPricingLoaded(true);
       })
-      .catch(() => {
-        if (alive) {
-          setPricing(null);
-          setPricingLoaded(true);
-        }
+      .catch((error) => {
+        setPricing(null);
+        setPricingError(
+          error instanceof Error && error.message
+            ? error.message
+            : "Could not reach the pricing catalog.",
+        );
+        setPricingLoaded(true);
       });
-    return () => {
-      alive = false;
-    };
   }, [moduleInventory, moduleHr, salesRole, receipt]);
+
+  useEffect(() => {
+    loadPricing();
+  }, [loadPricing]);
 
   const channelMeta = APEX_PAYMENT_CHANNEL_META[channel];
   const lastStep = STEPS.length - 1;
@@ -790,6 +793,21 @@ export default function SignUpPage() {
                     <Loader2 className="size-4 animate-spin" /> Fetching catalog
                     pricing…
                   </div>
+                ) : pricingError ? (
+                  <div className="space-y-2.5">
+                    <p className="text-sm leading-relaxed text-pretty text-amber-200/90">
+                      {pricingError}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={loadPricing}
+                      className="h-8 gap-2 rounded-lg border-white/15 bg-white/[0.04] text-xs text-zinc-200 hover:bg-white/[0.08]"
+                    >
+                      Try again
+                    </Button>
+                  </div>
                 ) : pricing ? (
                   <>
                     <div className="grid grid-cols-2 gap-2">
@@ -817,8 +835,19 @@ export default function SignUpPage() {
                       </div>
                     </div>
                     <p className="mt-2.5 text-[11px] leading-relaxed text-zinc-500">
-                      After Apex approves your setup payment, your subscription
-                      runs for 12 months.
+                      {pricing.planName ? (
+                        <>
+                          Priced from the{" "}
+                          <span className="font-medium text-zinc-300">
+                            {pricing.planName}
+                          </span>{" "}
+                          catalog plan for this module mix. After Apex approves
+                          your setup payment, your subscription runs for 12
+                          months.
+                        </>
+                      ) : (
+                        "After Apex approves your setup payment, your subscription runs for 12 months."
+                      )}
                     </p>
                   </>
                 ) : (

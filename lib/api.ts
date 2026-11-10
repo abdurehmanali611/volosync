@@ -219,7 +219,9 @@ export const api = {
       "/api/tenants/signup/agents/",
     ),
   signupPricing: (inventory: boolean, hr: boolean, sales: boolean) =>
-    request<{ data: { setupFeeETB: number; yearlyFeeETB: number } }>(
+    request<{
+      data: { setupFeeETB: number; yearlyFeeETB: number; planName?: string };
+    }>(
       `/api/tenants/signup/pricing/?inventory=${inventory ? "1" : "0"}&hr=${hr ? "1" : "0"}&sales=${sales ? "1" : "0"}`,
     ),
   signupSubmit: (payload: {
