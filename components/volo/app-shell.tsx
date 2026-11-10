@@ -26,12 +26,16 @@ import {
   getSubscriptionPeriodStatus,
   isAdminOrManagerRole,
   subscriptionBlockMessage,
+  canAccessTenantModule,
 } from "@/lib/tenantAccess";
 import {
   isPaymentPortalMode,
   persistTenantAccessMode,
 } from "@/lib/tenantAccessMode";
-import { subscriptionAllowsFullSystemAccess } from "@/lib/subscriptionQuarter";
+import {
+  subscriptionAllowsFullSystemAccess,
+} from "@/lib/subscriptionQuarter";
+import { navViewModule } from "@/lib/subscriptionModules";
 import {
   Sidebar,
   SidebarContent,
@@ -283,7 +287,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const meta = ROLE_META[visualRole];
-  const sections = navFor(visualRole);
+  // Sidebar items gated by subscribed modules — an Inventory-only wholesaler
+  // must not see the HR section (or Sales agents) at all.
+  const sections = navFor(visualRole)
+    .map((section) => ({
+      ...section,
+      items: section.items
+        .map((item) => {
+          const itemModule = navViewModule(item.view);
+          if (itemModule && !canAccessTenantModule(itemModule)) return null;
+          const children = item.children?.filter((child) => {
+            const childModule = navViewModule(child.view);
+            return !childModule || canAccessTenantModule(childModule);
+          });
+          return { ...item, children };
+        })
+        .filter((item) => item !== null),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <SidebarProvider className="app-shell-bg">

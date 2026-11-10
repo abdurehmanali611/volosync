@@ -31,6 +31,8 @@ import {
 } from "@/lib/api/manager";
 import { storeApi, type TabSummary } from "@/lib/api/store";
 import { useView } from "@/lib/use-view";
+import { navViewModule } from "@/lib/subscriptionModules";
+import { canAccessTenantModule, moduleBlockMessage } from "@/lib/tenantAccess";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import { printReceipts, type ReceiptDoc } from "@/lib/print";
 import { buildPromotionReceipt, tenantBusiness } from "@/lib/receipts";
@@ -1044,6 +1046,28 @@ export default function ManagerPage() {
   // HR control views carry their own hero and stat strip, so the generic
   // Manager header would only add noise above them.
   const hrControl = view === "hr" || view.startsWith("hr-");
+
+  // Deep-link guard: a view gated by a module the tenant has not subscribed
+  // (e.g. /manager?view=hr on an Inventory-only wholesaler) renders a block
+  // panel instead of the section.
+  const gatedModule = navViewModule(view);
+  if (gatedModule && !canAccessTenantModule(gatedModule)) {
+    return (
+      <div className="mx-auto w-full max-w-xl py-16">
+        <div
+          role="alert"
+          className="rounded-2xl border border-amber-400/40 bg-amber-400/10 p-5 text-center"
+        >
+          <p className="font-heading text-sm font-semibold text-amber-200">
+            Module not subscribed
+          </p>
+          <p className="mt-2 text-[13px] leading-relaxed text-pretty text-zinc-300">
+            {moduleBlockMessage(gatedModule)}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -38,6 +38,8 @@ export const MODULE_DESCRIPTIONS: Record<ModuleOption, string> = {
     "Orders, cashier, bar, chef, tables/waiters, and menu handling.",
   Inventory:
     "Store terminal, stock lists, suppliers, and item receipts. Without Financial Management, cost control and finance approval steps are omitted.",
+  "Sales Role":
+    "Field sales agents, their stock assignments and settlement reporting. Requires the Inventory module.",
   "Credit Management":
     "Corporate credit registration, agreements, tiers, and usage reporting.",
   "Financial Management":
@@ -564,4 +566,17 @@ export function tenantHasServiceModuleGroup(
     tenantHasModule(modules, "Cafe and Restaurant") ||
     tenantHasModule(modules, "Credit Management")
   );
+}
+
+/**
+ * Module required to see a sidebar nav item — null when the item is part of
+ * the always-on Credentials(Common) surface. The Manager nav carries whole HR
+ * and Sales sections, and Finance carries HR payroll: without this gate an
+ * Inventory-only wholesaler still sees them.
+ */
+export function navViewModule(view: string): ModuleOption | null {
+  if (view === "payroll") return "HR Module";
+  if (view.startsWith("hr")) return "HR Module";
+  if (view === "agents") return "Sales Role";
+  return null;
 }

@@ -35,6 +35,7 @@ export const MODULE_OPTIONS = [
   "Cafe and Restaurant",
   "Credentials(Common)",
   "Inventory",
+  "Sales Role",
   "Credit Management",
   "Financial Management",
   "HR Module",
