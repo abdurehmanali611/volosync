@@ -87,7 +87,7 @@ export default function LoginPage() {
       <div aria-hidden className="login-grid pointer-events-none absolute inset-0" />
 
       <div className="relative z-10 grid min-h-svh lg:grid-cols-[1.06fr_0.94fr]">
-        <aside className="relative hidden flex-col overflow-hidden border-r border-white/5 px-10 py-12 lg:flex xl:px-16">
+        <aside className="relative hidden flex-col overflow-hidden border-r border-white/5 px-10 py-8 lg:flex xl:px-16">
           <div
             aria-hidden
             className="pointer-events-none absolute top-[18%] -left-40 size-[26rem] rounded-full bg-cyan-400/10 blur-[120px]"
@@ -100,7 +100,7 @@ export default function LoginPage() {
             <LoginBrand />
           </div>
 
-          <div className="relative my-auto max-w-xl py-12">
+          <div className="relative my-auto max-w-xl py-8">
             <span className="auth-rise auth-delay-1 flex w-fit items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-[10px] font-medium tracking-[0.18em] text-cyan-200 uppercase">
               <span className="relative flex size-1.5">
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-cyan-300 opacity-70" />
@@ -109,7 +109,7 @@ export default function LoginPage() {
               <Sparkles className="size-3" />
               Wholesale operations OS
             </span>
-            <h1 className="auth-rise auth-delay-1 mt-5 font-heading text-[2.55rem] leading-[1.06] font-semibold tracking-tight text-balance text-white xl:text-[2.9rem]">
+            <h1 className="auth-rise auth-delay-1 mt-4 font-heading text-[2.3rem] leading-[1.06] font-semibold tracking-tight text-balance text-white xl:text-[2.65rem]">
               Run the whole chain,{" "}
               <span className="block bg-gradient-to-r from-cyan-300 via-emerald-300 to-violet-300 bg-clip-text text-transparent">
                 from voucher to shelf.
@@ -121,7 +121,7 @@ export default function LoginPage() {
               wholesalers.
             </p>
 
-            <div className="auth-rise auth-delay-2 relative mt-8 overflow-hidden rounded-2xl border border-white/10 bg-black/25 p-4 shadow-[0_30px_70px_-50px_rgba(0,0,0,1)] ring-1 ring-white/[0.03]">
+            <div className="auth-rise auth-delay-2 relative mt-6 overflow-hidden rounded-2xl border border-white/10 bg-black/25 p-4 shadow-[0_30px_70px_-50px_rgba(0,0,0,1)] ring-1 ring-white/[0.03]">
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent"
@@ -158,7 +158,7 @@ export default function LoginPage() {
           </div>
         </aside>
 
-        <section className="relative flex min-h-svh flex-col items-center justify-center px-4 py-10 sm:px-8">
+        <section className="relative flex min-h-svh flex-col items-center justify-center px-4 py-6 sm:px-8">
           <div
             aria-hidden
             className="pointer-events-none absolute -top-32 right-0 size-96 rounded-full bg-cyan-400/10 blur-[120px]"
@@ -174,7 +174,7 @@ export default function LoginPage() {
             </div>
 
             <div className="auth-card-shimmer auth-rise relative overflow-hidden rounded-[1.9rem] border border-white/10 bg-gradient-to-b from-[#0d0d18]/95 via-[#0a0a13]/95 to-[#0a0a12]/95 shadow-[0_40px_100px_-40px_rgba(0,0,0,0.95),0_0_60px_-30px_rgba(34,211,238,0.35)] ring-1 ring-cyan-300/10 backdrop-blur-2xl">
-              <div className="relative overflow-hidden border-b border-white/5 bg-gradient-to-r from-cyan-400/[0.10] via-transparent to-violet-400/[0.08] px-7 pt-7 pb-6 text-center">
+              <div className="relative overflow-hidden border-b border-white/5 bg-gradient-to-r from-cyan-400/[0.10] via-transparent to-violet-400/[0.08] px-7 pt-6 pb-5 text-center">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 left-1/2 size-40 -translate-x-1/2 rounded-full bg-cyan-300/10 blur-3xl"
@@ -191,7 +191,7 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <div className="px-7 py-6">
+              <div className="px-7 py-5">
                 <form onSubmit={signIn} className="space-y-4" autoComplete="on">
                   <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/25 p-4 shadow-[0_24px_60px_-45px_rgba(0,0,0,1)] ring-1 ring-white/[0.03]">
                     <div
@@ -284,7 +284,7 @@ export default function LoginPage() {
                   </p>
                 </form>
 
-                <div className="mt-5 flex items-center gap-2 border-t border-white/5 pt-4 text-[10px] text-zinc-600">
+                <div className="mt-4 flex items-center gap-2 border-t border-white/5 pt-3.5 text-[10px] text-zinc-600">
                   <ShieldCheck className="size-3.5 text-emerald-400/80" />
                   Encrypted session · Tenant-scoped · Lockout protection
                 </div>
@@ -296,7 +296,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <p className="auth-rise auth-delay-2 mt-5 text-center text-[10px] tracking-[0.2em] text-zinc-600 uppercase">
+            <p className="auth-rise auth-delay-2 mt-4 text-center text-[10px] tracking-[0.2em] text-zinc-600 uppercase">
               Authorised staff only
             </p>
           </div>

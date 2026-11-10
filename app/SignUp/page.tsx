@@ -9,11 +9,16 @@ import {
   Boxes,
   Building2,
   Check,
+  ChevronsUpDown,
   CreditCard,
   ImageIcon,
+  Layers,
   Loader2,
+  Lock,
+  Search,
   Upload,
   UserRound,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -21,14 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { uploadImageToCloudinary, isCloudinaryImageConfigured } from "@/lib/cloudinary";
 import {
   APEX_PAYMENT_CHANNEL_META,
@@ -44,9 +43,9 @@ const RECEIPT_KEY = "volosync.signup.receipt";
 type SignupReceipt = { businessName: string; username: string };
 
 const STEPS = [
-  { label: "Business", title: "Your business", fields: ["name", "tin", "username", "password"] },
-  { label: "Modules", title: "Modules & pricing", fields: [] },
-  { label: "Payment", title: "Setup payment", fields: ["channel", "reference"] },
+  { label: "Business", title: "Tell us about your business" },
+  { label: "Modules", title: "Choose your modules" },
+  { label: "Payment", title: "Setup payment" },
 ] as const;
 
 function readReceipt(): SignupReceipt | null {
@@ -81,11 +80,8 @@ function AuthCard({ children }: { children: React.ReactNode }) {
   return (
     <div className="login-scene relative min-h-svh overflow-hidden text-zinc-100">
       {LOGIN_BLOBS}
-      <div
-        aria-hidden
-        className="login-grid pointer-events-none absolute inset-0"
-      />
-      <div className="relative z-10 flex min-h-svh items-center justify-center px-4 py-10 sm:px-8">
+      <div aria-hidden className="login-grid pointer-events-none absolute inset-0" />
+      <div className="relative z-10 flex min-h-svh items-center justify-center px-4 py-8 sm:px-8">
         <div className="auth-card-shimmer auth-rise relative w-full max-w-2xl overflow-hidden rounded-[1.9rem] border border-white/10 bg-gradient-to-b from-[#0d0d18]/95 via-[#0a0a13]/95 to-[#0a0a12]/95 shadow-[0_40px_100px_-40px_rgba(0,0,0,0.95),0_0_60px_-30px_rgba(34,211,238,0.35)] ring-1 ring-cyan-300/10 backdrop-blur-2xl">
           {children}
         </div>
@@ -154,25 +150,44 @@ function Stepper({ current }: { current: number }) {
   );
 }
 
+/** Colorful section header — a gradient icon tile + title + hint. */
 function Section({
+  icon: Icon,
+  tone,
   title,
   hint,
   children,
 }: {
+  icon: React.ComponentType<{ className?: string }>;
+  tone: "cyan" | "violet" | "emerald" | "amber";
   title: string;
   hint?: string;
   children: React.ReactNode;
 }) {
+  const tones = {
+    cyan: "from-cyan-400/25 to-cyan-400/5 text-cyan-300 ring-cyan-300/30",
+    violet: "from-violet-400/25 to-violet-400/5 text-violet-300 ring-violet-300/30",
+    emerald: "from-emerald-400/25 to-emerald-400/5 text-emerald-300 ring-emerald-300/30",
+    amber: "from-amber-400/25 to-amber-400/5 text-amber-300 ring-amber-300/30",
+  }[tone];
   return (
     <section className="space-y-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200/70">
-        {title}
-        {hint ? (
-          <span className="ml-2 font-normal normal-case tracking-normal text-zinc-500">
-            {hint}
-          </span>
-        ) : null}
-      </p>
+      <div className="flex items-center gap-2.5">
+        <span
+          className={cn(
+            "grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br ring-1",
+            tones,
+          )}
+        >
+          <Icon className="size-4" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold leading-tight text-zinc-100">{title}</p>
+          {hint ? (
+            <p className="text-[11px] leading-tight text-zinc-500">{hint}</p>
+          ) : null}
+        </div>
+      </div>
       {children}
     </section>
   );
@@ -185,14 +200,28 @@ const MODULE_SWITCHES = [
   {
     key: "module_inventory" as const,
     label: "Inventory",
-    description: "Store terminal, stock, suppliers, receipts",
+    description: "Store terminal, stock lists, suppliers, receipts",
+    tone: "cyan" as const,
   },
   {
     key: "module_hr" as const,
     label: "HR Module",
     description: "Employees, leave, payroll, incidents",
+    tone: "violet" as const,
+  },
+  {
+    key: "sales_role_enabled" as const,
+    label: "Sales Role",
+    description: "Field sales team, agents and settlements — requires Inventory",
+    tone: "emerald" as const,
   },
 ];
+
+const MODULE_TONES = {
+  cyan: "border-cyan-400/40 bg-cyan-400/[0.07]",
+  violet: "border-violet-400/40 bg-violet-400/[0.07]",
+  emerald: "border-emerald-400/40 bg-emerald-400/[0.07]",
+} as const;
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -207,16 +236,20 @@ export default function SignUpPage() {
   const [logoUploading, setLogoUploading] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [salesAgentId, setSalesAgentId] = useState<string>("");
+  const [salesAgentId, setSalesAgentId] = useState<number | null>(null);
   const [salesAgents, setSalesAgents] = useState<
     { id: number; name: string; phone: string; city: string }[]
   >([]);
+  const [agentSearch, setAgentSearch] = useState("");
+  const [agentOpen, setAgentOpen] = useState(false);
   const [moduleInventory, setModuleInventory] = useState(true);
   const [moduleHr, setModuleHr] = useState(true);
+  const [salesRole, setSalesRole] = useState(false);
   const [pricing, setPricing] = useState<{
     setupFeeETB: number;
     yearlyFeeETB: number;
   } | null>(null);
+  const [pricingLoaded, setPricingLoaded] = useState(false);
   const [channel, setChannel] = useState<ApexPaymentChannel>("TELEBIRR");
   const [reference, setReference] = useState("");
 
@@ -244,21 +277,37 @@ export default function SignUpPage() {
   useEffect(() => {
     if (receipt) return;
     let alive = true;
+    setPricingLoaded(false);
     api
-      .signupPricing(moduleInventory, moduleHr)
+      .signupPricing(moduleInventory, moduleHr, salesRole)
       .then((r) => {
-        if (alive) setPricing(r.data);
+        if (alive) {
+          setPricing(r.data);
+          setPricingLoaded(true);
+        }
       })
       .catch(() => {
-        if (alive) setPricing(null);
+        if (alive) {
+          setPricing(null);
+          setPricingLoaded(true);
+        }
       });
     return () => {
       alive = false;
     };
-  }, [moduleInventory, moduleHr, receipt]);
+  }, [moduleInventory, moduleHr, salesRole, receipt]);
 
   const channelMeta = APEX_PAYMENT_CHANNEL_META[channel];
   const lastStep = STEPS.length - 1;
+
+  const filteredAgents = useMemo(() => {
+    const q = agentSearch.trim().toLowerCase();
+    if (!q) return salesAgents;
+    return salesAgents.filter((a) =>
+      `${a.name} ${a.city || ""} ${a.phone || ""}`.toLowerCase().includes(q),
+    );
+  }, [salesAgents, agentSearch]);
+  const selectedAgent = salesAgents.find((a) => a.id === salesAgentId) || null;
 
   const stepValid = useMemo(() => {
     if (step === 0)
@@ -268,9 +317,14 @@ export default function SignUpPage() {
         username.trim().length > 0 &&
         password.length >= 6
       );
-    if (step === 1) return pricing != null && pricing.setupFeeETB > 0;
+    if (step === 1) {
+      // Only block when the catalog explicitly prices a zero/negative setup
+      // fee; a failed pricing fetch never traps the user here.
+      if (pricingLoaded && pricing && pricing.setupFeeETB <= 0) return false;
+      return true;
+    }
     return reference.trim().length >= 4;
-  }, [step, name, tin, username, password, pricing, reference]);
+  }, [step, name, tin, username, password, pricing, pricingLoaded, reference]);
 
   async function pickLogo(file: File) {
     if (!isCloudinaryImageConfigured()) {
@@ -281,28 +335,47 @@ export default function SignUpPage() {
     try {
       const url = await uploadImageToCloudinary(file, { folder: "volosync/signups" });
       setLogoUrl(url);
-      toast.success("Logo uploaded — remember to save at the last step.");
+      toast.success("Logo uploaded.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Logo upload failed.",
-      );
+      toast.error(error instanceof Error ? error.message : "Logo upload failed.");
     } finally {
       setLogoUploading(false);
     }
   }
 
-  function goNext() {
-    if (step === 0) {
-      if (!stepValid) {
-        toast.error("Fill the business name, TIN, username and a 6+ character password.");
-        return;
+  function toggleModule(key: "module_inventory" | "module_hr" | "sales_role_enabled") {
+    if (key === "sales_role_enabled") {
+      // Sales is an add-on to Inventory: switching it on pulls Inventory in.
+      if (!salesRole) {
+        setSalesRole(true);
+        setModuleInventory(true);
+      } else {
+        setSalesRole(false);
       }
+      return;
     }
-    if (step === 1) {
-      if (!pricing || pricing.setupFeeETB <= 0) {
-        toast.error("Apex has not set a setup fee yet. Contact Apex support.");
+    if (key === "module_inventory") {
+      // Inventory cannot leave while the Sales Role depends on it.
+      if (moduleInventory && salesRole) {
+        toast.error("The Sales Role requires Inventory — switch Sales Role off first.");
         return;
       }
+      setModuleInventory((v) => !v);
+      return;
+    }
+    setModuleHr((v) => !v);
+  }
+
+  function goNext() {
+    if (step === 0 && !stepValid) {
+      toast.error(
+        "Fill the business name, TIN, username and a 6+ character password.",
+      );
+      return;
+    }
+    if (step === 1 && pricingLoaded && pricing && pricing.setupFeeETB <= 0) {
+      toast.error("Apex has not set a setup fee yet. Contact Apex support.");
+      return;
     }
     setStep((s) => Math.min(s + 1, lastStep));
   }
@@ -320,9 +393,10 @@ export default function SignUpPage() {
         logo_url: logoUrl || undefined,
         username: username.trim(),
         password,
-        sales_agent_id: salesAgentId ? Number(salesAgentId) : null,
+        sales_agent_id: salesAgentId,
         module_inventory: moduleInventory,
         module_hr: moduleHr,
+        sales_role_enabled: salesRole,
         channel,
         transaction_ref: reference.trim(),
       });
@@ -364,7 +438,7 @@ export default function SignUpPage() {
 
   return (
     <AuthCard>
-      <div className="border-b border-white/5 bg-gradient-to-r from-cyan-400/[0.10] via-transparent to-violet-400/[0.08] px-7 pb-6 pt-7">
+      <div className="border-b border-white/5 bg-gradient-to-r from-cyan-400/[0.10] via-transparent to-violet-400/[0.08] px-7 pb-5 pt-6">
         <div className="flex items-center justify-between gap-3">
           <SignupBrand />
           <Link
@@ -374,7 +448,7 @@ export default function SignUpPage() {
             <ArrowLeft className="size-3.5" /> Back to sign in
           </Link>
         </div>
-        <div className="mt-6">
+        <div className="mt-5">
           <Stepper current={step} />
         </div>
         <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-cyan-300">
@@ -385,17 +459,24 @@ export default function SignUpPage() {
         </h1>
       </div>
 
-      <div className="space-y-6 px-7 py-6">
+      <div className="max-h-[calc(100svh-16rem)] space-y-6 overflow-y-auto px-7 py-6">
         {step === 0 ? (
           <>
-            <Section title="Business details">
+            <Section
+              icon={Building2}
+              tone="cyan"
+              title="Business details"
+              hint="Your registered business identity"
+            >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="su-name" className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80">
+                  <Label
+                    htmlFor="su-name"
+                    className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80"
+                  >
                     Business name
                   </Label>
                   <div className="relative">
-                    <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-cyan-300/60" />
                     <Input
                       id="su-name"
                       value={name}
@@ -404,10 +485,14 @@ export default function SignUpPage() {
                       className={cn(inputClass, "pl-10")}
                       autoComplete="organization"
                     />
+                    <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-cyan-300/60" />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="su-tin" className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80">
+                  <Label
+                    htmlFor="su-tin"
+                    className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80"
+                  >
                     TIN number
                   </Label>
                   <Input
@@ -422,9 +507,14 @@ export default function SignUpPage() {
               </div>
             </Section>
 
-            <Section title="Logo" hint="optional — shown across VoloSync">
-              <div className="flex items-center gap-4">
-                <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+            <Section
+              icon={ImageIcon}
+              tone="amber"
+              title="Logo"
+              hint="Optional — shown across VoloSync"
+            >
+              <div className="flex items-center gap-4 rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-3.5">
+                <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/10 bg-white/5">
                   {logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={logoUrl} alt="" className="size-full object-cover" />
@@ -443,7 +533,7 @@ export default function SignUpPage() {
                       if (file) void pickLogo(file);
                     }}
                   />
-                  <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-zinc-200 transition hover:border-cyan-300/40 hover:text-cyan-200">
+                  <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 text-sm text-amber-200 transition hover:bg-amber-400/20">
                     {logoUploading ? (
                       <Loader2 className="size-4 animate-spin" />
                     ) : (
@@ -453,37 +543,127 @@ export default function SignUpPage() {
                   </span>
                 </label>
                 <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-zinc-500">
-                  Square PNG or JPEG. You can also add the logo later — Apex can
-                  set it for you.
+                  Square PNG or JPEG. Apex can also set it for you later.
                 </p>
               </div>
             </Section>
 
-            <Section title="Sales agent" hint="optional — the Apex seller assisting you">
-              <Select value={salesAgentId} onValueChange={setSalesAgentId}>
-                <SelectTrigger className={cn(inputClass, "w-full")}>
-                  <SelectValue placeholder="Choose your sales agent (optional)" />
-                </SelectTrigger>
-                <SelectContent className="border-white/10 bg-[#0a0a13] text-zinc-100">
-                  <SelectItem value="none">No sales agent</SelectItem>
-                  {salesAgents.map((agent) => (
-                    <SelectItem key={agent.id} value={String(agent.id)}>
-                      {agent.name}
-                      {agent.city ? ` · ${agent.city}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Section
+              icon={Users}
+              tone="emerald"
+              title="Sales agent"
+              hint="Optional — the Apex seller assisting you"
+            >
+              <Popover open={agentOpen} onOpenChange={setAgentOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={agentOpen}
+                    className={cn(
+                      "h-11 w-full justify-between border-white/10 bg-[#07070d]/80 px-3 font-normal text-white hover:bg-[#07070d] hover:text-white",
+                      !selectedAgent && "text-zinc-500",
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <Users className="size-4 shrink-0 text-emerald-300/70" />
+                      <span className="truncate">
+                        {selectedAgent
+                          ? selectedAgent.name
+                          : "Search and choose your sales agent"}
+                      </span>
+                    </span>
+                    <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className="w-(--radix-popover-trigger-width) border-white/10 bg-[#0a0a13] p-0"
+                >
+                  <div className="border-b border-white/5 p-2">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-zinc-500" />
+                      <Input
+                        value={agentSearch}
+                        onChange={(e) => setAgentSearch(e.target.value)}
+                        placeholder="Search agents…"
+                        className="h-9 border-white/10 bg-white/[0.04] pl-8 text-sm text-white placeholder:text-zinc-600"
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto p-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSalesAgentId(null);
+                        setAgentOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-white/[0.06]",
+                        salesAgentId === null ? "text-cyan-200" : "text-zinc-300",
+                      )}
+                    >
+                      {salesAgentId === null ? (
+                        <Check className="size-3.5 text-cyan-300" />
+                      ) : (
+                        <span className="size-3.5" />
+                      )}
+                      No sales agent
+                    </button>
+                    {filteredAgents.map((agent) => (
+                      <button
+                        key={agent.id}
+                        type="button"
+                        onClick={() => {
+                          setSalesAgentId(agent.id);
+                          setAgentOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-white/[0.06]",
+                          salesAgentId === agent.id
+                            ? "text-cyan-200"
+                            : "text-zinc-300",
+                        )}
+                      >
+                        {salesAgentId === agent.id ? (
+                          <Check className="size-3.5 shrink-0 text-cyan-300" />
+                        ) : (
+                          <span className="size-3.5 shrink-0" />
+                        )}
+                        <span className="min-w-0 flex-1 truncate">
+                          {agent.name}
+                          {agent.city ? (
+                            <span className="text-zinc-500"> · {agent.city}</span>
+                          ) : null}
+                        </span>
+                      </button>
+                    ))}
+                    {filteredAgents.length === 0 ? (
+                      <p className="px-2.5 py-3 text-center text-xs text-zinc-500">
+                        No sales agents match your search.
+                      </p>
+                    ) : null}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </Section>
 
-            <Section title="Manager login" hint="you will sign in with this">
+            <Section
+              icon={UserRound}
+              tone="violet"
+              title="Manager login"
+              hint="You will sign in with this"
+            >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="su-username" className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80">
+                  <Label
+                    htmlFor="su-username"
+                    className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-200/80"
+                  >
                     Manager username
                   </Label>
                   <div className="relative">
-                    <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-cyan-300/60" />
                     <Input
                       id="su-username"
                       value={username}
@@ -492,10 +672,14 @@ export default function SignUpPage() {
                       className={cn(inputClass, "pl-10")}
                       autoComplete="username"
                     />
+                    <UserRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-violet-300/60" />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="su-password" className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80">
+                  <Label
+                    htmlFor="su-password"
+                    className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80"
+                  >
                     Manager password
                   </Label>
                   <Input
@@ -515,40 +699,76 @@ export default function SignUpPage() {
 
         {step === 1 ? (
           <>
-            <Section title="Modules" hint="Credentials(Common) is always included">
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                {MODULE_SWITCHES.map(({ key, label, description }) => {
-                  const checked = key === "module_inventory" ? moduleInventory : moduleHr;
-                  const toggle = () =>
+            <Section
+              icon={Layers}
+              tone="cyan"
+              title="Modules"
+              hint="Pick what your business needs"
+            >
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/[0.06] p-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-400/15 text-emerald-300">
+                      <Lock className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-100">
+                        Credentials(Common)
+                      </p>
+                      <p className="text-[11px] text-zinc-500">
+                        Always included — logins and access control
+                      </p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded-md bg-emerald-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                    Included
+                  </span>
+                </div>
+
+                {MODULE_SWITCHES.map(({ key, label, description, tone }) => {
+                  const checked =
                     key === "module_inventory"
-                      ? setModuleInventory((v) => !v)
-                      : setModuleHr((v) => !v);
+                      ? moduleInventory
+                      : key === "module_hr"
+                        ? moduleHr
+                        : salesRole;
+                  const salesLocked =
+                    key === "module_inventory" && salesRole;
                   return (
                     <div
                       key={key}
                       role="button"
                       tabIndex={0}
-                      onClick={toggle}
+                      onClick={() => toggleModule(key)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          toggle();
+                          toggleModule(key);
                         }
                       }}
                       className={cn(
                         "flex cursor-pointer items-start justify-between gap-3 rounded-xl border p-3.5 transition",
                         checked
-                          ? "border-cyan-400/40 bg-cyan-400/[0.07]"
+                          ? MODULE_TONES[tone]
                           : "border-white/10 bg-white/[0.02] hover:border-white/20",
+                        salesLocked && "cursor-not-allowed opacity-90",
                       )}
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-zinc-100">{label}</p>
-                        <p className="mt-0.5 text-[11px] text-zinc-500">{description}</p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500">
+                          {description}
+                        </p>
+                        {salesLocked ? (
+                          <p className="mt-1 text-[11px] text-amber-300/90">
+                            Required by the Sales Role — switch Sales Role off
+                            first to remove it.
+                          </p>
+                        ) : null}
                       </div>
                       <Checkbox
                         checked={checked}
-                        onCheckedChange={toggle}
+                        onCheckedChange={() => toggleModule(key)}
                         onClick={(e) => e.stopPropagation()}
                         className="mt-0.5"
                       />
@@ -558,41 +778,57 @@ export default function SignUpPage() {
               </div>
             </Section>
 
-            <div className="relative overflow-hidden rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.06] p-4">
-              <div className="flex items-center gap-2.5">
-                <span className="grid size-8 place-items-center rounded-xl bg-cyan-400/15 text-cyan-300">
-                  <CreditCard className="size-4" />
-                </span>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
-                  Your fees
-                </p>
+            <Section
+              icon={CreditCard}
+              tone="violet"
+              title="Your fees"
+              hint="Set by Apex — verified server-side"
+            >
+              <div className="rounded-2xl border border-violet-400/25 bg-violet-400/[0.06] p-4">
+                {!pricingLoaded ? (
+                  <div className="flex items-center gap-2 text-sm text-zinc-400">
+                    <Loader2 className="size-4 animate-spin" /> Fetching catalog
+                    pricing…
+                  </div>
+                ) : pricing ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                          Setup fee
+                        </p>
+                        <p className="mt-0.5 text-base font-semibold tabular-nums text-white">
+                          {pricing.setupFeeETB.toLocaleString()} ETB
+                        </p>
+                        <p className="text-[10px] text-zinc-500">
+                          one-time · paid now
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                          Yearly fee
+                        </p>
+                        <p className="mt-0.5 text-base font-semibold tabular-nums text-white">
+                          {pricing.yearlyFeeETB.toLocaleString()} ETB
+                        </p>
+                        <p className="text-[10px] text-zinc-500">
+                          renews every 12 months
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-2.5 text-[11px] leading-relaxed text-zinc-500">
+                      After Apex approves your setup payment, your subscription
+                      runs for 12 months.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm leading-relaxed text-pretty text-zinc-400">
+                    Catalog pricing is unavailable right now. You can continue —
+                    Apex will price your registration during approval.
+                  </p>
+                )}
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
-                    Setup fee
-                  </p>
-                  <p className="mt-0.5 text-base font-semibold tabular-nums text-white">
-                    {pricing ? `${pricing.setupFeeETB.toLocaleString()} ETB` : "—"}
-                  </p>
-                  <p className="text-[10px] text-zinc-500">one-time · paid now</p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-black/30 px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
-                    Yearly fee
-                  </p>
-                  <p className="mt-0.5 text-base font-semibold tabular-nums text-white">
-                    {pricing ? `${pricing.yearlyFeeETB.toLocaleString()} ETB` : "—"}
-                  </p>
-                  <p className="text-[10px] text-zinc-500">renews every 12 months</p>
-                </div>
-              </div>
-              <p className="mt-2.5 text-[11px] leading-relaxed text-zinc-500">
-                Fees are set by Apex and verified on this page before you pay.
-                After Apex approves your setup payment, your subscription runs
-                for 12 months.
-              </p>
-            </div>
+            </Section>
           </>
         ) : null}
 
@@ -612,7 +848,12 @@ export default function SignUpPage() {
               </p>
             </div>
 
-            <Section title="Payment channel">
+            <Section
+              icon={CreditCard}
+              tone="cyan"
+              title="Payment channel"
+              hint="How you paid the setup fee"
+            >
               <RadioGroup
                 value={channel}
                 onValueChange={(value) => {
@@ -655,7 +896,11 @@ export default function SignUpPage() {
               </RadioGroup>
             </Section>
 
-            <Section title={channelMeta.transactionFieldLabel}>
+            <Section
+              icon={CreditCard}
+              tone="violet"
+              title={channelMeta.transactionFieldLabel}
+            >
               <Input
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}

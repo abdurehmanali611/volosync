@@ -127,8 +127,13 @@ export class ApiError extends Error {
   }
 }
 
+/** Public self-signup endpoints — never carry credentials, and a 401 on
+ * them must never trigger the session-expired redirect. */
+const SIGNUP_PATH_PREFIX = "/api/tenants/signup/";
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getToken();
+  const isSignupCall = path.startsWith(SIGNUP_PATH_PREFIX);
+  const token = isSignupCall ? null : getToken();
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -150,7 +155,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    if (response.status === 401 && !path.includes("/auth/login/")) {
+    if (
+      response.status === 401 &&
+      !path.includes("/auth/login/") &&
+      !isSignupCall
+    ) {
       scheduleSessionExpiredRedirect();
     }
     const detail: unknown =
@@ -209,9 +218,9 @@ export const api = {
     request<{ data: { id: number; name: string; phone: string; city: string }[] }>(
       "/api/tenants/signup/agents/",
     ),
-  signupPricing: (inventory: boolean, hr: boolean) =>
+  signupPricing: (inventory: boolean, hr: boolean, sales: boolean) =>
     request<{ data: { setupFeeETB: number; yearlyFeeETB: number } }>(
-      `/api/tenants/signup/pricing/?inventory=${inventory ? "1" : "0"}&hr=${hr ? "1" : "0"}`,
+      `/api/tenants/signup/pricing/?inventory=${inventory ? "1" : "0"}&hr=${hr ? "1" : "0"}&sales=${sales ? "1" : "0"}`,
     ),
   signupSubmit: (payload: {
     name: string;
@@ -222,6 +231,7 @@ export const api = {
     sales_agent_id?: number | null;
     module_inventory: boolean;
     module_hr: boolean;
+    sales_role_enabled: boolean;
     channel: string;
     transaction_ref: string;
   }) =>
