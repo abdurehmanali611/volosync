@@ -167,7 +167,16 @@ export function ReportKpiStrip({
   const promo = useMemo(() => summarisePromotions(promotions, range), [promotions, range]);
   const collectedShare = totals.revenue > 0 ? (totals.collected / totals.revenue) * 100 : 0;
   const margin = totals.revenue > 0 ? (totals.profit / totals.revenue) * 100 : 0;
-  const leader = agents.find((agent) => agent.revenue > 0 || agent.units > 0);
+  // `agents` arrives in leaderboard order, which ranks fewest penalties first.
+  // "Best sales agent" is the revenue leader, so pick it explicitly instead of
+  // taking the first agent with any activity.
+  const leader = agents.reduce<AgentGroup | null>((best, agent) => {
+    if (agent.revenue <= 0 && agent.units <= 0) return best;
+    if (!best) return agent;
+    if (agent.revenue !== best.revenue) return agent.revenue > best.revenue ? agent : best;
+    if (agent.units !== best.units) return agent.units > best.units ? agent : best;
+    return agent.penaltyAmount < best.penaltyAmount ? agent : best;
+  }, null);
 
   const tiles: {
     label: string;
