@@ -855,7 +855,9 @@ export default function StorePage() {
     );
   }
 
-  function validateStockOut(assignments: { lot: number; quantity: string }[]) {
+  function validateStockOut(
+    assignments: { lot: number; quantity: string; sales_agent: number | null }[],
+  ) {
     if (!stockoutDate) return "Pick the stock out date.";
     if (!assignments.length) return "Choose an item and a quantity.";
     const perLot = new Map<number, number>();
@@ -868,6 +870,9 @@ export default function StorePage() {
       if (total > Number(lot.remaining_quantity)) {
         return `${lot.item_name}: ${qty(total)} exceeds the ${qty(lot.remaining_quantity)} available.`;
       }
+    }
+    if (assignments.some((row) => !row.sales_agent)) {
+      return "Select a sales agent for every item before continuing.";
     }
     if (mode === "BATCH" && batchTab === "DIFFERENT") {
       const covered = new Set(assignments.map((row) => row.lot));
@@ -4231,6 +4236,10 @@ function QuickStockOutDialog({
       toast.error("Enter an amount for at least one item.");
       return;
     }
+    if (assignments.some((row) => row.sales_agent === null)) {
+      toast.error("Select a sales agent for every item before continuing.");
+      return;
+    }
     // A batch can be split across several lines, so compare the combined
     // amount per item with what is actually in the store.
     const needed = new Map<number, number>();
@@ -4709,15 +4718,13 @@ function AgentSelect({
 }) {
   return (
     <ComboSelect
-      value={value || "none"}
-      onChange={(next) => onChange(next === "none" ? "" : next)}
-      options={[
-        { value: "none", label: "Unassigned" },
-        ...agents.map((agent) => ({
-          value: String(agent.id),
-          label: agent.name,
-        })),
-      ]}
+      value={value}
+      onChange={onChange}
+      options={agents.map((agent) => ({
+        value: String(agent.id),
+        label: agent.name,
+      }))}
+      placeholder=""
       searchPlaceholder="Search sales agents…"
       emptyText="No sales agent found."
     />
