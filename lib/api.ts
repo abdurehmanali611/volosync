@@ -113,6 +113,7 @@ export function saveSession(token: string, user: SessionUser) {
 
 export function clearSession() {
   if (typeof window === "undefined") return;
+  clearApiCache();
   window.localStorage.removeItem(TOKEN_KEY);
   window.localStorage.removeItem(USER_KEY);
   clearTenantSubscriptionStorage();
@@ -131,48 +132,110 @@ export class ApiError extends Error {
  * them must never trigger the session-expired redirect. */
 const SIGNUP_PATH_PREFIX = "/api/tenants/signup/";
 
+/*
+ * Small client-side cache for read requests. It de-duplicates identical GETs
+ * that fire together (several clients call the same endpoints on mount and
+ * again after saving) and keeps responses warm for a few seconds so the
+ * portals feel instant without hiding fresh data for long.
+ */
+const READ_CACHE_TTL_MS = 15_000;
+type CacheEntry = { at: number; promise: Promise<unknown> };
+const readCache = new Map<string, CacheEntry>();
+
+/** The resource path without query string, e.g. "/api/inventory/lots/". */
+function resourcePrefix(path: string): string {
+  return path.split("?")[0];
+}
+
+/** Drop cached reads for the resource a mutating call just changed. */
+function invalidateReads(path: string) {
+  const prefix = resourcePrefix(path);
+  // "/api/<group>/" - a mutation usually touches sibling listings too
+  // (a new stock out changes the dashboard, the lots list, and so on).
+  const group = "/" + prefix.split("/").filter(Boolean).slice(0, 2).join("/") + "/";
+  for (const key of Array.from(readCache.keys())) {
+    const keyPrefix = resourcePrefix(key);
+    if (keyPrefix === prefix || keyPrefix.startsWith(group)) readCache.delete(key);
+  }
+}
+
+function isReadCall(init: RequestInit): boolean {
+  const method = (init.method ?? "GET").toUpperCase();
+  return method === "GET" || method === "HEAD";
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const isSignupCall = path.startsWith(SIGNUP_PATH_PREFIX);
-  const token = isSignupCall ? null : getToken();
-  const headers = new Headers(init.headers);
-  headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-
-  const response = await fetch(`${BASE}${path}`, { ...init, headers });
-  const text = await response.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      throw new ApiError(
-        response.ok
-          ? "The server returned an unexpected response."
-          : `The server failed this request (HTTP ${response.status}). Please try again.`,
-        text.slice(0, 400),
-      );
+  const read = isReadCall(init);
+  if (read) {
+    const cached = readCache.get(path);
+    if (cached && Date.now() - cached.at < READ_CACHE_TTL_MS) {
+      return cached.promise as Promise<T>;
     }
   }
 
-  if (!response.ok) {
-    if (
-      response.status === 401 &&
-      !path.includes("/auth/login/") &&
-      !isSignupCall
-    ) {
-      scheduleSessionExpiredRedirect();
+  const run = async (): Promise<T> => {
+    const isSignupCall = path.startsWith(SIGNUP_PATH_PREFIX);
+    const token = isSignupCall ? null : getToken();
+    const headers = new Headers(init.headers);
+    headers.set("Content-Type", "application/json");
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    const response = await fetch(`${BASE}${path}`, { ...init, headers });
+    const text = await response.text();
+    let body: unknown = null;
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        throw new ApiError(
+          response.ok
+            ? "The server returned an unexpected response."
+            : `The server failed this request (HTTP ${response.status}). Please try again.`,
+          text.slice(0, 400),
+        );
+      }
     }
-    const detail: unknown =
-      body && typeof body === "object" && "errors" in body
-        ? (body as { errors: unknown }).errors
-        : body;
-    const stated =
-      typeof detail === "string"
-        ? detail
-        : (detail as { message?: unknown } | null | undefined)?.message;
-    throw new ApiError(String(stated ?? "Something went wrong."), detail);
+
+    if (!response.ok) {
+      if (
+        response.status === 401 &&
+        !path.includes("/auth/login/") &&
+        !isSignupCall
+      ) {
+        scheduleSessionExpiredRedirect();
+      }
+      const detail: unknown =
+        body && typeof body === "object" && "errors" in body
+          ? (body as { errors: unknown }).errors
+          : body;
+      const stated =
+        typeof detail === "string"
+          ? detail
+          : (detail as { message?: unknown } | null | undefined)?.message;
+      throw new ApiError(String(stated ?? "Something went wrong."), detail);
+    }
+    return body as T;
+  };
+
+  if (!read) {
+    invalidateReads(path);
+    return run();
   }
-  return body as T;
+
+  const promise = run();
+  const entry: CacheEntry = { at: Date.now(), promise };
+  readCache.set(path, entry);
+  try {
+    return await promise;
+  } catch (error) {
+    readCache.delete(path);
+    throw error;
+  }
+}
+
+/** Force the next read of every endpoint to hit the network. */
+export function clearApiCache() {
+  readCache.clear();
 }
 
 export type StaffRow = {
@@ -188,6 +251,8 @@ export type StaffRow = {
   last_login: string | null;
 };
 export const api = {
+  /** Wipe cached reads - used on sign out so the next session starts fresh. */
+  resetCache: clearApiCache,
   login: (username: string, password: string) =>
     request<LoginResponse>("/api/auth/login/", {
       method: "POST",

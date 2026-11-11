@@ -57,6 +57,10 @@ export default function LoginPage() {
       }
       persistTenantAccessMode("full");
       toast.success(`Welcome back, ${response.user.name.split(" ")[0]}`);
+      // Warm the client cache while the browser is already routing so the
+      // portal's first paint has data instead of waiting on a cold network.
+      void api.tenantMe().catch(() => {});
+      void api.dashboard().catch(() => {});
       router.replace(roleHome(response.user.role));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to sign in");
